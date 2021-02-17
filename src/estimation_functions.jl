@@ -149,22 +149,22 @@ att estimation
 function assignquantile(
   stratvar::Symbol, id::Symbol, fulldat::DataFrame)
   ref = unique(
-    fulldat[[id, stratvar]]);
-  sq = quantile(ref[stratvar]);
+    fulldat[!, [id, stratvar]]);
+  sq = quantile(ref[!, stratvar]);
 
   stratname = Symbol(String(stratvar) * "_stratum");
-  ref[stratname] = zeros(Int64, nrow(ref));
+  ref[!, stratname] = zeros(Int64, nrow(ref));
 
-  for i = eachindex(ref[stratname])
-    sv = @view(ref[stratvar][i])[1]
+  for i = eachindex(ref[!, stratname])
+    sv = @view(ref[!, stratvar][i])[1]
     if sv >= sq[4]
-      ref[stratname][i] = 4
+      ref[!, stratname][i] = 4
     elseif (sv >= sq[3]) & (sv < sq[4])
-      ref[stratname][i] = 3
+      ref[!, stratname][i] = 3
     elseif (sv >= sq[2]) & (sv < sq[3])
-      ref[stratname][i] = 2
+      ref[!, stratname][i] = 2
     elseif (sv >= sq[1]) & (sv < sq[2])
-      ref[stratname][i] = 1
+      ref[!, stratname][i] = 1
     end
   end
   return select(ref, [id, stratname]);

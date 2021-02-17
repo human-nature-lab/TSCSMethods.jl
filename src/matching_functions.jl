@@ -29,7 +29,6 @@ function matching(
   cvkey = [findfirst(covariates .== e) for e in calvars];
 
   allvars = vcat([t, id, treatment], covariates);
-  select!(dat, allvars);
 
   did = dat[!, id];
   dt = dat[!, t];
@@ -232,7 +231,7 @@ cdict = Dict(:cum_death_rte => 0.5, :first_case => 0.5);
 matchescal = caliper(cdict, matches);
 """
 function caliper(cdict::Dict, matches5::DataFrame)
-  ntobsp = nrow(unique(matches5[[:ttime, :tunit]]));
+  ntobsp = nrow(unique(matches5[!, [:ttime, :tunit]]));
   # need to add mdist
 
   keep = ones(Int64, nrow(matches5));
@@ -240,7 +239,7 @@ function caliper(cdict::Dict, matches5::DataFrame)
   for (k, v) in cdict
     if k != :mdist
       k = Symbol(String(k) * "_mdist")
-      keep = keep .& (matches5[k] .< v)
+      keep = keep .& (matches5[!, k] .< v)
     end
   end
 
@@ -254,11 +253,11 @@ function caliper(cdict::Dict, matches5::DataFrame)
     leftjoin(matches5, on = [:tunit, :ttime])
 
   lost = @where(matches5, :remove .== 0);
-  lost = unique(lost[[:ttime, :tunit]]);
+  lost = unique(lost[!, [:ttime, :tunit]]);
 
   matches5 = @where(matches5, :remove .> 0);
     
-  ntobs = nrow(unique(matches5[[:ttime, :tunit]]))
+  ntobs = nrow(unique(matches5[!, [:ttime, :tunit]]))
   println(
     string(ntobs) *
     " out of " *

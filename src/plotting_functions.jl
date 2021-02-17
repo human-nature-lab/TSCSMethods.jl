@@ -81,7 +81,7 @@ end
 
 # estimation plots
 
-function plot_att(atts, fmin, savename)
+function plot_att(atts; savename = "")
   fmin = minimum(atts.f)
 
   att_plt = plot(
@@ -96,11 +96,13 @@ function plot_att(atts, fmin, savename)
       Coord.Cartesian(xmin=fmin)
   )
 
-  draw(PNG(savename, 9inch, 5inch), att_plt)
+  if length(savename) > 0
+    draw(PNG(savename, 9inch, 5inch), att_plt)
+  end
   return att_plt
 end
 
-function plot_att(atts, fmin, savename, groupkey, groupvar; dirloc = "")
+function plot_att(atts, savename, groupkey, groupvar; dirloc = "")
 
   fmin = minimum(atts.f)
 
@@ -133,7 +135,8 @@ function plot_att(atts, fmin, savename, groupkey, groupvar; dirloc = "")
   return att_plt
 end
 
-function plot_att_strat(atts, fmin, savename, dirloc)
+function plot_att_strat(atts, savename, dirloc)
+  fmin = minimum(atts.f)
 
   S = unique(atts.stratum);
   for s in S
