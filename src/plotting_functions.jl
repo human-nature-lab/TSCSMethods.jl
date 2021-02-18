@@ -4,22 +4,8 @@ using Gadfly
 import Cairo, Fontconfig
 
 # matching plots
-
-function plot_balance(meanbalances)
-  return plot(
-    meanbalances,
-    x = :matchtime,
-    y = :meanscore,
-    color = :covariate,
-    Geom.point, Geom.line,
-    #Guide.yticks(ticks = [-0.3:0.1:0.3;]),
-    Guide.title("Covariate Balance"),
-    Guide.xlabel("Match Period"),
-    Guide.ylabel("Standardized Balance Score")
-  )
-end
   
-function plot_balance(meanbalances, savename::String)
+function plot_balance(meanbalances; savename = "")
   plt = plot(
     meanbalances,
     x = :matchtime,
@@ -31,25 +17,34 @@ function plot_balance(meanbalances, savename::String)
     Guide.xlabel("Match Period"),
     Guide.ylabel("Standardized Balance Score")
   )
-  draw(PNG(savename, 9inch, 5inch), plt)
+  if length(savename) > 0
+    draw(PNG(savename, 9inch, 5inch), plt)
+  end
   return plt
 end
 
-function plot_balance(meanbalances, stratvar::Symbol, savename::String)
+function plot_balance(
+  meanbalances, stratvar::Symbol;
+  savename = "", xinch = 10inch, yinch = 20inch)
+
   sv = String(stratvar) * "_stratum";
+
   plt = plot(
-    meanbalances,
+    sort(meanbalances, [:covariate, sv]),
     x = :matchtime,
     y = :meanscore,
     color = :covariate,
     ygroup = sv,
-    #Guide.yticks(ticks = [-0.3:0.1:0.3;]),
     Guide.title("Covariate Balance"),
     Guide.xlabel("Match Period"),
     Guide.ylabel("Standardized Balance Score"),
-    Geom.subplot_grid(Geom.point, Geom.line)
+    Geom.subplot_grid(
+      Geom.point, Geom.line,
+      Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
   )
-  draw(PNG(savename, 10inch, 18inch), plt)
+  if length(savename) > 0
+    draw(PNG(savename, xinch, yinch), plt)
+  end
   return plt
 end
   
@@ -102,37 +97,38 @@ function plot_att(atts; savename = "")
   return att_plt
 end
 
-function plot_att(atts, savename, groupkey, groupvar; dirloc = "")
+function plot_att(
+  atts, stratvar::Symbol;
+  savename = "", xinch = 15inch, yinch = 6inch,
+  treatment = :treatment)
+
+  # sv = String(stratvar) * "_stratum";
+
+  ttl = "ATT" * " by " * String(replace(String(stratvar), "_" => " "))
 
   fmin = minimum(atts.f)
+  fmax = maximum(atts.f)
 
-  atts = leftjoin(atts, groupkey, on = :stratum => :cartgroup)
-
-  strata = unique(atts[groupvar])
-
-  for si in strata
-
-    tt = "avg. effect of treatment on the treated " * string(si)
-
-    attsi = atts[findall(atts[groupvar] .== si), :]
-
-    att_plt = plot(
-    attsi,
-    x = :f, y = :att,
-    ymin = :lwer, ymax = :uper,
-    Geom.point,
-    Geom.errorbar,
-    Guide.title(tt),
-    Guide.xlabel("f"),
-    Guide.ylabel("estimate"),
-    Coord.Cartesian(xmin=fmin)
-    )
-
-    sn = dirloc * string(si) * " " * savename
-
-    draw(PNG(sn, 9inch, 5inch), att_plt)
+  plt = plot(
+    sort(atts, [:stratum, :f]),
+    y = :f,
+    x = :att,
+    xmin = :lwer, xmax = :uper,
+    xgroup = :stratum,
+    Guide.title(ttl),
+    Guide.ylabel("Days since " * String(treatment)),
+    Guide.xlabel("estimate"),
+    Geom.subplot_grid(
+      Geom.point, Geom.errorbar,
+      free_y_axis = true,
+      # free_x_axis = true,
+      Guide.yticks(ticks = fmin : 1 : fmax)
+      )
+  )
+  if length(savename) > 0
+    draw(PNG(savename, xinch, yinch), plt)
   end
-  return att_plt
+  return plt
 end
 
 function plot_att_strat(atts, savename, dirloc)

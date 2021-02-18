@@ -161,7 +161,7 @@ function getbalance_restricted(
   covariates, dat, tmin, tpoint, id, t, treatment)
 
   sv = Symbol(String(stratvar) * "_stratum");
-  S = unique(matches_pd[sv]);
+  S = unique(matches_pd[!, sv]);
 
   balances_post_strat = DataFrame(
     [Float64, String, Int64, Int64, Int64, Int64],
@@ -174,14 +174,14 @@ function getbalance_restricted(
     );
 
   for s in S
-    idx = findall(matches_pd[sv] .== s);
+    idx = findall(matches_pd[!, sv] .== s);
     sub = @view(matches_pd[idx, :]);
 
     balances_post_s, meanbalances_post_s = getbalance(
       sub, covariates, dat, tmin, tpoint, id, t, treatment);
 
-    balances_post_s[sv] = s
-    meanbalances_post_s[sv] = s
+    balances_post_s[!, sv] = ones(Int64, nrow(balances_post_s)) * s
+    meanbalances_post_s[!, sv] = ones(Int64, nrow(meanbalances_post_s)) * s
 
     append!(balances_post_strat, balances_post_s)
     append!(meanbalances_post_strat, meanbalances_post_s)

@@ -70,23 +70,23 @@ end
 
 # input pre-constructed integer vect for the group splits
 function restricted_estimation(
-  iternum, matches5, Fset, dat, stratvar::Symbol,
+  iternum, mm, Fset, dat, stratvar::Symbol,
   id, t, outcome)
 
-  sort!(matches5, [:ttime, :tunit, :munit]);
+  mm = sort(mm, [:ttime, :tunit, :munit]);
   
   did = dat[!, id];
   dt = dat[!, t];
   doc = dat[!, outcome];
 
-  utrtid = matches5[!, :tunit];
-  uid = matches5[!, :munit];
-  ut = matches5[!, :ttime];
+  utrtid = mm[!, :tunit];
+  uid = mm[!, :munit];
+  ut = mm[!, :ttime];
 
   stratname = Symbol(String(stratvar) * "_stratum");
   
-  us = matches5[!, stratname];
-  S = unique(matches5[!, stratname]);
+  us = mm[!, stratname];
+  S = unique(us);
 
   outcomemat, dwitmat = get_dwits_outcomes(
     utrtid, uid, ut,
@@ -98,6 +98,17 @@ function restricted_estimation(
     [Int64, Int64, Float64, Float64, Float64, Float64],
     [:stratum, :f, :att, :lwer, :med, :uper]
   )
+
+  restricted_estimation_inner!(
+    Results, outcomemat, dwitmat,
+    utrtid, uid, ut,
+    Fset, did, iternum)
+  
+  return Results
+end
+
+function restricted_estimation_inner!(
+  Results, outcomemat, dwitmat, utrtid, uid, ut, Fset, did, iternum)
 
   @inbounds Threads.@threads for i = eachindex(S)
   # for s in S
@@ -130,7 +141,7 @@ function restricted_estimation(
       Fset, otrtnums);
       
     results = outputprocess(bootests_s', ests_s, Fset);
-    results.stratum = s
+    results.stratum = s * ones(Int64, nrow(results));
 
     append!(Results, results)
   end

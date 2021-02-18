@@ -256,6 +256,8 @@ function caliper(cdict::Dict, matches5::DataFrame)
   lost = unique(lost[!, [:ttime, :tunit]]);
 
   matches5 = @where(matches5, :remove .> 0);
+
+  matches5 = select(matches5, Not(:remove));
     
   ntobs = nrow(unique(matches5[!, [:ttime, :tunit]]))
   println(
