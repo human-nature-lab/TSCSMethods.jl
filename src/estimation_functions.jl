@@ -70,10 +70,10 @@ end
 
 # input pre-constructed integer vect for the group splits
 function restricted_estimation(
-  iternum, mm, Fset, dat, stratvar::Symbol,
+  iternum, m, Fset, dat, stratvar::Symbol,
   id, t, outcome)
 
-  mm = sort(mm, [:ttime, :tunit, :munit]);
+  mm = sort(m, [:ttime, :tunit, :munit]);
   
   did = dat[!, id];
   dt = dat[!, t];

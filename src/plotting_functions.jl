@@ -5,7 +5,7 @@ import Cairo, Fontconfig
 
 # matching plots
   
-function plot_balance(meanbalances; savename = "")
+function plot_balance(meanbalances, when::String; savename = "")
   plt = plot(
     meanbalances,
     x = :matchtime,
@@ -13,7 +13,7 @@ function plot_balance(meanbalances; savename = "")
     color = :covariate,
     Geom.point, Geom.line,
     #Guide.yticks(ticks = [-0.3:0.1:0.3;]),
-    Guide.title("Covariate Balance"),
+    Guide.title("Covariate Balance " * when * " Refinement"),
     Guide.xlabel("Match Period"),
     Guide.ylabel("Standardized Balance Score")
   )
@@ -24,8 +24,8 @@ function plot_balance(meanbalances; savename = "")
 end
 
 function plot_balance(
-  meanbalances, stratvar::Symbol;
-  savename = "", xinch = 10inch, yinch = 20inch)
+  meanbalances, stratvar::Symbol, when::String;
+  savename = "", xinch = 15inch, yinch = 8inch)
 
   sv = String(stratvar) * "_stratum";
 
@@ -35,19 +35,47 @@ function plot_balance(
     y = :meanscore,
     color = :covariate,
     ygroup = sv,
-    Guide.title("Covariate Balance"),
+    Guide.title("Covariate Balance " * when * " Refinement"),
     Guide.xlabel("Match Period"),
     Guide.ylabel("Standardized Balance Score"),
     Geom.subplot_grid(
       Geom.point, Geom.line,
-      Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
+      free_y_axis = true)
+      # Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
   )
   if length(savename) > 0
     draw(PNG(savename, xinch, yinch), plt)
   end
   return plt
 end
-  
+
+function plot_balance(
+  meanbalances, stratvar::Symbol, when::String, ygv::Symbol;
+  savename = "", xinch = 15inch, yinch = 8inch)
+
+  sv = String(stratvar) * "_stratum";
+
+  plt = plot(
+    sort(meanbalances, [:covariate, sv]),
+    x = :matchtime,
+    y = :meanscore,
+    color = :covariate,
+    ygroup = ygv,
+    Guide.title("Covariate Balance " * when * " Refinement"),
+    Guide.xlabel("Match Period"),
+    Guide.ylabel("Standardized Balance Score"),
+    Geom.subplot_grid(
+      Geom.point, Geom.line,
+      free_y_axis = true)
+      # Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
+  )
+  if length(savename) > 0
+    draw(PNG(savename, xinch, yinch), plt)
+  end
+  return plt
+end
+
+
 function plot_balance(meanbal_pre, meanbal_post; savename = "")
   meanbal_pre.pre = repeat(["pre-refinement"], nrow(meanbal_pre))
   meanbal_post.pre = repeat(["post-refinement"], nrow(meanbal_post))
