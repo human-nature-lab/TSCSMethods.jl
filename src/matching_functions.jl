@@ -54,13 +54,12 @@ function matching(
   mdist = Inf .* zeros(Float64, ppl);
   caldists = Inf .* zeros(Float64, length(cvkey), ppl);
 
-  # may want to change this to work with cmat
   ΣΣ, ΣΣtimes = get_Σs(cmat, dt, unique(rt), mlen, tpoint);
 
   matching_inner!(
     pp, rid, rt,
     idI, tI, idJ, possible, mdist, caldists,
-    did, dt, cmat, # dat
+    did, dt, cmat,
     cvkey,
     fmin, fmax,
     ΣΣ, ΣΣtimes, mlen,
@@ -86,7 +85,8 @@ function matching(
 end
 
 function matching_inner!(
-  pp, rid, rt, idI, tI, idJ, possible, mdist, caldists,
+  pp, rid, rt,
+  idI, tI, idJ, possible, mdist, caldists,
   did, dt, cmat, # dat,
   cvkey,
   fmin, fmax,
@@ -141,9 +141,13 @@ function matching_inner!(
           dissum = [0.0] # Float64 is immutable
           calsums = zeros(Float64, length(calvars))
           
+          #try 
           matching_distancecalc_barrier!(
             dissum, calsums, y, x, Σs, cvkey, covariates, mlen,
             variancesonly)
+          #catch
+          #  @warn "error at i = " * string(i)
+          #end
 
           # avg dist between treated observation and possible match
           # over match period
@@ -170,10 +174,15 @@ function matching_distancecalc_barrier!(
     # maha dist at t-l:
     if variancesonly == true
       dissum[1] += sqrt(
-        transpose(diffs) * inv(LinearAlgebra.Diagonal(Σ_t)) * diffs);
+        transpose(diffs) * LinearAlgebra.pinv(
+          LinearAlgebra.Diagonal(Σ_t)
+        ) * diffs
+        # changed to pinv()
+      );
     else
       dissum[1] += sqrt(
-        transpose(diffs) * inv(Σ_t) * diffs);
+        transpose(diffs) * LinearAlgebra.pinv(Σ_t) * diffs);
+        # changed to pinv()
     end
 
     # caliper var calc here
@@ -332,7 +341,9 @@ function get_Σs(cmat, dt, TT, mlen, tpoint)
   sort!(TT)
 
   xy_dim = size(cmat)[2];
-  ΣΣ = Array{Union{Float64, Missing}}(missing, xy_dim, xy_dim, mlen, length(TT));
+  ΣΣ = Array{Union{Float64, Missing}}(
+    missing, xy_dim, xy_dim, mlen, length(TT)
+  );
   ΣΣtimes = Vector{Int64}(undef, length(TT));
   ΣΣ, ΣΣtimes = get_Σs_inner(
       cmat, dt,
@@ -359,7 +370,9 @@ end
 function get_sample_covars(
   match_times, dt, cmat, xy_dim)
   
-  Σs = Array{Union{Float64, Missing}}(undef, xy_dim, xy_dim, length(match_times));
+  Σs = Array{Union{Float64, Missing}}(
+    undef, xy_dim, xy_dim, length(match_times)
+  );
   t_adjust = minimum(match_times) - 1;
 
   get_sample_covar_t!(Σs, match_times, dt, cmat, t_adjust, xy_dim);
