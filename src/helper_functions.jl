@@ -134,7 +134,9 @@ function get_the_data(
   NOTE may not need to remove the before-treatment periods
   """
   function remove_incomplete(
-    dat, covariates, treatment_points, fmin, fmax, tmin, id, t)
+    dat, covariates, fmin, fmax, tmin, id, t, treatment)
+
+    treatment_points = get_all_treatment_points(dat, treatment);
   
     trt_obs = dat[treatment_points, [id, t]];
     trt_obs.trt_pts = treatment_points;
