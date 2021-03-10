@@ -4,7 +4,7 @@ using Parameters
 model object
 * the data is kept separately
 =#
-r_df = Union{Base.RefValue{DataFrame}, DataFrame}; # type for model
+ReforDataFrame = Union{Base.RefValue{DataFrame}, DataFrame}; # type for model
 
 @with_kw mutable struct cicmodel
   title::String = "standard"
@@ -22,10 +22,10 @@ r_df = Union{Base.RefValue{DataFrame}, DataFrame}; # type for model
   refinementnum::Int64 = Int64(0)
   
   # store either dataframe or reference to dataframe, dep on use cases
-  matches::r_df = Base.RefValue{DataFrame}()
-  matches5::r_df = Base.RefValue{DataFrame}()
+  matches::ReforDataFrame = Base.RefValue{DataFrame}()
+  matches5::ReforDataFrame = Base.RefValue{DataFrame}()
 
-  data::r_df = Base.RefValue{DataFrame}()
+  data::ReforDataFrame = Base.RefValue{DataFrame}()
   
   # balances pre refinement
   balances_pre::DataFrame = DataFrame()
