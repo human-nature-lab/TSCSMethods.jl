@@ -116,9 +116,9 @@ function balance!(
   mlen, tpoint,
   sdcovariates)
 
-  for i = eachindex(trtind)
-  # @inbounds Threads.@threads for i = eachindex(trtind)
-    cnt += 1
+  # pre-refinement is very slow without parallel
+  # for i = eachindex(trtind)
+  @inbounds Threads.@threads for i = eachindex(trtind)
     e = trtind[i]
     tunit = utrtid[e]
     tt = ut[e]
