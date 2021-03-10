@@ -73,7 +73,20 @@ function restricted_estimation(
   iternum, m, Fset, dat, stratvar::Symbol,
   id, t, outcome)
 
-  mm = sort(m, [:ttime, :tunit, :munit]);
+  stratname = Symbol(String(stratvar) * "_stratum");
+
+  # must not include missing
+  if eltype(mm[!, stratname]) != Int64
+    try
+      mm[!, stratname] = convert.(Int64, mm[!, stratname]);
+    catch e
+      println(
+        "there are missing or non-integer values in stratification variable"
+      )
+    end
+  end
+
+  mm = sort(m, [stratname, :ttime, :tunit, :munit]);
   
   did = dat[!, id];
   dt = dat[!, t];
@@ -82,8 +95,6 @@ function restricted_estimation(
   utrtid = mm[!, :tunit];
   uid = mm[!, :munit];
   ut = mm[!, :ttime];
-
-  stratname = Symbol(String(stratvar) * "_stratum");
   
   us = mm[!, stratname];
   S = unique(us);
