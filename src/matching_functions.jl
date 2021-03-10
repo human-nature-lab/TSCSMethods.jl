@@ -24,7 +24,7 @@ function matching(
 
   sort!(dat, [id, t]);
 
-  treatment_points = get_all_treatment_points(dat[!, treatment]);
+  treatment_points = findall(dat[!, treatment] .== 1)
 
   cvkey = [findfirst(covariates .== e) for e in calvars];
 
@@ -64,7 +64,7 @@ function matching(
     fmin, fmax,
     ΣΣ, ΣΣtimes, mlen,
     variancesonly)
-  
+
   matches = DataFrame(
     ttime = tI, tunit = idI, munit = idJ,
     possible = possible,
@@ -78,6 +78,32 @@ function matching(
 
   keepind = findall((isnan.(matches.mdist) .- 1) .* - 1 .== 1);
   matches = matches[keepind, :]
+
+  # make sure there is a match for every treated unit
+  matches1 = groupby(matches, [:ttime, :tunit]);
+  combine(
+    matches1,
+    nrow
+  )
+
+  #= this is an inefficient solution to an apparent problem. make better.
+  it should happen, most efficiently, in the inner function =#
+  tobst = unique(matches[!, [:tunit, :ttime]])[!, :ttime];
+  tobsu = unique(matches[!, [:tunit, :ttime]])[!, :tunit];
+
+  rmlocs = Vector{Int64}(undef, 0);
+  
+  for i = eachindex(tobst)
+    locs = findall(
+      (matches[:ttime] .== tobst[i]) .& (matches[:tunit] .== tobsu[i])
+    )
+
+    if length(locs) == 1 # if unit has no matches
+      append!(rmlocs, locs)
+    end
+  end
+
+  delete!(matches, rmlocs)
 
   sort!(matches, [:ttime, :tunit, :possible, :mdist])
   
