@@ -1,8 +1,16 @@
 function sdtreated(dt, did, cmat, tmin, mlen, dtr)
-  # need to collect all match period indices, across all treated obs
-  # only for the treated units, however
+  #= need to collect all match period indices, across all treated obs
+  only for the treated units
+  should this only draw from matches?
+  what happens when we apply a caliper?
+
+  per <https://cran.r-project.org/web/packages/MatchIt/vignettes/assessing-balance.html>
+  we should use the full dataset, and not the matches based on a caliper
+  =#
 
   treatment_points = get_all_treatment_points(dtr);
+
+  minimum(matches.ttime)
 
   tobst = @view(dt[treatment_points]);
   tobsid = @view(did[treatment_points]);
@@ -10,7 +18,11 @@ function sdtreated(dt, did, cmat, tmin, mlen, dtr)
   # should have 20 elems for each unit in tobs (then x # covar)
   indstore = zeros(Int64, mlen * length(tobst));
   matchtimes = zeros(Int64, mlen * length(tobst));
+
+  indstore = Vector{Union{Missing, Int64}}(missing, mlen * length(tobst));
+  matchtimes = similar(indstore);
   iloc = 1
+
   for i = eachindex(tobst)
     ttime = @views(tobst[i])
     unit = @views(tobsid[i])
@@ -25,21 +37,16 @@ function sdtreated(dt, did, cmat, tmin, mlen, dtr)
     iloc += length(iind)
   end
 
-  # X = DataFrame(cmat[indstore, :])
-  # rename!(X, covariates)
-  # X.matchtimes = matchtimes
+  arethere = findall(ismissing.(indstore) .== false);
+  indstore = indstore[arethere];
+  matchtimes = matchtimes[arethere];
 
-  # @linq X |>
-  #   stack(covariates) |>
-  #   groupby([:matchtimes, :variable]) |>
-  #   combine(sd = std(:value))
-
-
-  # we want a mlen x covariate matrix as output
+  # we want a mlen by covariate matrix as output
   tsdmat = zeros(Float64, size(cmat)[2], mlen);
 
   J = unique(matchtimes);
-  cmatn = @view(cmat[indstore, :])
+  cmatn = @view(cmat[indstore, :]);
+  
   for (i, j) in enumerate(J)
     mtind = findall(matchtimes .== j);
     tsdmat[:, i] = std(@view(cmatn[mtind, :]), dims = 1)'
@@ -109,8 +116,9 @@ function balance!(
   mlen, tpoint,
   sdcovariates)
 
-  # for i = eachindex(trtind)
-  @inbounds Threads.@threads for i = eachindex(trtind)
+  for i = eachindex(trtind)
+  # @inbounds Threads.@threads for i = eachindex(trtind)
+    cnt += 1
     e = trtind[i]
     tunit = utrtid[e]
     tt = ut[e]
