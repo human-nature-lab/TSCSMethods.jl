@@ -1,6 +1,6 @@
 # plotting_functions.jl
 
-using Gadfly
+using Gadfly, Compose
 import Cairo, Fontconfig
 
 # matching plots

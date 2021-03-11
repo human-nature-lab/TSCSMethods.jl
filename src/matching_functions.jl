@@ -302,7 +302,7 @@ function caliper(cdict::Dict, matches5::DataFrame)
     " treated observations remain."
     )
 
-  return matches5, lost
+  return matches5, lost, ntobs, ntobsp
 end
 
 #=

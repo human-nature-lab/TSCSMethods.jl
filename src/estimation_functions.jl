@@ -76,9 +76,9 @@ function restricted_estimation(
   stratname = Symbol(String(stratvar) * "_stratum");
 
   # must not include missing
-  if eltype(mm[!, stratname]) != Int64
+  if eltype(m[!, stratname]) != Int64
     try
-      mm[!, stratname] = convert.(Int64, mm[!, stratname]);
+      m[!, stratname] = convert.(Int64, m[!, stratname]);
     catch e
       println(
         "there are missing or non-integer values in stratification variable"
@@ -96,8 +96,7 @@ function restricted_estimation(
   uid = mm[!, :munit];
   ut = mm[!, :ttime];
   
-  us = mm[!, stratname];
-  S = unique(us);
+  S = unique(mm[!, stratname]);
 
   outcomemat, dwitmat = get_dwits_outcomes(
     utrtid, uid, ut,

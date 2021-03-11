@@ -5,6 +5,7 @@ model object
 * the data is kept separately
 =#
 ReforDataFrame = Union{Base.RefValue{DataFrame}, DataFrame}; # type for model
+StratDict = Dict{Int64, Dict{Symbol, Float64}};
 
 @with_kw mutable struct cicmodel
   title::String = "standard"
@@ -13,7 +14,7 @@ ReforDataFrame = Union{Base.RefValue{DataFrame}, DataFrame}; # type for model
   outcome::Symbol
   treatment::Symbol
   matchingcovar::Vector{Symbol}
-  caliper::Dict{Symbol, Float64} = Dict{Symbol, Float64}()
+  caliper::Union{Dict{Symbol, Float64}, StratDict} = Dict{Symbol, Float64}()
   fmin::Int64
   fmax::Int64
   stratvar::Symbol = Symbol()
@@ -52,8 +53,8 @@ ReforDataFrame = Union{Base.RefValue{DataFrame}, DataFrame}; # type for model
   pl_att_post::Plot = Plot()
   
   # total number of treated observations
-  treatednum::Int64 = Int64(0)
+  treatednum::Union{Int64, Dict{Int64, Int64}} = Int64(0)
   
   # number of treated left over after filtering or caliper
-  treatedleft::Int64 = Int64(0) # left after caliper
+  treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64(0)
 end

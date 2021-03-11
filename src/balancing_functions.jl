@@ -10,7 +10,7 @@ function sdtreated(dt, did, cmat, tmin, mlen, dtr)
 
   treatment_points = get_all_treatment_points(dtr);
 
-  minimum(matches.ttime)
+  # minimum(matches.ttime)
 
   tobst = @view(dt[treatment_points]);
   tobsid = @view(did[treatment_points]);
@@ -56,7 +56,7 @@ function sdtreated(dt, did, cmat, tmin, mlen, dtr)
 end
 
 # this version calculates and stores the distance for each unit
-function getbalance(matches, covariates, dat, tmin, tpoint, id, t, treatment)
+function getbalance(m, covariates, dat, tmin, tpoint, id, t, treatment)
   # this probably excludes units without matches (even using mm)
 
   mlen = tpoint - tmin + 1;
@@ -66,9 +66,9 @@ function getbalance(matches, covariates, dat, tmin, tpoint, id, t, treatment)
   did = dat[!, id];
   dt = dat[!, t];
 
-  uid = matches[!, :munit];
-  utrtid = matches[!, :tunit];
-  ut = matches[!, :ttime];
+  uid = m[!, :munit];
+  utrtid = m[!, :tunit];
+  ut = m[!, :ttime];
 
   # -20:-1
   sdcovariates = sdtreated(dt, did, cmat, tmin, mlen, dat[!, treatment]);
@@ -166,7 +166,8 @@ end
 function getbalance_restricted(
   matches_pd,
   stratvar::Symbol,
-  covariates, dat, tmin, tpoint, id, t, treatment)
+  covariates, dat, tmin, tpoint, id, t, treatment
+  )
 
   sv = Symbol(String(stratvar) * "_stratum");
   S = unique(matches_pd[!, sv]);
@@ -184,7 +185,7 @@ function getbalance_restricted(
   for s in S
     idx = findall(matches_pd[!, sv] .== s);
     sub = @view(matches_pd[idx, :]);
-
+    
     balances_post_s, meanbalances_post_s = getbalance(
       sub, covariates, dat, tmin, tpoint, id, t, treatment);
 
