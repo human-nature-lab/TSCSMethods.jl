@@ -246,8 +246,9 @@ function refine(matches::DataFrame, setsize::Int64)
         (matches[!, :ttime] .== tobs[i, :ttime]) .&
         (matches[!, :tunit] .== tobs[i, :tunit])
         )
-      if length(ind) >= (ss)
-        append!(indls, ind[1 : ss])
+      if length(ind) >= 1
+        en = min(length(ind), ss) # include tobs with < setsize matches
+        append!(indls, ind[1 : en])
       end
     end
     return matches[indls, :]
@@ -274,7 +275,7 @@ function caliper(cdict::Dict, matches5::DataFrame)
   for (k, v) in cdict
     if k != :mdist
       k = Symbol(String(k) * "_mdist")
-      keep = keep .& (matches5[!, k] .< v)
+      keep = keep .& (abs.(matches5[!, k]) .< v) # wasn't abs
     end
   end
 
@@ -295,6 +296,7 @@ function caliper(cdict::Dict, matches5::DataFrame)
   matches5 = select(matches5, Not(:remove));
     
   ntobs = nrow(unique(matches5[!, [:ttime, :tunit]]))
+
   println(
     string(ntobs) *
     " out of " *

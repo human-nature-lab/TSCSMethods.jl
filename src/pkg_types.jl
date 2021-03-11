@@ -58,3 +58,193 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
   # number of treated left over after filtering or caliper
   treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64(0)
 end
+
+
+# function wrappers for type
+
+function matching!(model::cicmodel, varonly::Bool;
+  refine = true
+  )
+  
+  model.matches = matching(
+    model.data[], model.matchingcovar,
+    model.id, model.t,
+    model.fmin, model.fmax,
+    model.treatment, model.caliper,
+    model.matchingcovar,
+    varonly);
+
+  model.matches5 = refine(model.matches, model.refinementnum);
+  
+  return model
+end
+
+"""
+for separate refinement on a given match set
+this avoids time-consuming recalculation of the possible match set
+"""
+function refine!(model::cicmodel)
+  model.matches5 = refine(model.matches, model.refinementnum);
+  return model
+end
+
+function getbalance!(model::cicmodel; post = true)
+
+  if post == true
+    b = :balances_post
+    mb = :meanbalances_post
+    wmatches = :matches5
+  elseif post == false
+    b = :balances_pre
+    mb = :meanbalances_pre
+    wmatches = :matches
+  end
+
+  c1 = model.stratvar == Symbol("")
+  # c2 = typeof(model.caliper) .== Dict{Symbol,Float64}
+  
+  if c1
+
+    a1, a2 = getbalance(
+      getfield(model, wmatches),
+      model.matchingcovar,
+      model.data[],
+      model.tmin,
+      model.tpoint,
+      model.id,
+      model.t,
+      model.treatment
+    );
+  
+  elseif !c1
+
+    a1, a2 = getbalance_restricted(
+      model.matches5,
+      model.stratvar,
+      model.matchingcovar,
+      model.data[],
+      model.tmin,
+      model.tpoint,
+      model.id,
+      model.t,
+      model.treatment
+    );
+
+  end
+
+  setfield!(model, b, a1)
+  setfield!(model, mb, a2)
+
+  return model
+end
+
+function estimate!(
+  model::cicmodel;
+  post::Bool = true
+  )
+
+  if post == true
+    wmatches = :matches5
+  else
+    wmatches = :matches
+  end
+
+  c1 = model.stratvar == Symbol("")
+
+  if c1
+    
+    model.results = standard_estimation(
+      model.boot_iterations,
+      getfield(model, wmatches),
+      model.fmin:model.fmax, # nothing fancier will work yet
+      model.data[],
+      model.id, model.t, model.outcome
+    );
+  elseif !c1
+    model.results = restricted_estimation(
+      v_strat_pd.boot_iterations,
+      getfield(model, wmatches),
+      model.fmin:model.fmax, model.data[],
+      v_strat_pd.stratvar,
+      id, t, outcome
+    );
+  end
+  return model
+end
+
+"""
+currently only works for a stratum
+"""
+function caliper!(
+  model::cicmodel;
+  fullmodel::Union{cicmodel, Nothing} = nothing
+  )
+
+  if !isnothing(fullmodel) == true;
+    model.matches = deepcopy(fullmodel.matches)
+  end;
+
+  c1 = model.stratvar == Symbol("")
+  # c2 = typeof(model.caliper) .== Dict{Symbol,Float64}
+
+  if c1
+    nm, lostsi, nleft, norig = caliper(model.caliper, model.matches);
+    model.matches = nm;
+
+    model.treatedleft = nleft;
+    model.treatednum = norig;
+
+    model.matches5 = refine(nm, model.refinementnum)
+
+    # need treatednum and treatedleft
+  elseif !c1
+
+    #= user should define each stratum caliper beforehand
+    then, here, select that s from matches, and apply caliper
+    to new object
+    then overwrite at the end
+    then refine
+    =#
+
+    nm = similar(model.matches, 0)
+    sv = Symbol(string(model.stratvar) * "_stratum")
+
+    # estblish correct types for treatedleft, treatenum
+    model.treatedleft = Dict{Int64,Int64}()
+    model.treatednum = Dict{Int64,Int64}()
+
+    for (key, value) in model.caliper
+
+      println(
+        string(model.stratvar) * " stratum " * " no. " * string(key) * ":"
+      )
+
+      ms = findall(model.matches[sv] .== key);
+
+      mcalsi, lostsi, nleft, norig = caliper(
+        model.caliper[key],
+        model.matches[ms, :]
+      )
+
+      append!(nm, mcalsi)
+
+      
+      model.treatedleft[key] = nleft
+      model.treatednum[key] = norig
+      
+    end
+
+    model.matches = nm
+    model.matches5 = refine(nm, model.refinementnum)
+
+    @linq model.matches5 |>
+      groupby([:tunit, :ttime]) |>
+      combine(sum(:possible)) |>
+      unique(:possible_function)
+
+  else
+    error("type issues")
+  end
+
+  return model
+end

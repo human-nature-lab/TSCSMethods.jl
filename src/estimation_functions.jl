@@ -96,7 +96,8 @@ function restricted_estimation(
   uid = mm[!, :munit];
   ut = mm[!, :ttime];
   
-  S = unique(mm[!, stratname]);
+  us = mm[!, stratname];
+  S = unique(us);
 
   outcomemat, dwitmat = get_dwits_outcomes(
     utrtid, uid, ut,
@@ -112,13 +113,18 @@ function restricted_estimation(
   restricted_estimation_inner!(
     Results, outcomemat, dwitmat,
     utrtid, uid, ut,
-    Fset, did, iternum)
+    Fset, did, iternum,
+    S, us
+  )
   
   return Results
 end
 
 function restricted_estimation_inner!(
-  Results, outcomemat, dwitmat, utrtid, uid, ut, Fset, did, iternum)
+  Results, outcomemat, dwitmat,
+  utrtid, uid, ut, Fset, did, iternum,
+  S, us
+  )
 
   @inbounds Threads.@threads for i = eachindex(S)
   # for s in S
