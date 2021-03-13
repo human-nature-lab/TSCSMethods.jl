@@ -19,6 +19,7 @@ function matching(
   id::Symbol, t::Symbol,
   fmin, fmax,
   treatment::Symbol,
+  tpoint::Int64,
   calvars::Vector{Symbol},
   variancesonly::Bool)
 
@@ -60,6 +61,7 @@ function matching(
     pp, rid, rt,
     idI, tI, idJ, possible, mdist, caldists,
     did, dt, cmat,
+    calvars,
     cvkey,
     fmin, fmax,
     ΣΣ, ΣΣtimes, mlen,
@@ -114,6 +116,7 @@ function matching_inner!(
   pp, rid, rt,
   idI, tI, idJ, possible, mdist, caldists,
   did, dt, cmat, # dat,
+  calvars,
   cvkey,
   fmin, fmax,
   ΣΣ, ΣΣtimes, mlen,

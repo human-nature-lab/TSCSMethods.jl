@@ -31,7 +31,7 @@ estimation without restricted averaging
 =#
 function standard_estimation(
   iternum::Int64, matches5::DataFrame,
-  Fset,
+  Fset, tpoint,
   dat::DataFrame,
   id::Symbol, t::Symbol, outcome::Symbol)
   # order makes a HUGE time difference
@@ -70,7 +70,8 @@ end
 
 # input pre-constructed integer vect for the group splits
 function restricted_estimation(
-  iternum, m, Fset, dat, stratvar::Symbol,
+  iternum, m, Fset, tpoint,
+  dat, stratvar::Symbol,
   id, t, outcome)
 
   stratname = Symbol(String(stratvar) * "_stratum");

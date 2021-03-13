@@ -6,6 +6,7 @@ import Cairo, Fontconfig
 # matching plots
   
 function plot_balance(meanbalances, when::String; savename = "")
+
   plt = plot(
     meanbalances,
     x = :matchtime,
@@ -35,6 +36,37 @@ function plot_balance(
     y = :meanscore,
     color = :covariate,
     ygroup = sv,
+    Guide.title("Covariate Balance " * when * " Refinement"),
+    Guide.xlabel("Match Period"),
+    Guide.ylabel("Standardized Balance Score"),
+    Geom.subplot_grid(
+      Geom.point, Geom.line,
+      free_y_axis = true)
+      # Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
+  )
+  if length(savename) > 0
+    draw(PNG(savename, xinch, yinch), plt)
+  end
+  return plt
+end
+
+"""
+stratlabel::Dict points from stratvar to desired label
+"""
+function plot_balance(
+  meanbalances, stratvar::Symbol, when::String, stratlabel::Dict;
+  savename = "", xinch = 15inch, yinch = 8inch)
+
+  sv = String(stratvar) * "_stratum";
+
+  meanbalances.svlabel = getindex.(Ref(stefips), meanbalances[!, sv])
+
+  plt = plot(
+    sort(meanbalances, [:covariate, sv]),
+    x = :matchtime,
+    y = :meanscore,
+    color = :covariate,
+    ygroup = :svlabel,
     Guide.title("Covariate Balance " * when * " Refinement"),
     Guide.xlabel("Match Period"),
     Guide.ylabel("Standardized Balance Score"),

@@ -21,40 +21,31 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
   tpoint::Int64
   tmin::Int64 # gives length of matching period with tpoint
   refinementnum::Int64 = Int64(0)
-  
   # store either dataframe or reference to dataframe, dep on use cases
   matches::ReforDataFrame = Base.RefValue{DataFrame}()
   matches5::ReforDataFrame = Base.RefValue{DataFrame}()
-
   data::ReforDataFrame = Base.RefValue{DataFrame}()
-  
   # balances pre refinement
   balances_pre::DataFrame = DataFrame()
   meanbalances_pre::DataFrame = DataFrame()
   # post refinement
   balances_post::DataFrame = DataFrame()
   meanbalances_post::DataFrame = DataFrame()
-
-  # we may also want to store the full bootstrap estimates
-
   # one results per model, so store the DF
   boot_iterations::Int64 = 500
-  results::DataFrame = DataFrame()
+  results::DataFrame = DataFrame() # post refinement results
+  results_pre::DataFrame = DataFrame();
   boot_estimates::Array{Float64} = Array{Float64}(undef)
-
+    # need to alter estimation output to make this happen
   # plot slots
-
   # covariate balance pre and post refinement
   pl_cb_pre::Plot = Plot()
   pl_cb_post::Plot = Plot()
-
   # att estimates pre and post refinement
   pl_att_pre::Plot = Plot()
   pl_att_post::Plot = Plot()
-  
   # total number of treated observations
   treatednum::Union{Int64, Dict{Int64, Int64}} = Int64(0)
-  
   # number of treated left over after filtering or caliper
   treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64(0)
 end
@@ -62,7 +53,7 @@ end
 
 # function wrappers for type
 
-function matching!(model::cicmodel, varonly::Bool;
+function matching!(model::cicmodel, variancesonly::Bool;
   refine = true
   )
   
@@ -70,11 +61,12 @@ function matching!(model::cicmodel, varonly::Bool;
     model.data[], model.matchingcovar,
     model.id, model.t,
     model.fmin, model.fmax,
-    model.treatment, model.caliper,
-    model.matchingcovar,
-    varonly);
+    model.treatment,
+    model.tpoint,
+    model.matchingcovar, # use these for caliper distance calc
+    variancesonly);
 
-  model.matches5 = refine(model.matches, model.refinementnum);
+  model = refine!(model);
   
   return model
 end
@@ -119,7 +111,7 @@ function getbalance!(model::cicmodel; post = true)
   elseif !c1
 
     a1, a2 = getbalance_restricted(
-      model.matches5,
+      getfield(model, wmatches),
       model.stratvar,
       model.matchingcovar,
       model.data[],
@@ -157,15 +149,18 @@ function estimate!(
       model.boot_iterations,
       getfield(model, wmatches),
       model.fmin:model.fmax, # nothing fancier will work yet
+      model.tpoint,
       model.data[],
       model.id, model.t, model.outcome
     );
   elseif !c1
     model.results = restricted_estimation(
-      v_strat_pd.boot_iterations,
+      model.boot_iterations,
       getfield(model, wmatches),
-      model.fmin:model.fmax, model.data[],
-      v_strat_pd.stratvar,
+      model.fmin:model.fmax,
+      model.tpoint,
+      model.data[],
+      model.stratvar,
       id, t, outcome
     );
   end

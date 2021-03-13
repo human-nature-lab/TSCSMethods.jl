@@ -1,4 +1,4 @@
-function sdtreated(dt, did, cmat, tmin, mlen, dtr)
+function sdtreated(dt, did, cmat, tmin, mlen, dtr, tpoint)
   #= need to collect all match period indices, across all treated obs
   only for the treated units
   should this only draw from matches?
@@ -71,10 +71,9 @@ function getbalance(m, covariates, dat, tmin, tpoint, id, t, treatment)
   ut = m[!, :ttime];
 
   # -20:-1
-  sdcovariates = sdtreated(dt, did, cmat, tmin, mlen, dat[!, treatment]);
-
-  # sold = sdtreatedold(dat, covariates, tmin, id, t, treatment);
-  # sdcovariates = Matrix(sold[!, covariates]);
+  sdcovariates = sdtreated(
+    dt, did, cmat, tmin, mlen, dat[!, treatment], tpoint
+  );
 
   trtind = findall(uid .== utrtid);
 
@@ -163,6 +162,11 @@ function getmeanscore(balances)
     combine(meanscore = mean(:score));
 end
 
+"""
+standardizing standard deviation:
+this is calculated from the full dataset still,
+not the stratum subset
+"""
 function getbalance_restricted(
   matches_pd,
   stratvar::Symbol,
