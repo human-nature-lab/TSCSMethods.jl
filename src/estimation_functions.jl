@@ -26,6 +26,16 @@ function outputprocess(booteststr, ests, Fset; ptiles = [0.025, 0.5, 0.975])
   return results
 end
 
+DDict = Dict{Tuple{Int64, Int64}, Float64};
+
+function outcomedict(did, dt, dout)
+  nd = DDict();
+  for i = eachindex(1:length(dt))
+    nd[(did[i], dt[i])] = dout[i]
+  end;
+  return nd
+end
+
 #=
 estimation without restricted averaging
 =#
@@ -45,19 +55,22 @@ function standard_estimation(
   dt = dat[!, t];
   doc = dat[!, outcome];
 
-  # @time outcomemat, dwitmat = get_dwits_outcomes(matches, Fset, did, dt, doc);
-  outcomemat, dwitmat = get_dwits_outcomes(
-    utrtid, uid, ut,
-    Fset,
-    did, dt, doc,
-    tpoint);
+  mcnts = matchcounts(matches5);
+  nd = outcomedict(did, dt, doc);
+  
+  tl = length(Fset) + 1;
+  outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
+  dwitmat = similar(outcomemat);
+  makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
+
+  println("mats have been made")
 
   bootests = attboot(
     iternum, Fset,
     utrtid, uid,
     did,
     outcomemat, dwitmat
-    );
+  );
 
   otrtnums = gettrtnums(
     uid, utrtid, outcomemat);

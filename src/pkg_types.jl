@@ -137,15 +137,17 @@ function estimate!(
 
   if post == true
     wmatches = :matches5
+    when = :results
   else
     wmatches = :matches
+    when = :results_pre
   end
 
   c1 = model.stratvar == Symbol("")
 
   if c1
     
-    model.results = standard_estimation(
+    res = standard_estimation(
       model.boot_iterations,
       getfield(model, wmatches),
       model.fmin:model.fmax, # nothing fancier will work yet
@@ -154,7 +156,7 @@ function estimate!(
       model.id, model.t, model.outcome
     );
   elseif !c1
-    model.results = restricted_estimation(
+    res = restricted_estimation(
       model.boot_iterations,
       getfield(model, wmatches),
       model.fmin:model.fmax,
@@ -164,6 +166,7 @@ function estimate!(
       id, t, outcome
     );
   end
+  setfield!(model, when, res)
   return model
 end
 

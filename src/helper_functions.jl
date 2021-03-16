@@ -201,3 +201,16 @@ function get_the_data(
     return dat
   end
   
+MCDict = Dict{Tuple{Int64, Int64}, Int64}
+function matchcounts(matches5)
+  mm = @linq matches5 |>
+    groupby([:ttime, :tunit])
+  mm = combine(mm, nrow)
+  
+  mcd = MCDict()
+
+  @eachrow mm begin
+    mcd[(:ttime, :tunit)] = (:nrow - 1)
+  end
+  return mcd
+end

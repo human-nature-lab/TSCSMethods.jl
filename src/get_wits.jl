@@ -177,3 +177,117 @@ function get_dwits_outcomes(
 
   return outcomemat, dwitmat
 end
+
+#= this would need to be written for summarized dwits,
+  adding the value to each entry of dw, each time 
+=#
+# function assign_dwits_to_dat!(dw, utrtid, uid, ut, mcnt)
+#   # dw = zeros(Float64, length(did));
+
+#   # utrtid # treated
+#   # uid # matches and treated
+#   # ut # times
+
+#   for i = eachindex(1:length(ut))
+#     tu = utrtid[i]
+#     mu = uid[i]
+#     tt = ut[i]
+#     mc = mcnt[(tt, tu)]
+
+#     ctp = dt .== tt + tpoint;
+#     cfpl = dt .>= tt + fmin;
+#     cfpu = dt .<= tt + fmax;
+#     c2 = did .== mu;
+    
+#     cif = mu == tu;
+#     if cif
+#       dw[ctp .& c2][] = -1.0
+#       dw[cfpl .& cfpu .& c2] .= 1.0
+#     else
+#       dw[ctp .& c2][] = 1.0/mc
+#       dw[cfpl .& cfpu .& c2] .= -1.0/mc # try countmap
+#     end
+
+#   end
+#   return dw
+# end
+
+"""
+this is the new, faster function to make the outcome and dwit mats
+we cannot simply add the wits to the dataframe, since we are keeping them
+disaggregated
+"""
+function makemats!(om, wm, uid, utid, ut, mcnts, nd, tpoint)
+  for (j, φ) in enumerate(vcat(tpoint , collect(fmin:fmax))) # over f
+    @inbounds Threads.@threads for i = eachindex(uid) # over matches
+      mu = @views(uid[i])
+      tu = @views(utid[i])
+      tt = @views(ut[i])
+      mc = @views(mcnts[(tt, tu)])
+
+      om[i, j] = get(nd, (mu, tt + φ), missing)
+
+      if ismissing(om[i, j])
+        wm[i, j] = missing
+      else
+        wm[i, j] = witcal(mu, tu, j, mc)
+      end
+    end
+  end
+  return om, wm
+end
+
+# function makemats_old!(om, wm, uid, utid, ut, mcnts, nd, tpoint)
+#   # om = similar(outcomemat);
+
+#   @inbounds Threads.@threads for j = eachindex(uid)
+#   # for j = eachindex(uid)
+#     mu = @views(uid[j])
+#     tu = @views(utid[j])
+#     tt = @views(ut[j])
+#     mc = @views(mcnts[(tt, tu)])
+
+#     for (i, φ) in enumerate(vcat(tpoint , collect(fmin:fmax)))
+#       # outcomemat[i, j]
+#       om[i, j] = get(nd, (mu, tt + φ), missing)
+
+#       if ismissing(om[i, j])
+#         wm[i, j] = missing
+#       else
+#         wm[i, j] = witcal(mu, tu, i, mc)
+#       end
+#     end
+#   end
+#   return om, wm
+# end
+
+"""
+witcal(mu, tu, j, mc)
+
+get the disaggregated weight value for an observation. this function is only applied to observations that are non-zero. (although else statement implies that it could.)
+
+Arguments
+≡≡≡≡≡≡≡≡≡≡≡
+
+- mu: match unit
+- tu: treated unit for mu
+- j: vector position for relative timepoint, j == 1 => tpoint, j > 1 => f in F
+- mc: number of matches to the tu (of which mu is one)
+"""
+function witcal(mu, tu, j, mc)
+  cif = mu == tu
+  c1st = (j == 1)
+
+  if cif & c1st
+    ς = -1.0
+  elseif cif & !c1st
+    ς = 1.0
+  elseif !cif & c1st
+    ς = 1.0 / mc
+  elseif !cif & !c1st
+    ς = -1.0 / mc
+  else
+    ς = 0.0
+  end
+  return ς
+end
