@@ -72,14 +72,14 @@ function standard_estimation(
     outcomemat, dwitmat
   );
 
-  # otrtnums = gettrtnums(
-  #   uid, utrtid, outcomemat);
-  # ests = newattcalc(dwitmat, outcomemat, Fset, otrtnums);
+  println("boots have been strapped")
 
   tn = sum(utrtid .== uid);
   ests = att(outcomemat, dwitmat, tn);
     
-  results = outputprocess(bootests', ests, Fset);
+  bootests = bootests'
+
+  results = outputprocess(bootests, ests, Fset);
 
   return results
 end
