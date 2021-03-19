@@ -51,15 +51,15 @@ function plot_balance(
 end
 
 """
-stratlabel::Dict points from stratvar to desired label
+stratdict::Dict points from stratvar to desired label
 """
 function plot_balance(
-  meanbalances, stratvar::Symbol, when::String, stratlabel::Dict;
+  meanbalances, stratvar::Symbol, when::String, stratdict::Dict;
   savename = "", xinch = 15inch, yinch = 8inch)
 
   sv = String(stratvar) * "_stratum";
 
-  meanbalances.svlabel = getindex.(Ref(stefips), meanbalances[!, sv])
+  meanbalances.svlabel = getindex.(Ref(stratdict), meanbalances[!, sv])
 
   plt = plot(
     sort(meanbalances, [:covariate, sv]),
@@ -175,6 +175,41 @@ function plot_att(
     x = :att,
     xmin = :lwer, xmax = :uper,
     xgroup = :stratum,
+    Guide.title(ttl),
+    Guide.ylabel("Days since " * String(treatment)),
+    Guide.xlabel("estimate"),
+    Geom.subplot_grid(
+      Geom.point, Geom.errorbar,
+      free_y_axis = true,
+      # free_x_axis = true,
+      Guide.yticks(ticks = fmin : 1 : fmax)
+      )
+  )
+  if length(savename) > 0
+    draw(PNG(savename, xinch, yinch), plt)
+  end
+  return plt
+end
+
+function plot_att(
+  atts, stratvar::Symbol, stratdict::Dict;
+  savename = "", xinch = 15inch, yinch = 6inch,
+  treatment = :treatment)
+
+  ttl = "ATT" * " by " * String(replace(String(stratvar), "_" => " "))
+
+  fmin = minimum(atts.f)
+  fmax = maximum(atts.f)
+
+  # sv = String(stratvar) * "_stratum";
+  atts.svlabel = getindex.(Ref(stratdict), atts[!, :stratum])
+
+  plt = plot(
+    sort(atts, [:stratum, :f]),
+    y = :f,
+    x = :att,
+    xmin = :lwer, xmax = :uper,
+    xgroup = :svlabel,
     Guide.title(ttl),
     Guide.ylabel("Days since " * String(treatment)),
     Guide.xlabel("estimate"),

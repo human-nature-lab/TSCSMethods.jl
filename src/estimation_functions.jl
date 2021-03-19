@@ -116,11 +116,15 @@ function restricted_estimation(
   us = mm[!, stratname];
   S = unique(us);
 
-  outcomemat, dwitmat = get_dwits_outcomes(
-    utrtid, uid, ut,
-    Fset,
-    did, dt, doc,
-    tpoint);
+  mcnts = matchcounts(mm);
+  nd = outcomedict(did, dt, doc);
+  
+  tl = length(Fset) + 1;
+  outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
+  dwitmat = similar(outcomemat);
+  makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
+
+  println("mats have been made")
 
   Results = DataFrame(
     [Int64, Int64, Float64, Float64, Float64, Float64],
@@ -153,8 +157,8 @@ function restricted_estimation_inner!(
     uid_s = @view(uid[sind]);
     ut_s = @view(ut[sind]);
 
-    outcomemat_s = @view(outcomemat[:, sind])
-    dwitmat_s = @view(dwitmat[:, sind])
+    outcomemat_s = @view(outcomemat[sind, :])
+    dwitmat_s = @view(dwitmat[sind, :])
 
     bootests_s = attboot(
       iternum, Fset,
@@ -164,16 +168,24 @@ function restricted_estimation_inner!(
       dwitmat_s
       );
 
-    otrtnums = gettrtnums(
-      uid_s,
-      utrtid_s,
-      outcomemat_s);
-    ests_s = newattcalc(
-      dwitmat_s,
-      outcomemat_s,
-      Fset, otrtnums);
+    println("boots have been strapped")
+
+    # otrtnums = gettrtnums(
+    #   uid_s,
+    #   utrtid_s,
+    #   outcomemat_s);
+    # ests_s = newattcalc(
+    #   dwitmat_s,
+    #   outcomemat_s,
+    #   Fset, otrtnums);
+
+    tn_s = sum(utrtid_s .== uid_s);
+    ests_s = att(outcomemat_s, dwitmat_s, tn_s);
       
-    results = outputprocess(bootests_s', ests_s, Fset);
+    bootests_s = bootests_s'
+
+    results = outputprocess(bootests_s, ests_s, Fset);
+
     results.stratum = s * ones(Int64, nrow(results));
 
     append!(Results, results)

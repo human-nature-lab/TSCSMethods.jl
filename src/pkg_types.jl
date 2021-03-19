@@ -171,7 +171,7 @@ function estimate!(
 end
 
 """
-currently only works for a stratum
+
 """
 function caliper!(
   model::cicmodel;
@@ -211,6 +211,15 @@ function caliper!(
     model.treatedleft = Dict{Int64,Int64}()
     model.treatednum = Dict{Int64,Int64}()
 
+    svals = unique(model.matches[sv])
+    
+    # create empties for strata without calipers, so it will plot
+    for sval in svals
+      if isnothing(get(model.caliper, sval, nothing))
+        model.caliper[sval] = Dict{Symbol,Float64}()
+      end
+    end
+
     for (key, value) in model.caliper
 
       println(
@@ -235,13 +244,13 @@ function caliper!(
     model.matches = nm
     model.matches5 = refine(nm, model.refinementnum)
 
-    @linq model.matches5 |>
-      groupby([:tunit, :ttime]) |>
-      combine(sum(:possible)) |>
-      unique(:possible_function)
+    # @linq model.matches5 |>
+    #   groupby([:tunit, :ttime]) |>
+    #   combine(sum(:possible)) |>
+    #   unique(:possible_function)
 
   else
-    error("type issues")
+    error("type issues, probably")
   end
 
   return model

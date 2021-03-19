@@ -1,45 +1,5 @@
-# maybe add line to remove entries that have pretreatment missingness
-# - no, this should happen pre-bootstrap, and does (as I recall)
 
-# old functions
-# function newattcalc(dwitmat, outcomemat, Fset, trtnums::Vector{Int64})
-#   newatts = zeros(Float64, length(Fset)); # consider missingness
-#   for i = 2 : (length(Fset) + 1)
-#     dwit1i = dwitmat[[1, i], :];
-#       #= extend missingness to pretreatment dwits so that they are
-#          excluded from the sum =#
-#     dwit1i[[1], findall(ismissing.(@view(dwit1i[2, :])))] .= missing;
-#     out1i = @view(outcomemat[[1,i], :]);
-#     newatts[i - 1] = sum(skipmissing(dwit1i .* out1i)) /
-#       @view(trtnums[i - 1])[1]
-#   end
-#   return newatts
-# end
-
-# function newattcalc(dwitmat, outcomemat, Fset, trtnums::Int64)
-#   newatts = zeros(Float64, length(Fset)); # consider missingness
-#   for i = 2 : (length(Fset) + 1)
-#     dwit1i = dwitmat[[1, i], :];
-#       #= extend missingness to pretreatment dwits so that they are
-#          excluded from the sum =#
-#     dwit1i[[1], findall(ismissing.(@view(dwit1i[2, :])))] .= missing;
-#     out1i = @view(outcomemat[[1, i], :]);
-#     newatts[i - 1] = sum(skipmissing(dwit1i .* out1i)) / trtnums
-#   end
-#   return newatts
-# end
-
-function attinner!(jvals, om, wm, trtnums::Vector{Int64})
-  @inbounds for j in 2:size(om)[2]
-    @inbounds @simd for i in 1:size(om)[1]
-      jvals[j - 1] += @views(om[i, 1]) * @views(wm[i, 1]) + @views(om[i, j]) * @views(wm[i, j])
-    end
-    jvals[j - 1] = @views(jvals[j - 1]) / @views(trtnums[j - 1])
-  end
-  return jvals
-end
-
-function attinner!(jvals, om, wm, trtnums::Float64)
+function attinner!(jvals::Vector{Float64}, om, wm, trtnums)
   @inbounds for j in 2:size(om)[2]
     @inbounds @simd for i in 1:size(om)[1]
       jvals[j - 1] += @views(om[i, 1]) * @views(wm[i, 1]) + @views(om[i, j]) * @views(wm[i, j])
@@ -55,7 +15,6 @@ end
 this will need to be adapted for missingness, and we will need a new 
   way to get the treated unit number in the presence of missingness, which will vary across f
 
-** currently differs in result from newattcalc **
 """
 function att(om, wm, trtnums)
   jvals = zeros(Float64, size(om)[2] - 1)
@@ -71,50 +30,9 @@ ensure that there are treated units in the resample
 function make_check_sample!(units, clusters, treatedunits, x)
   while x < 1
     units = sample(clusters, length(clusters), replace = true);
-    x = sum([q in units for q in treatedunits])
-  end
+    x = sum([q in units for q in treatedunits]);
+  end;
   return units
-end
-
-"""
-  gettrtnum()
-
-gets the number of treated observations in the data or bootstrap sample
-
-treated units without a single matched unit should be removed during
-the matching procedure (check this again)
-
-this needs to output a vector for each post treatment timepoint,
-in case of missingness
-"""
-function gettrtnums(indices, uid, utrtid, outcomemat)
-  to = findall(@view(uid[indices]) .== @view(utrtid[indices]));
-  tolen = length(to);
-
-  trtnums = repeat([tolen], size(outcomemat)[1]);
-
-  for i = eachindex(trtnums)
-    missinglocsi = sum(ismissing.(@view(outcomemat[i, indices])));
-    trtnums[i] -= length(intersect(to, missinglocsi));
-      # number of missing treated units
-  end
-
-  return trtnums
-end
-
-function gettrtnums(uid, utrtid, outcomemat)
-  to = findall(uid .== utrtid);
-  tolen = length(to);
-
-  trtnums = repeat([tolen], size(outcomemat)[1]);
-
-  for i = eachindex(trtnums)
-    missinglocsi = sum(ismissing.(@view(outcomemat[i, :])));
-    trtnums[i] -= length(intersect(to, missinglocsi));
-      # number of missing treated units
-  end
-
-  return trtnums
 end
 
 function attboot(
@@ -130,16 +48,13 @@ function attboot(
 
   bootests = zeros(length(Fset), iternum);
 
-  # no huge gain from parallelizing this function
-  # 131 to 45 sec -- why? instabilities?
-
   uidrep = countmemb(uid);
   
   uidtoind = Dict{Int64, Vector{Int64}}();
   makeuiddict!(uidtoind, uid);
 
   # 1 iter: 2.1 sec, 44 MiB
-  @btime attboot_inner!(
+  attboot_inner!(
     bootests,
     clusters, outcomemat, dwitmat,
     uid, utrtid, trtidunique, munique,
