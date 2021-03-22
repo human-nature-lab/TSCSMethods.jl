@@ -1,10 +1,58 @@
 
-function attinner!(jvals::Vector{Float64}, om, wm, trtnums)
+# union type of handle @views
+Mtype = Union{
+  SubArray{
+    Float64,2,
+    Array{Float64,2},
+    Tuple{Array{Int64,1},
+    Base.Slice{Base.OneTo{Int64}}},false},
+  Matrix{Float64}}
+
+function attinner!(
+  jvals::Vector{Float64},
+  om::Mtype,
+  wm::Mtype,
+  tn::Vector{Int64}
+)
   @inbounds for j in 2:size(om)[2]
     @inbounds @simd for i in 1:size(om)[1]
       jvals[j - 1] += @views(om[i, 1]) * @views(wm[i, 1]) + @views(om[i, j]) * @views(wm[i, j])
     end
-    jvals[j - 1] = @views(jvals[j - 1]) / trtnums
+    jvals[j - 1] = @views(jvals[j - 1]) / tn[j - 1]
+  end
+  return jvals
+end
+
+#= 
+  if some treated unit is missing at an f
+  we must remove it, and its matches, from the sum (jval[i-1])
+
+  if a match is missing at that f, then we just remove the match,
+  although we will need to remove the treated if it is the only
+  match left for that treated unit
+
+  want to report the number of treated units at each f when there is
+  missingness
+
+  we cannot include a match without its treated unit, and we cannot include matches to a treated unit that doesn't exist
+
+  for an f, skip certain i values (in, say uid[inx]) affected by missingness
+
+  cannot just make the observations zero, b/c of matching-treated comments above
+  but, we could make them all 
+    
+=#
+function attinner!(
+  jvals::Vector{Float64},
+  om::Mtype,
+  wm::Mtype,
+  tn::Int64
+)
+  @inbounds for j in 2:size(om)[2]
+    @inbounds @simd for i in 1:size(om)[1]
+      jvals[j - 1] += @views(om[i, 1]) * @views(wm[i, 1]) + @views(om[i, j]) * @views(wm[i, j])
+    end
+    jvals[j - 1] = @views(jvals[j - 1]) / tn
   end
   return jvals
 end
@@ -16,9 +64,9 @@ this will need to be adapted for missingness, and we will need a new
   way to get the treated unit number in the presence of missingness, which will vary across f
 
 """
-function att(om, wm, trtnums)
+function att(om, wm, tn)
   jvals = zeros(Float64, size(om)[2] - 1)
-  attinner!(jvals, om, wm, trtnums)
+  attinner!(jvals, om, wm, tn)
   return jvals
 end
 
@@ -39,7 +87,9 @@ function attboot(
   iternum, Fset,
   utrtid, uid,
   did,
-  outcomemat, dwitmat,
+  omsm, wmsm,
+  uidsm, utsm, trtbool, blmat,
+  omiss
   )
 
   clusters = unique(did); # clusters comes from the full dataset
@@ -48,18 +98,25 @@ function attboot(
 
   bootests = zeros(length(Fset), iternum);
 
-  uidrep = countmemb(uid);
+  # uidrep = countmemb(uid);
+  uidsmrep = countmemb(uidsm);
   
-  uidtoind = Dict{Int64, Vector{Int64}}();
-  makeuiddict!(uidtoind, uid);
+  # uidtoind = Dict{Int64, Vector{Int64}}();
+  # makeuiddict!(uidtoind, uid);
+
+  uidsmtoind = Dict{Int64, Vector{Int64}}();
+  makeuiddict!(uidsmtoind, uidsm);
 
   # 1 iter: 2.1 sec, 44 MiB
   attboot_inner!(
     bootests,
-    clusters, outcomemat, dwitmat,
-    uid, utrtid, trtidunique, munique,
-    uidrep, uidtoind,
-    iternum
+    clusters,
+    omsm, wmsm,
+    uidsm, utsm, trtbool, blmat,
+    trtidunique, munique,
+    uidsmrep, uidsmtoind,
+    iternum,
+    omiss
   )
 
   return bootests
@@ -75,10 +132,12 @@ end
 function attboot_inner!(
   bootests,
   clusters,
-  outcomemat, dwitmat,
-  uid, utrtid, trtidunique, munique,
-  uidrep, uidtoind,
-  iternum
+  omsm, wmsm,
+  uidsm, utsm, trtbool, blmat,
+  trtidunique, munique,
+  uidsmrep, uidsmtoind,
+  iternum,
+  omiss
   )
 
   @inbounds Threads.@threads for k = eachindex(1:iternum)
@@ -99,27 +158,18 @@ function attboot_inner!(
       if a unit is resampled > 1x, then it should be reassigned that many times
     =#
 
-    unitreps = countmemb(units, length(clusters)); # 51.8 μs, 68.9 KiB
-    
-    inxlen = getinxlen(uidrep, munique, units); # 1.5 ms; 120.3 KiB
-    inx = addidx(uidtoind, unitreps, inxlen); # 2.7 ms, 22.79 MiB -- ridiculous
-
-    tn = sum(uid[inx] .== utrtid[inx]);
-
-    #= will need way to handle missingness in treated units at some f points
-      do this by getting the total number of appearances of a unit, and 
-      subtracting that many times for a missing in outcomemat
-      sum(ismissing.(outcomemat), dims = 2)
-    =#
-
-    #= with att(): ~210 ms (down from 1 sec), and ~500 bytes (from 181 GiB!!)
-      this is faster, but still need missingness solution, and a
-      way to deal with treatnums in case of missingness
-    =#
+    tn, inx = treatednum(
+      uidsm, utsm,
+      units, clusters,
+      uidsmrep,
+      munique,
+      uidsmtoind,
+      blmat, trtbool,
+      omiss); # omiss
 
     bootests[:, k] = att( # 2.304 sec, 464 bytes
-      @views(outcomemat[inx, :]),
-      @views(dwitmat[inx, :]), tn
+      @views(omsm[inx, :]),
+      @views(wmsm[inx, :]), tn
     );
 
   end
@@ -142,12 +192,14 @@ end
 #   return indices
 # end
 
-function getinxlen(uidrep, munique, units)
+function getinxlen(uidsmrep, munique, units)
   ur = countmemb(units[(in.(units, Ref(munique)))]);
 
   inxlen = 0
+  cnt = 0
   for (l, v) in ur
-    inxlen += uidrep[l] * v
+    cnt += 1
+    inxlen += uidsmrep[l] * v
   end
   return inxlen
 end
@@ -173,21 +225,106 @@ function addidx(uidtoind, unitreps, inxlen)
   return inx
 end
 
-"""
-    addindices!(indices, witsf_id, unitunique, unitreps, cnt)
+function treatednum(
+  uid, ut,
+  units, clusters, uidsmrep, munique, uidsmtoind,
+  blmat, trtbool,
+  omiss::Bool # used as type check for method
+)
 
-function barrier
-add the actual index values to grab from wits, with reptitions
-"""
-function addindices!(indices, witsf_id, unitreps, cnt)
-  for (k, v) in unitreps
-    toadd = repeat(findall(witsf_id .== k), v)
-    tal = length(toadd)
-    indices[(cnt + 1) : (cnt + tal)] = toadd
-    cnt += tal
+  unitreps = countmemb(units, length(clusters)); # 51.8 μs, 68.9 KiB
+
+  inxlen = getinxlen(uidsmrep, munique, units); # 1.5 ms; 120.3 KiB
+  inx = addidx(uidsmtoind, unitreps, inxlen); # 2.7 ms, 22.79 MiB -- ridiculous
+
+  uinx = @views(uid[inx]); utinx = @views(ut[inx]);
+  
+  if omiss == false
+    tn = sum(@views(trtbool[inx]))
+  elseif omiss == true
+    tcnt = sum(@views(trtbool[inx]));
+    tn = tcnt .- sum(@views(blmat[inx, :]), dims = 1)
+    tn = reshape(tn, length(tn)), inx
   end
-  return indices
+  
+  return tn, inx
 end
+
+# """
+#     treatednum(
+#       uid,
+#       utrtid,
+#       units, clusters, uidrep, munique,
+#       outcomemat::Array{Union{Missing, Float64}, 2}
+#     )
+
+# return the number of treated units (or at each f in F, in case of missingness)
+# and the indices needed to construct the bootstrap sample.
+# """
+# function treatednum(
+#   uid,
+#   utrtid,
+#   units, clusters, uidrep, munique, uidtoind,
+#   outcomemat::Array{Union{Missing, Float64}, 2}
+# )
+
+#   unitreps = countmemb(units, length(clusters)); # 51.8 μs, 68.9 KiB
+
+#   inxlen = getinxlen(uidrep, munique, units); # 1.5 ms; 120.3 KiB
+#   inx = addidx(uidtoind, unitreps, inxlen); # 2.7 ms, 22.79 MiB -- ridiculous
+
+#   tl = uid[inx] .== utrtid[inx];
+#   tn = sum(tl);
+
+#   tns = Vector{Int64}(undef, size(outcomemat)[2] - 1);
+#   treatednum!(tn, tns, tl, inx, om)
+  
+#   return tns, inx
+# end
+
+# """
+#     treatednum!(
+#       tn,
+#       tns,
+#       tl,
+#       inx,
+#       om::Array{Union{Missing, Float64}, 2}
+#     )
+
+# In case of missingness in outcomes, get the number of treated units
+# in the bootstrap (or original) sample present at each point in the F range.
+# """
+# function treatednum!(
+#   tn,
+#   tns,
+#   tl,
+#   inx,
+#   om::Array{Union{Missing, Float64}, 2}
+# )
+
+#   @inbounds for j in 2:size(outcomemat)[2]
+#     tns[j - 1] = tn - sum(ismissing.(@view(om[inx[tl], j]))) # this should still be correct, provided that we remove treated units without matches left from missingness. 
+#     # this won't be correct if we use summarized values, then we need to know which ones to remove from list
+
+#   end
+#   return tns
+# end
+
+# """
+#     addindices!(indices, witsf_id, unitunique, unitreps, cnt)
+
+# function barrier
+# add the actual index values to grab from wits, with reptitions
+# """
+# function addindices!(indices, witsf_id, unitreps, cnt)
+#   for (k, v) in unitreps
+#     toadd = repeat(findall(witsf_id .== k), v)
+#     tal = length(toadd)
+#     indices[(cnt + 1) : (cnt + tal)] = toadd
+#     cnt += tal
+#   end
+#   return indices
+# end
 
 
 function countmemb(itr)

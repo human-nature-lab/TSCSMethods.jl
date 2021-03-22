@@ -36,6 +36,34 @@ function outcomedict(did, dt, dout)
   return nd
 end
 
+function handlemats(
+  uid, utrtid, ut, mcnts, nd, tpoint, tl
+)
+  outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
+  dwitmat = similar(outcomemat);
+  makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
+
+  # type handling for att() (in bootstrap_estimation.jl)
+  try
+    outcomemat = convert(Array{Float64, 2}, outcomemat);
+    dwitmat = convert(Array{Float64, 2}, dwitmat);
+    omiss = false;
+  catch
+    omiss = true
+    println("missing post-treatment outcome observations present")
+  end
+
+  if (typeof(outcomemat) == Array{Union{Missing, Float64},2}) & (typeof(dwitmat) == Array{Union{Missing, Float64},2})
+    # om = deepcopy(outcomemat); wm = deepcopy(dwitmat);
+    outcomemat, dwitmat, bl = missingmats(outcomemat, dwitmat, uid, utrtid);
+  else bl = DataFrame();
+  end
+
+  omsm, wmsm, uidsm, utsm, trtbool, blmat = summarizemats(
+    uid, ut, outcomemat, dwitmat, bl, keys(mcnts));
+  return omsm, wmsm, uidsm, utsm, trtbool, blmat
+end
+
 #=
 estimation without restricted averaging
 =#
@@ -45,7 +73,7 @@ function standard_estimation(
   dat::DataFrame,
   id::Symbol, t::Symbol, outcome::Symbol)
   # order makes a HUGE time difference
-  sort!(matches5, [:ttime, :tunit, :munit]);
+  sort!(matches5, [:ttime, :tunit, :possible, :munit]);
 
   utrtid = matches5[!, :tunit];
   uid = matches5[!, :munit];
@@ -59,23 +87,25 @@ function standard_estimation(
   nd = outcomedict(did, dt, doc);
   
   tl = length(Fset) + 1;
-  outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
-  dwitmat = similar(outcomemat);
-  makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
 
+  omsm, wmsm, uidsm, utsm, trtbool, blmat = handlemats(
+    uid, utrtid, ut, mcnts, nd, tpoint, tl
+  )
+  
   println("mats have been made")
 
   bootests = attboot(
     iternum, Fset,
     utrtid, uid,
     did,
-    outcomemat, dwitmat
+    omsm, wmsm,
+    uidsm, utsm, trtbool, blmat,
+    omiss
   );
 
   println("boots have been strapped")
 
-  tn = sum(utrtid .== uid);
-  ests = att(outcomemat, dwitmat, tn);
+  ests = att(omsm, wmsm, sum(trtbool));
     
   bootests = bootests'
 

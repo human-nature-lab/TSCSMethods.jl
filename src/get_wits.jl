@@ -237,6 +237,119 @@ function makemats!(om, wm, uid, utid, ut, mcnts, nd, tpoint)
   return om, wm
 end
 
+"""
+    missingmats(om, wm)
+
+account for missingness in outcomes
+- binary vector of length(uid) reporting whether each treated unit is included
+"""
+function missingmats(
+  om::Array{Union{Missing, Float64}, 2},
+  wm::Array{Union{Missing, Float64}, 2},
+  uid, utid
+  )
+
+  idbl = Vector{Int64}()
+  tbl = Vector{Int64}()
+  fbl = Vector{Int64}()
+  for j in 2:size(om)[2]
+    @inbounds for i = eachindex(uid)
+
+      ui = uid[i]
+      uti = utid[i]
+      tt = ut[i]
+
+      # if outcome is missing, make all other uti x ut values missing
+      if (ui == uti) & ismissing(om[i, j])
+        c1 = ut .== tt;
+        c2 = utid .== uti;
+        wm[c1 .& c2, j] .= 0 # give all matches to missing treated outcome weight zero
+        om[c1 .& c2, j] .= 0
+
+        # add treated x t x f to blacklist
+        push!(idbl, uti)
+        push!(tbl, tt)
+        push!(fbl, j)
+      elseif (ui != uti) & ismissing(om[i, j])
+        c1 = ut .== tt
+        c2 = utid .== uti
+        c3 = utid .!= uid
+        chk = ismissing.(@views(om[c1 .& c2 .& c3, j]))
+        if sum(chk) == length(chk) # if all matches are missing
+          wm[c1 .& c2, j] .= 0 # give all matches to missing treated outcome zero weight & outcome, also for treated unit itself
+          om[c1 .& c2, j] .= 0
+          
+          # add treated x t x f to blacklist
+          push!(idbl, uti)
+          push!(tbl, tt)
+          push!(fbl, j)
+        elseif sum(chk) < length(chk)
+          # change weights of remaining
+          c4 = (!).(ismissing.(om[:, j]))
+          chk2 = @views(om[c1 .& c2 .& c3 .& c4, j])
+          wm[c1 .& c2 .& c3 .& c4, j] .= -1.0 / length(chk2) # matches so negative
+        end
+      end
+    end
+  end   
+  # these treated obs are missing at 
+  bl = unique(DataFrame(id = idbl, t = tbl, f = fbl))
+  return om, wm, bl
+end
+
+# slow because operating over rows...
+# cannot summarize to above unit
+function summarizemats(uid, ut, om, wm, bl, mk)
+  uid2 = convert(Vector{Int64}, uid);
+  # ut
+  # om
+  # wm
+
+  obs = unique(hcat(uid2, ut), dims = 1);
+
+  # tobs = unique(matches5[[:ttime, :tunit]])
+
+  omsm = Matrix{Float64}(undef, size(obs)[1], size(om)[2]); # depends on tranpose situation
+  wmsm = similar(omsm);
+
+  trtsm = zeros(Int64, size(obs)[1]);
+
+  if size(bl)[1] > 0
+    blmat = zeros(Int64, size(obs)[1], size(omsm)[2] - 1);
+  else blmat = zeros(Int64, 0, 0);
+  end
+  for i in 1:size(obs)[1]
+    lid = @views(obs[i , 1]) # id
+    lt = @views(obs[i , 2]) # time
+
+    # for j in 1:length(tobs.ttime)
+    for (kt, kid) in mk
+      # if (lt == tobs.ttime[j]) & (lid == tobs.tunit[j])
+      if (lt == kt) & (lid == kid)
+        trtsm[i] += 1 # can only ever add a total of one for each i anyway
+        continue # may save some time
+      end
+    end
+
+    if size(bl)[1] > 0
+      blf = @views(bl[(bl[!, :id] .== lid) .& (bl[!, :t] .== lt), :f]) .- 1;
+      if length(blf) > 0
+        blmat[i, blf] .= 1
+      end
+    end
+
+    found = findall((uid2 .== lid) .& (ut .== lt))
+
+    omsm[i, :] = om[@views(found[1]), :]
+    wmsm[i, :] = sum(@views(wm[found, :]), dims = 1)
+  end
+
+  return omsm, wmsm, obs[:, 1], obs[:, 2], trtsm, blmat
+end
+
+        
+
+
 # function makemats_old!(om, wm, uid, utid, ut, mcnts, nd, tpoint)
 #   # om = similar(outcomemat);
 

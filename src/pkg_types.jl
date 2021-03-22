@@ -77,6 +77,19 @@ this avoids time-consuming recalculation of the possible match set
 """
 function refine!(model::cicmodel)
   model.matches5 = refine(model.matches, model.refinementnum);
+
+  actualcal = copy(model.caliper)
+
+  if model.stratvar != Symbol("")
+    model.caliper = StratDict()
+    caliper!(model) # to fill in treated unit nums, using empty caliper
+    model.caliper = copy(actualcal)
+  elseif model.stratvar == Symbol("")
+    model.caliper = Dict{Symbol, Float64}()
+    caliper!(model) # to fill in treated unit nums, using empty caliper
+    model.caliper = copy(actualcal)
+  end
+  
   return model
 end
 
