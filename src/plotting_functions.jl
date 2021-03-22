@@ -136,26 +136,26 @@ end
 
 # estimation plots
 
-# function plot_att(atts; savename = "")
-#   fmin = minimum(atts.f)
+function plot_att(atts; savename = "")
+  fmin = minimum(atts.f)
 
-#   att_plt = plot(
-#       atts,
-#       x = :f, y = :att,
-#       ymin = :lwer, ymax = :uper,
-#       Geom.point,
-#       Geom.errorbar,
-#       Guide.title("avg. effect of treatment on the treated"),
-#       Guide.xlabel("f"),
-#       Guide.ylabel("estimate"),
-#       Coord.Cartesian(xmin=fmin)
-#   )
+  att_plt = plot(
+      atts,
+      x = :f, y = :att,
+      ymin = :lwer, ymax = :uper,
+      Geom.point,
+      Geom.errorbar,
+      Guide.title("avg. effect of treatment on the treated"),
+      Guide.xlabel("f"),
+      Guide.ylabel("estimate"),
+      Coord.Cartesian(xmin=fmin)
+  )
 
-#   if length(savename) > 0
-#     draw(PNG(savename, 9inch, 5inch), att_plt)
-#   end
-#   return att_plt
-# end
+  if length(savename) > 0
+    draw(PNG(savename, 9inch, 5inch), att_plt)
+  end
+  return att_plt
+end
 
 function plot_att(
   atts, stratvar::Symbol;
