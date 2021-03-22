@@ -222,7 +222,7 @@ function treatednum(
   elseif omiss == true
     tcnt = sum(@views(trtbool[inx]));
     tn = tcnt .- sum(@views(blmat[inx, :]), dims = 1)
-    tn = reshape(tn, length(tn)), inx
+    tn = reshape(tn, length(tn))
   end
   
   return tn, inx

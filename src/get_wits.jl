@@ -248,7 +248,7 @@ output:
 function missingmats(
   om::Array{Union{Missing, Float64}, 2},
   wm::Array{Union{Missing, Float64}, 2},
-  uid, utid
+  uid, utid, ut
   )
 
   idbl = Vector{Int64}()

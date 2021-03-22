@@ -56,7 +56,7 @@ function handlemats(
 
   if (typeof(outcomemat) == Array{Union{Missing, Float64},2}) & (typeof(dwitmat) == Array{Union{Missing, Float64},2})
     # om = deepcopy(outcomemat); wm = deepcopy(dwitmat);
-    outcomemat, dwitmat, bl = missingmats(outcomemat, dwitmat, uid, utrtid);
+    outcomemat, dwitmat, bl = missingmats(outcomemat, dwitmat, uid, utrtid, ut);
   else bl = DataFrame();
   end
 
