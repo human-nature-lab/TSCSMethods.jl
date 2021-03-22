@@ -37,17 +37,18 @@ function outcomedict(did, dt, dout)
 end
 
 function handlemats(
-  uid, utrtid, ut, mcnts, nd, tpoint, tl
+  uid, utrtid, ut, mcnts, nd, tpoint, tl;
+  summarize = true
 )
   outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
   dwitmat = similar(outcomemat);
   makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
 
   # type handling for att() (in bootstrap_estimation.jl)
+  omiss = false;
   try
     outcomemat = convert(Array{Float64, 2}, outcomemat);
     dwitmat = convert(Array{Float64, 2}, dwitmat);
-    omiss = false;
   catch
     omiss = true
     println("missing post-treatment outcome observations present")
@@ -59,9 +60,13 @@ function handlemats(
   else bl = DataFrame();
   end
 
-  omsm, wmsm, uidsm, utsm, trtbool, blmat = summarizemats(
-    uid, ut, outcomemat, dwitmat, bl, keys(mcnts));
-  return omsm, wmsm, uidsm, utsm, trtbool, blmat
+  if summarize == true
+    omsm, wmsm, uidsm, utsm, trtbool, blmat = summarizemats(
+      uid, ut, outcomemat, dwitmat, bl, keys(mcnts));
+    return omsm, wmsm, uidsm, utsm, trtbool, blmat, omiss
+  else
+    return outcomemat, dwitmat, bl, omiss
+  end
 end
 
 #=
@@ -88,7 +93,7 @@ function standard_estimation(
   
   tl = length(Fset) + 1;
 
-  omsm, wmsm, uidsm, utsm, trtbool, blmat = handlemats(
+  omsm, wmsm, uidsm, utsm, trtbool, blmat, omiss = handlemats(
     uid, utrtid, ut, mcnts, nd, tpoint, tl
   )
   
@@ -150,9 +155,11 @@ function restricted_estimation(
   nd = outcomedict(did, dt, doc);
   
   tl = length(Fset) + 1;
-  outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
-  dwitmat = similar(outcomemat);
-  makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
+  
+  om, wm, bl, omiss = handlemats(
+    uid, utrtid, ut, mcnts, nd, tpoint, tl;
+    summarize = false
+  )
 
   println("mats have been made")
 
@@ -162,20 +169,23 @@ function restricted_estimation(
   )
 
   restricted_estimation_inner!(
-    Results, outcomemat, dwitmat,
+    Results, om, wm,
     utrtid, uid, ut,
+    bl, mcnts,
     Fset, did, iternum,
-    S, us
+    S, us,
   )
   
   return Results
 end
 
 function restricted_estimation_inner!(
-  Results, outcomemat, dwitmat,
-  utrtid, uid, ut, Fset, did, iternum,
+  Results, om, wm,
+  utrtid, uid, ut,
+  bl, mcnts,
+  Fset, did, iternum,
   S, us
-  )
+)
 
   @inbounds Threads.@threads for i = eachindex(S)
   # for s in S
@@ -187,30 +197,44 @@ function restricted_estimation_inner!(
     uid_s = @view(uid[sind]);
     ut_s = @view(ut[sind]);
 
-    outcomemat_s = @view(outcomemat[sind, :])
-    dwitmat_s = @view(dwitmat[sind, :])
+    om_s = @view(om[sind, :]);
+    wm_s = @view(wm[sind, :]);
+
+    # want to select bl vals that exist in s
+    if size(bl)[1] > 0
+      blr = Int64[]
+      for i = eachindex(utrtid_s)
+        utrti = utrtid_s[i]
+        uti = utrtid_s[i]
+
+        for j = eachindex(1:nrow(bl))
+          if (bl.id == utrti) & (bl.t == uti)
+            push!(blr, j)
+          end
+        end
+      end
+      bl_s = @views(bl[blr, :])
+    else
+      bl_s = zeros(Int64, 0, 0);
+    end
+
+    omsm, wmsm, uidsm, utsm, trtbool_s, blmat = summarizemats(
+      uid_s, ut_s, om_s, wm_s, bl_s, keys(mcnts));
 
     bootests_s = attboot(
       iternum, Fset,
       utrtid_s, uid_s,
       did,
-      outcomemat_s,
-      dwitmat_s
+      omsm,
+      wmsm,
+      uidsm, utsm, trtbool_s, blmat,
+      omiss
       );
 
     println("boots have been strapped")
 
-    # otrtnums = gettrtnums(
-    #   uid_s,
-    #   utrtid_s,
-    #   outcomemat_s);
-    # ests_s = newattcalc(
-    #   dwitmat_s,
-    #   outcomemat_s,
-    #   Fset, otrtnums);
-
     tn_s = sum(utrtid_s .== uid_s);
-    ests_s = att(outcomemat_s, dwitmat_s, tn_s);
+    ests_s = att(omsm, wmsm, tn_s);
       
     bootests_s = bootests_s'
 

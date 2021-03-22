@@ -1,5 +1,5 @@
 
-# union type of handle @views
+# union type to handle @views
 Mtype = Union{
   SubArray{
     Float64,2,
@@ -98,11 +98,7 @@ function attboot(
 
   bootests = zeros(length(Fset), iternum);
 
-  # uidrep = countmemb(uid);
   uidsmrep = countmemb(uidsm);
-  
-  # uidtoind = Dict{Int64, Vector{Int64}}();
-  # makeuiddict!(uidtoind, uid);
 
   uidsmtoind = Dict{Int64, Vector{Int64}}();
   makeuiddict!(uidsmtoind, uidsm);
@@ -165,9 +161,9 @@ function attboot_inner!(
       munique,
       uidsmtoind,
       blmat, trtbool,
-      omiss); # omiss
+      omiss);
 
-    bootests[:, k] = att( # 2.304 sec, 464 bytes
+    bootests[:, k] = att(
       @views(omsm[inx, :]),
       @views(wmsm[inx, :]), tn
     );
@@ -176,29 +172,11 @@ function attboot_inner!(
   return bootests
 end
 
-# """
-#     addindices!(indices, witsf_id, unitunique, unitreps, cnt)
-# function barrier
-# add the actual index values to grab from wits, with reptitions
-# """
-# function addindices!(indices, witsf_id, unitunique, unitreps, cnt)
-#   for i = eachindex(unitunique)
-#     ui = unitunique[i]
-#     toadd = repeat(findall(witsf_id .== ui), unitreps[ui])
-#     tal = length(toadd)
-#     indices[(cnt + 1) : (cnt + tal)] = toadd
-#     cnt += tal
-#   end
-#   return indices
-# end
-
 function getinxlen(uidsmrep, munique, units)
   ur = countmemb(units[(in.(units, Ref(munique)))]);
 
   inxlen = 0
-  cnt = 0
   for (l, v) in ur
-    cnt += 1
     inxlen += uidsmrep[l] * v
   end
   return inxlen
@@ -229,13 +207,13 @@ function treatednum(
   uid, ut,
   units, clusters, uidsmrep, munique, uidsmtoind,
   blmat, trtbool,
-  omiss::Bool # used as type check for method
+  omiss::Bool
 )
 
-  unitreps = countmemb(units, length(clusters)); # 51.8 μs, 68.9 KiB
+  unitreps = countmemb(units, length(clusters));
 
-  inxlen = getinxlen(uidsmrep, munique, units); # 1.5 ms; 120.3 KiB
-  inx = addidx(uidsmtoind, unitreps, inxlen); # 2.7 ms, 22.79 MiB -- ridiculous
+  inxlen = getinxlen(uidsmrep, munique, units);
+  inx = addidx(uidsmtoind, unitreps, inxlen);
 
   uinx = @views(uid[inx]); utinx = @views(ut[inx]);
   
@@ -250,90 +228,10 @@ function treatednum(
   return tn, inx
 end
 
-# """
-#     treatednum(
-#       uid,
-#       utrtid,
-#       units, clusters, uidrep, munique,
-#       outcomemat::Array{Union{Missing, Float64}, 2}
-#     )
-
-# return the number of treated units (or at each f in F, in case of missingness)
-# and the indices needed to construct the bootstrap sample.
-# """
-# function treatednum(
-#   uid,
-#   utrtid,
-#   units, clusters, uidrep, munique, uidtoind,
-#   outcomemat::Array{Union{Missing, Float64}, 2}
-# )
-
-#   unitreps = countmemb(units, length(clusters)); # 51.8 μs, 68.9 KiB
-
-#   inxlen = getinxlen(uidrep, munique, units); # 1.5 ms; 120.3 KiB
-#   inx = addidx(uidtoind, unitreps, inxlen); # 2.7 ms, 22.79 MiB -- ridiculous
-
-#   tl = uid[inx] .== utrtid[inx];
-#   tn = sum(tl);
-
-#   tns = Vector{Int64}(undef, size(outcomemat)[2] - 1);
-#   treatednum!(tn, tns, tl, inx, om)
-  
-#   return tns, inx
-# end
-
-# """
-#     treatednum!(
-#       tn,
-#       tns,
-#       tl,
-#       inx,
-#       om::Array{Union{Missing, Float64}, 2}
-#     )
-
-# In case of missingness in outcomes, get the number of treated units
-# in the bootstrap (or original) sample present at each point in the F range.
-# """
-# function treatednum!(
-#   tn,
-#   tns,
-#   tl,
-#   inx,
-#   om::Array{Union{Missing, Float64}, 2}
-# )
-
-#   @inbounds for j in 2:size(outcomemat)[2]
-#     tns[j - 1] = tn - sum(ismissing.(@view(om[inx[tl], j]))) # this should still be correct, provided that we remove treated units without matches left from missingness. 
-#     # this won't be correct if we use summarized values, then we need to know which ones to remove from list
-
-#   end
-#   return tns
-# end
-
-# """
-#     addindices!(indices, witsf_id, unitunique, unitreps, cnt)
-
-# function barrier
-# add the actual index values to grab from wits, with reptitions
-# """
-# function addindices!(indices, witsf_id, unitreps, cnt)
-#   for (k, v) in unitreps
-#     toadd = repeat(findall(witsf_id .== k), v)
-#     tal = length(toadd)
-#     indices[(cnt + 1) : (cnt + tal)] = toadd
-#     cnt += tal
-#   end
-#   return indices
-# end
-
 
 function countmemb(itr)
   d = Dict{eltype(itr), Int}()
   for val in itr
-      # we don't need these checks
-      #if isa(val, Number) && isnan(val)
-      #    continue
-      #end
       d[val] = get(d, val, 0) + 1
   end
   return d
@@ -343,10 +241,6 @@ function countmemb(itr, len::Int64)
   d = Dict{eltype(itr), Int64}()
   sizehint!(d, len)
   for val in itr
-      # we don't need these checks
-      #if isa(val, Number) && isnan(val)
-      #    continue
-      #end
       d[val] = get(d, val, 0) + 1
   end
   return d

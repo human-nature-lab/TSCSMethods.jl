@@ -240,8 +240,10 @@ end
 """
     missingmats(om, wm)
 
-account for missingness in outcomes
-- binary vector of length(uid) reporting whether each treated unit is included
+output:
+- adjusted om
+- adjusted wm
+- bl: black list of treated observations with treatment period (f)
 """
 function missingmats(
   om::Array{Union{Missing, Float64}, 2},

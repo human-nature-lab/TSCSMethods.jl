@@ -136,26 +136,26 @@ end
 
 # estimation plots
 
-function plot_att(atts; savename = "")
-  fmin = minimum(atts.f)
+# function plot_att(atts; savename = "")
+#   fmin = minimum(atts.f)
 
-  att_plt = plot(
-      atts,
-      x = :f, y = :att,
-      ymin = :lwer, ymax = :uper,
-      Geom.point,
-      Geom.errorbar,
-      Guide.title("avg. effect of treatment on the treated"),
-      Guide.xlabel("f"),
-      Guide.ylabel("estimate"),
-      Coord.Cartesian(xmin=fmin)
-  )
+#   att_plt = plot(
+#       atts,
+#       x = :f, y = :att,
+#       ymin = :lwer, ymax = :uper,
+#       Geom.point,
+#       Geom.errorbar,
+#       Guide.title("avg. effect of treatment on the treated"),
+#       Guide.xlabel("f"),
+#       Guide.ylabel("estimate"),
+#       Coord.Cartesian(xmin=fmin)
+#   )
 
-  if length(savename) > 0
-    draw(PNG(savename, 9inch, 5inch), att_plt)
-  end
-  return att_plt
-end
+#   if length(savename) > 0
+#     draw(PNG(savename, 9inch, 5inch), att_plt)
+#   end
+#   return att_plt
+# end
 
 function plot_att(
   atts, stratvar::Symbol;
@@ -226,33 +226,33 @@ function plot_att(
   return plt
 end
 
-function plot_att_strat(atts, savename, dirloc)
-  fmin = minimum(atts.f)
+# function plot_att_strat(atts, savename, dirloc)
+#   fmin = minimum(atts.f)
 
-  S = unique(atts.stratum);
-  for s in S
+#   S = unique(atts.stratum);
+#   for s in S
 
-    tt = "avg. effect of treatment on the treated " * string(s)
+#     tt = "avg. effect of treatment on the treated " * string(s)
 
-    attsi = atts[findall(atts.stratum .== s), :]
+#     attsi = atts[findall(atts.stratum .== s), :]
 
-    att_plt = plot(
-      attsi,
-      x = :f, y = :att,
-      ymin = :lwer, ymax = :uper,
-      Geom.point,
-      Geom.errorbar,
-      Guide.title(tt),
-      Guide.xlabel("f"),
-      Guide.ylabel("estimate"),
-      Coord.Cartesian(xmin=fmin)
-      )
+#     att_plt = plot(
+#       attsi,
+#       x = :f, y = :att,
+#       ymin = :lwer, ymax = :uper,
+#       Geom.point,
+#       Geom.errorbar,
+#       Guide.title(tt),
+#       Guide.xlabel("f"),
+#       Guide.ylabel("estimate"),
+#       Coord.Cartesian(xmin=fmin)
+#       )
 
-    sn = dirloc * string(s) * " " * savename
+#     sn = dirloc * string(s) * " " * savename
 
-    draw(PNG(sn, 9inch, 5inch), att_plt)
-  end
-end
+#     draw(PNG(sn, 9inch, 5inch), att_plt)
+#   end
+# end
 
 """
     plot_mdistances(matches5, calvars; savenme = "")
