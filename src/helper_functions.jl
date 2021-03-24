@@ -134,7 +134,7 @@ function get_the_data(
   NOTE may not need to remove the before-treatment periods
   """
   function remove_incomplete(
-    dat, covariates, fmin, fmax, tmin, id, t, treatment)
+    dat, covariates, fmin, fmax, tmin, id, t, treatment, tpoint)
 
     treatment_points = get_all_treatment_points(dat, treatment);
   
@@ -213,4 +213,27 @@ function matchcounts(matches5)
     mcd[(:ttime, :tunit)] = (:nrow - 1)
   end
   return mcd
+end
+
+"""
+faster than countmap()
+"""
+function countmemb(itr)
+  d = Dict{eltype(itr), Int}()
+  for val in itr
+      d[val] = get(d, val, 0) + 1
+  end
+  return d
+end
+
+"""
+faster version when length is known
+"""
+function countmemb(itr, len::Int64)
+  d = Dict{eltype(itr), Int64}()
+  sizehint!(d, len)
+  for val in itr
+      d[val] = get(d, val, 0) + 1
+  end
+  return d
 end

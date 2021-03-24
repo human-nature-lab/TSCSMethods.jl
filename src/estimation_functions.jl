@@ -76,7 +76,8 @@ function standard_estimation(
   iternum::Int64, matches5::DataFrame,
   Fset, tpoint,
   dat::DataFrame,
-  id::Symbol, t::Symbol, outcome::Symbol)
+  id::Symbol, t::Symbol, outcome::Symbol
+)
   # order makes a HUGE time difference
   sort!(matches5, [:ttime, :tunit, :possible, :munit]);
 
@@ -311,4 +312,3 @@ function add_trtobsrows(mm5)
   sort!(M, [:trt_t, :trt_fips]);
   return M
 end
-

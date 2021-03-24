@@ -141,18 +141,6 @@ function attboot_inner!(
     units = sample(clusters, length(clusters), replace = true); # 29 μs
 
     make_check_sample!(units, clusters, trtidunique, 0); # 540.9
-      # kinda slow
-
-    #=
-      this gives the length of the resampled indices
-      product of the number of times the unit appears in the data and 
-      number of repeats in the bootstrapped sample
-      think about it this way
-      we are really trying to resample the data,
-      and resample units in the data
-      those then get assigned as matches with dwit values
-      if a unit is resampled > 1x, then it should be reassigned that many times
-    =#
 
     tn, inx = treatednum(
       uidsm, utsm,
@@ -226,24 +214,6 @@ function treatednum(
   end
   
   return tn, inx
-end
-
-
-function countmemb(itr)
-  d = Dict{eltype(itr), Int}()
-  for val in itr
-      d[val] = get(d, val, 0) + 1
-  end
-  return d
-end
-
-function countmemb(itr, len::Int64)
-  d = Dict{eltype(itr), Int64}()
-  sizehint!(d, len)
-  for val in itr
-      d[val] = get(d, val, 0) + 1
-  end
-  return d
 end
 
 function getresamplelen(unitreps, ulens)
