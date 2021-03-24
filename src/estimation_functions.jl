@@ -110,13 +110,27 @@ function standard_estimation(
 
   println("boots have been strapped")
 
-  ests = att(omsm, wmsm, sum(trtbool));
+  tn = att_trtnums(blmat, trtbool, omiss);
+
+  ests = att(omsm, wmsm, tn);
     
   bootests = bootests'
 
   results = outputprocess(bootests, ests, Fset);
 
   return results
+end
+
+# for use outside the bootstrap
+function att_trtnums(blmat, trtbool, omiss)
+  if omiss == false
+    tn = sum(trtbool)
+  else
+    tcnt = sum(@views(trtbool));
+    tn = tcnt .- sum(@views(blmat), dims = 1)
+    tn = reshape(tn, length(tn))
+  end
+  return tn
 end
 
 # input pre-constructed integer vect for the group splits
