@@ -217,7 +217,7 @@ this is the new, faster function to make the outcome and dwit mats
 we cannot simply add the wits to the dataframe, since we are keeping them
 disaggregated
 """
-function makemats!(om, wm, uid, utid, ut, mcnts, nd, tpoint)
+function makemats!(om, wm, uid, utid, ut, mcnts, nd, tpoint, fmin, fmax)
   for (j, φ) in enumerate(vcat(tpoint , collect(fmin:fmax))) # over f
     @inbounds Threads.@threads for i = eachindex(uid) # over matches
       mu = @views(uid[i])

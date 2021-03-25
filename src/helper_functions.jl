@@ -237,3 +237,12 @@ function countmemb(itr, len::Int64)
   end
   return d
 end
+
+"""
+helper to sum the bootstrap distributions over some f range
+"""
+function estsum(bs)
+  Z = sum(bs, dims = 2);
+  Z = reshape(Z, size(Z)[1])
+  return mean(Z), quantile(Z, [0.025, 0.5, 0.975])
+end

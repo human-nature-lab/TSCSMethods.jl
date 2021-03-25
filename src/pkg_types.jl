@@ -35,7 +35,7 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
   boot_iterations::Int64 = 500
   results::DataFrame = DataFrame() # post refinement results
   results_pre::DataFrame = DataFrame();
-  boot_estimates::Array{Float64} = Array{Float64}(undef)
+  boot_estimates::Union{Array{Float64}, Dict{Int64,Array{Float64,2}}} = Array{Float64}(undef)
     # need to alter estimation output to make this happen
   # plot slots
   # covariate balance pre and post refinement
@@ -55,7 +55,7 @@ end
 
 function matching!(model::cicmodel, variancesonly::Bool;
   refine = true
-  )
+)
   
   model.matches = matching(
     model.data[], model.matchingcovar,
@@ -76,7 +76,8 @@ for separate refinement on a given match set
 this avoids time-consuming recalculation of the possible match set
 """
 function refine!(model::cicmodel)
-  model.matches5 = refine(model.matches, model.refinementnum);
+  model.matches5 = refine(model.matches, model.refinementnum
+);
 
   actualcal = copy(model.caliper)
 
@@ -145,8 +146,10 @@ end
 
 function estimate!(
   model::cicmodel;
-  post::Bool = true
-  )
+  post::Bool = true,
+  ATT::Bool = true,
+  outboot::Bool = false
+)
 
   if post == true
     wmatches = :matches5
@@ -166,7 +169,9 @@ function estimate!(
       model.fmin:model.fmax, # nothing fancier will work yet
       model.tpoint,
       model.data[],
-      model.id, model.t, model.outcome
+      model.id, model.t, model.outcome,
+      ATT,
+      outboot
     );
   elseif !c1
     res = restricted_estimation(
@@ -176,10 +181,18 @@ function estimate!(
       model.tpoint,
       model.data[],
       model.stratvar,
-      id, t, outcome
+      id, t, outcome,
+      ATT,
+      outboot
     );
   end
-  setfield!(model, when, res)
+  
+  if outboot == false
+    setfield!(model, when, res)
+  elseif outboot == true
+    setfield!(model, when, res[1])
+    setfield!(model, :boot_estimates, res[2])
+  end
   return model
 end
 
@@ -189,7 +202,7 @@ end
 function caliper!(
   model::cicmodel;
   fullmodel::Union{cicmodel, Nothing} = nothing
-  )
+)
 
   if !isnothing(fullmodel) == true;
     model.matches = deepcopy(fullmodel.matches)

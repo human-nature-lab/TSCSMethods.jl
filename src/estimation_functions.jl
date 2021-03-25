@@ -37,12 +37,17 @@ function outcomedict(did, dt, dout)
 end
 
 function handlemats(
-  uid, utrtid, ut, mcnts, nd, tpoint, tl;
+  uid, utrtid, ut, mcnts, nd, tpoint, tl,
+  fmin, fmax;
   summarize = true
 )
   outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
   dwitmat = similar(outcomemat);
-  makemats!(outcomemat, dwitmat, uid, utrtid, ut, mcnts, nd, tpoint);
+  makemats!(
+    outcomemat, dwitmat, uid, utrtid, ut,
+    mcnts, nd, tpoint,
+    fmin, fmax
+  );
 
   # type handling for att() (in bootstrap_estimation.jl)
   omiss = false;
@@ -76,7 +81,9 @@ function standard_estimation(
   iternum::Int64, matches5::DataFrame,
   Fset, tpoint,
   dat::DataFrame,
-  id::Symbol, t::Symbol, outcome::Symbol
+  id::Symbol, t::Symbol, outcome::Symbol,
+  ATT::Bool,
+  outboot::Bool
 )
   # order makes a HUGE time difference
   sort!(matches5, [:ttime, :tunit, :possible, :munit]);
@@ -95,7 +102,8 @@ function standard_estimation(
   tl = length(Fset) + 1;
 
   omsm, wmsm, uidsm, utsm, trtbool, blmat, omiss = handlemats(
-    uid, utrtid, ut, mcnts, nd, tpoint, tl
+    uid, utrtid, ut, mcnts, nd, tpoint, tl,
+    minimum(Fset), maximum(Fset)
   )
   
   println("mats have been made")
@@ -106,20 +114,29 @@ function standard_estimation(
     did,
     omsm, wmsm,
     uidsm, utsm, trtbool, blmat,
-    omiss
+    omiss,
+    ATT
   );
 
   println("boots have been strapped")
 
-  tn = att_trtnums(blmat, trtbool, omiss);
+  if ATT == true
+    tn = att_trtnums(blmat, trtbool, omiss);
+  else
+    tn = 1
+  end
 
   ests = att(omsm, wmsm, tn);
     
-  bootests = bootests'
+  bootests = permutedims(bootests)
 
   results = outputprocess(bootests, ests, Fset);
 
-  return results
+  if outboot == true
+    return results, bootests
+  elseif outboot == false
+    return results
+  end
 end
 
 # for use outside the bootstrap
@@ -138,7 +155,9 @@ end
 function restricted_estimation(
   iternum, m, Fset, tpoint,
   dat, stratvar::Symbol,
-  id, t, outcome)
+  id, t, outcome,
+  ATT::Bool,
+  outboot::Bool)
 
   stratname = Symbol(String(stratvar) * "_stratum");
 
@@ -172,7 +191,8 @@ function restricted_estimation(
   tl = length(Fset) + 1;
   
   om, wm, bl, omiss = handlemats(
-    uid, utrtid, ut, mcnts, nd, tpoint, tl;
+    uid, utrtid, ut, mcnts, nd, tpoint, tl,
+    minimum(Fset), maximum(Fset);
     summarize = false
   )
 
@@ -183,15 +203,26 @@ function restricted_estimation(
     [:stratum, :f, :att, :lwer, :med, :uper]
   )
 
+  Sbootests = Dict{Int64, Matrix{Float64}}();
+
   restricted_estimation_inner!(
     Results, om, wm,
     utrtid, uid, ut,
     bl, mcnts,
     Fset, did, iternum,
     S, us,
+    omiss,
+    ATT,
+    outboot,
+    Sbootests
   )
   
-  return Results
+  if outboot == false
+    return Results
+  elseif outboot == true
+    return Results, Sbootests
+  end
+
 end
 
 function restricted_estimation_inner!(
@@ -199,7 +230,11 @@ function restricted_estimation_inner!(
   utrtid, uid, ut,
   bl, mcnts,
   Fset, did, iternum,
-  S, us
+  S, us,
+  omiss,
+  ATT,
+  outboot,
+  Sbootests,
 )
 
   @inbounds Threads.@threads for i = eachindex(S)
@@ -243,15 +278,20 @@ function restricted_estimation_inner!(
       omsm,
       wmsm,
       uidsm, utsm, trtbool_s, blmat,
-      omiss
-      );
+      omiss,
+      ATT
+    );
 
     println("boots have been strapped")
 
     tn_s = sum(utrtid_s .== uid_s);
     ests_s = att(omsm, wmsm, tn_s);
       
-    bootests_s = bootests_s'
+    bootests_s = permutedims(bootests_s)
+
+    if outboot == true
+      Sbootests[s] = bootests_s;
+    end
 
     results = outputprocess(bootests_s, ests_s, Fset);
 
@@ -259,7 +299,13 @@ function restricted_estimation_inner!(
 
     append!(Results, results)
   end
-  return Results
+  
+  if outboot == true
+    return Results, Sbootests
+  elseif outboot == false
+    return Results
+  end
+
 end
 
 """

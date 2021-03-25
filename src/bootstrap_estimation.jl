@@ -89,8 +89,9 @@ function attboot(
   did,
   omsm, wmsm,
   uidsm, utsm, trtbool, blmat,
-  omiss
-  )
+  omiss,
+  ATT
+)
 
   clusters = unique(did); # clusters comes from the full dataset
   trtidunique = unique(utrtid);
@@ -112,7 +113,8 @@ function attboot(
     trtidunique, munique,
     uidsmrep, uidsmtoind,
     iternum,
-    omiss
+    omiss,
+    ATT
   )
 
   return bootests
@@ -133,8 +135,9 @@ function attboot_inner!(
   trtidunique, munique,
   uidsmrep, uidsmtoind,
   iternum,
-  omiss
-  )
+  omiss,
+  ATT
+)
 
   @inbounds Threads.@threads for k = eachindex(1:iternum)
   # for k = eachindex(1:iternum)
@@ -149,7 +152,9 @@ function attboot_inner!(
       munique,
       uidsmtoind,
       blmat, trtbool,
-      omiss);
+      omiss,
+      ATT
+    );
 
     bootests[:, k] = att(
       @views(omsm[inx, :]),
@@ -195,7 +200,8 @@ function treatednum(
   uid, ut,
   units, clusters, uidsmrep, munique, uidsmtoind,
   blmat, trtbool,
-  omiss::Bool
+  omiss::Bool,
+  ATT::Bool
 )
 
   unitreps = countmemb(units, length(clusters));
@@ -205,12 +211,16 @@ function treatednum(
 
   uinx = @views(uid[inx]); utinx = @views(ut[inx]);
   
-  if omiss == false
-    tn = sum(@views(trtbool[inx]))
-  elseif omiss == true
-    tcnt = sum(@views(trtbool[inx]));
-    tn = tcnt .- sum(@views(blmat[inx, :]), dims = 1)
-    tn = reshape(tn, length(tn))
+  if ATT == true
+    if omiss == false
+      tn = sum(@views(trtbool[inx]))
+    elseif omiss == true
+      tcnt = sum(@views(trtbool[inx]));
+      tn = tcnt .- sum(@views(blmat[inx, :]), dims = 1)
+      tn = reshape(tn, length(tn))
+    end
+  else
+    tn = 1
   end
   
   return tn, inx
