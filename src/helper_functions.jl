@@ -238,6 +238,67 @@ function countmemb(itr, len::Int64)
   return d
 end
 
+function namemodel(model::cicmodel)
+  ttl = string(model.title)
+  outc = string(model.outcome)
+  cal = length(model.caliper) > 0 ? "cal" : ""
+  strt = string(model.stratvar)
+
+  return ttl * "_" * outc * "_" * strt * "_" * cal
+end
+
+"""
+    assignquantile(stratvar, id, fulldat)
+
+takes a dataset with the relevant variables and outputs a df
+of quantile assignments for the chosen variable, unit-by-unit
+
+this is used to create a variable with strata for restricted averaging in
+att estimation
+
+- treated_only: (default = true) calculates the quantiles only over the unique set of treated observations (t x unit id).
+"""
+function assignquantile(
+  stratvar::Symbol,
+  id::Symbol,
+  t::Symbol,
+  tmin::Int64,
+  treatment::Symbol,
+  fulldat::DataFrame;
+  treatedonly = true
+)
+
+  if treatedonly == false
+    ref = unique(
+      fulldat[!, [id, stratvar]]);
+    sq = quantile(ref[!, stratvar]);
+  else
+    c1 = fulldat[!, treatment] .== 1;
+    c2 = fulldat[!, t] .> -tmin;
+    ref = unique(
+      @views(fulldat[c1 .& c2, [id, t, stratvar]]));
+    sq = quantile(ref[!, stratvar]);
+  end
+
+  stratname = Symbol(String(stratvar) * "_stratum");
+  ref[!, stratname] = zeros(Int64, nrow(ref));
+
+  for i = eachindex(ref[!, stratname])
+    sv = @view(ref[!, stratvar][i])[1]
+    if sv >= sq[4]
+      ref[!, stratname][i] = 4
+    elseif (sv >= sq[3]) & (sv < sq[4])
+      ref[!, stratname][i] = 3
+    elseif (sv >= sq[2]) & (sv < sq[3])
+      ref[!, stratname][i] = 2
+    elseif sv < sq[2]
+      ref[!, stratname][i] = 1
+    end
+  end
+  return select(ref, [id, stratname]);
+end
+
+
 """
 helper to sum the bootstrap distributions over some f range
 """
@@ -246,3 +307,145 @@ function estsum(bs)
   Z = reshape(Z, size(Z)[1])
   return mean(Z), quantile(Z, [0.025, 0.5, 0.975])
 end
+
+"""
+gives separate sum for each week, respecting days of week, for f window
+note that, depending on f window, weeks may have different numbers of days
+"""
+function weeklyattci(bs, atts, startday::Int64, fmin, fmax)
+  # create vector denoting week assignments over cols of bs
+  dow = fld.(collect(startday .+ (fmin:fmax)), 7) # from week of primary (0) on
+  udow = unique(dow)
+
+  bss = Matrix{Float64}(undef, size(bs)[1], length(udow));
+  attsums = Vector{Float64}(undef, length(udow));
+
+  for (i, e) in enumerate(udow)
+    lx = findall(dow .== e)
+    bss[:, i] = sum(@views(bs[:, lx]), dims = 2)
+    attsums[i] = sum(@views(atts[lx]))
+  end
+
+  return bss, attsums, udow
+end
+
+function processattsum(bss, attsums, udow)
+  qtm = Matrix{Float64}(undef, length(attsums), 3)
+  for i = eachindex(attsums)
+    qtm[i, :] = quantile(bss[:, i], [0.025, 0.5, 0.975])
+  end
+
+  sumres = DataFrame(
+    week = udow,
+    attsum = attsums,
+    lwer = qtm[:, 1],
+    med = qtm[:, 2],
+    uper = qtm[:, 3]
+  )
+  return sumres
+end
+
+function plot_att_sum(sumres; savename = "")
+  wmin = minimum(sumres.week)
+
+  att_plt = plot(
+    sort(sumres, [:week]),
+      xintercept = [0],
+      y = :week,
+      x = :attsum,
+      xmin = :lwer, xmax = :uper,
+      Geom.point,
+      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
+      Geom.errorbar,
+      Guide.title("ATT (weekly sum)"),
+      Guide.ylabel("weeks after the primary"),
+      Guide.xlabel("estimate"),
+      Coord.Cartesian(ymin = wmin)
+  )
+
+  if length(savename) > 0
+    draw(PNG(savename, 9inch, 5inch), att_plt)
+  end
+  return att_plt
+end
+
+function weeklyatt(bs::Matrix{Float64}, res, startday)
+  
+  res = sort(res, [:f])
+
+  bss, attsums, udow = weeklyattci(
+    bs,
+    res.att,
+    startday,
+    minimum(res.f),
+    maximum(res.f)
+  )
+  sumres = processattsum(bss, attsums, udow)
+  return sumres
+end
+
+function weeklyatt(
+  bs::Dict{Int64, Matrix{Float64}},
+  res,
+  startday # day of the week as Int
+)
+  res = sort(res, [:stratum, :f])
+
+  SumRes = DataFrame(
+    [Int64, Int64, Float64, Float64, Float64, Float64],
+    [:stratum, :week, :attsum, :lwer, :med, :uper],
+    0
+  )
+
+  for (k, v) in bs
+    resk = @views(res[res.stratum .== k, :])
+    bss, attsums, udow = weeklyattci(
+      v,
+      resk[!, :att],
+      startday,
+      minimum(resk.f),
+      maximum(resk.f)
+    )
+    sumres = processattsum(bss, attsums, udow)
+    sumres.stratum = k
+    append!(SumRes, sumres)
+  end
+  return SumRes
+end
+
+function plot_att_sum(sumres, stratvar::Symbol; savename = "")
+  wmin = minimum(sumres.week)
+
+  att_plt = plot(
+      sort(sumres, [:stratum, :week]),
+      xintercept = [0],
+      y = :week,
+      x = :attsum,
+      xmin = :lwer, xmax = :uper,
+      xgroup = :stratum,
+      Guide.title("ATT (weekly sum)"),
+      Guide.ylabel("weeks after the primary"),
+      Guide.xlabel("estimate"),
+      Geom.subplot_grid(
+        Geom.point,
+        Geom.vline(style = :dot, color = "black", size = [0.2mm]),
+        Geom.errorbar,
+        Coord.Cartesian(ymin = wmin)
+      )
+  )
+
+  if length(savename) > 0
+    draw(PNG(savename, 9inch, 5inch), att_plt)
+  end
+  return att_plt
+end
+
+# SumRes = weeklyatt(
+#   bs, res, Dates.Tuesday
+# )
+
+# plot_att_sum(
+#   SumRes,
+#   :running;
+#   savename = pltl * namemodel(v_cc_cal) * "_att_wk" * ".png"
+# )

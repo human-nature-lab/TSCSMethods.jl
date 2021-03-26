@@ -25,8 +25,13 @@ function plot_balance(meanbalances, when::String; savename = "")
 end
 
 function plot_balance(
-  meanbalances, stratvar::Symbol, when::String;
-  savename = "", xinch = 15inch, yinch = 8inch)
+  meanbalances,
+  stratvar::Symbol,
+  when::String;
+  savename = "",
+  xinch = 15inch,
+  yinch = 8inch
+)
 
   sv = String(stratvar) * "_stratum";
 
@@ -141,14 +146,17 @@ function plot_att(atts; savename = "")
 
   att_plt = plot(
       atts,
-      x = :f, y = :att,
-      ymin = :lwer, ymax = :uper,
+      xintercept = [0],
+      y = :f,
+      x = :att,
+      xmin = :lwer, xmax = :uper,
       Geom.point,
+      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
       Geom.errorbar,
-      Guide.title("avg. effect of treatment on the treated"),
-      Guide.xlabel("f"),
-      Guide.ylabel("estimate"),
-      Coord.Cartesian(xmin=fmin)
+      Guide.title("ATT"),
+      Guide.ylabel("f"),
+      Guide.xlabel("estimate"),
+      Coord.Cartesian(ymin = fmin)
   )
 
   if length(savename) > 0
@@ -158,9 +166,13 @@ function plot_att(atts; savename = "")
 end
 
 function plot_att(
-  atts, stratvar::Symbol;
-  savename = "", xinch = 15inch, yinch = 6inch,
-  treatment = :treatment)
+  atts,
+  stratvar::Symbol;
+  savename = "",
+  xinch = 15inch,
+  yinch = 6inch,
+  treatment = :treatment
+)
 
   # sv = String(stratvar) * "_stratum";
 
@@ -171,6 +183,7 @@ function plot_att(
 
   plt = plot(
     sort(atts, [:stratum, :f]),
+    xintercept = [0],
     y = :f,
     x = :att,
     xmin = :lwer, xmax = :uper,
@@ -179,11 +192,13 @@ function plot_att(
     Guide.ylabel("Days since " * String(treatment)),
     Guide.xlabel("estimate"),
     Geom.subplot_grid(
-      Geom.point, Geom.errorbar,
+      Geom.point,
+      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
+      Geom.errorbar,
       free_y_axis = true,
       # free_x_axis = true,
       Guide.yticks(ticks = fmin : 1 : fmax)
-      )
+    )
   )
   if length(savename) > 0
     draw(PNG(savename, xinch, yinch), plt)
@@ -192,9 +207,14 @@ function plot_att(
 end
 
 function plot_att(
-  atts, stratvar::Symbol, stratdict::Dict;
-  savename = "", xinch = 15inch, yinch = 6inch,
-  treatment = :treatment)
+  atts,
+  stratvar::Symbol,
+  stratdict::Dict;
+  savename = "",
+  xinch = 15inch,
+  yinch = 6inch,
+  treatment = :treatment
+)
 
   ttl = "ATT" * " by " * String(replace(String(stratvar), "_" => " "))
 
@@ -206,6 +226,7 @@ function plot_att(
 
   plt = plot(
     sort(atts, [:stratum, :f]),
+    xintercept=[0],
     y = :f,
     x = :att,
     xmin = :lwer, xmax = :uper,
@@ -214,11 +235,13 @@ function plot_att(
     Guide.ylabel("Days since " * String(treatment)),
     Guide.xlabel("estimate"),
     Geom.subplot_grid(
-      Geom.point, Geom.errorbar,
+      Geom.point,
+      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
+      Geom.errorbar,
       free_y_axis = true,
       # free_x_axis = true,
       Guide.yticks(ticks = fmin : 1 : fmax)
-      )
+    )
   )
   if length(savename) > 0
     draw(PNG(savename, xinch, yinch), plt)

@@ -308,39 +308,6 @@ function restricted_estimation_inner!(
 
 end
 
-"""
-    assignquantile(stratvar, id, fulldat)
-
-takes a dataset with the relevant variables and outputs a df
-of quantile assignments for the chosen variable, unit-by-unit
-
-this is used to create a variable with strata for restricted averaging in
-att estimation
-"""
-function assignquantile(
-  stratvar::Symbol, id::Symbol, fulldat::DataFrame)
-  ref = unique(
-    fulldat[!, [id, stratvar]]);
-  sq = quantile(ref[!, stratvar]);
-
-  stratname = Symbol(String(stratvar) * "_stratum");
-  ref[!, stratname] = zeros(Int64, nrow(ref));
-
-  for i = eachindex(ref[!, stratname])
-    sv = @view(ref[!, stratvar][i])[1]
-    if sv >= sq[4]
-      ref[!, stratname][i] = 4
-    elseif (sv >= sq[3]) & (sv < sq[4])
-      ref[!, stratname][i] = 3
-    elseif (sv >= sq[2]) & (sv < sq[3])
-      ref[!, stratname][i] = 2
-    elseif (sv >= sq[1]) & (sv < sq[2])
-      ref[!, stratname][i] = 1
-    end
-  end
-  return select(ref, [id, stratname]);
-end
-
 #= old stuff
 =#
 
