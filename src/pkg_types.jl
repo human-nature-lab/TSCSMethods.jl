@@ -292,12 +292,23 @@ function handle_attsum(model, startday, pltl)
   lsv = (model.stratvar == Symbol(""))
   sn = pltl * namemodel(model) * "_att_wk" * ".png"
   if lsv
-    pl = plot_att_sum(
-      sumres;
-      savename = sn
-    )
+    pl = plot_att_sum(sumres; savename = sn)
   elseif !lsv
     pl = plot_att_sum(sumres, model.stratvar::Symbol; savename = sn)
+  end
+  return sumres, pl
+end
+
+function handle_attsum(model, startday, pltl, stratdict)
+  sumres = weeklyatt(
+    model.boot_estimates, model.results, startday
+  )
+
+  lsv = (model.stratvar == Symbol(""))
+  sn = pltl * namemodel(model) * "_att_wk" * ".png"
+
+  if !lsv
+    pl = plot_att_sum(sumres, model.stratvar::Symbol, stratdict; savename = sn)
   end
   return sumres, pl
 end
@@ -332,6 +343,32 @@ function handle_att!(model, pltl; post = true)
   return model
 end
 
+function handle_att!(model, pltl, stratdict; post = true)
+  lsv = model.stratvar == Symbol("")
+  p = (post == true)
+
+  if !p & !lsv
+    model.pl_att_pre = plot_att(
+      model.results_pre,
+      model.stratvar,
+      stratdict;
+      savename = pltl * namemodel(model) * "_att_pre" * ".png",
+      xinch = 15inch, yinch = 6inch,
+      treatment = model.treatment
+    )
+  elseif p & !lsv
+    model.pl_att_post = plot_att(
+      model.results,
+      model.stratvar,
+      stratdict;
+      savename = pltl * namemodel(model) * "_att_post" * ".png",
+      xinch = 15inch, yinch = 6inch,
+      treatment = model.treatment
+    )
+  end
+  return model
+end
+
 function handle_balance!(model, pltl; post = true)
 
   lsv = model.stratvar == Symbol("")
@@ -350,6 +387,7 @@ function handle_balance!(model, pltl; post = true)
       savename = pltl * namemodel(model) * "_cb_pre" * ".png",
       xinch = 15inch, yinch = 6inch
     )
+    
   elseif p & lsv
     model.pl_cb_post = plot_balance(
       model.meanbalances_post,
@@ -360,6 +398,31 @@ function handle_balance!(model, pltl; post = true)
     model.pl_cb_post = plot_balance(
       model.meanbalances_post,
       model.stratvar, "Post";
+      savename = pltl * namemodel(model) * "_cb_post" * ".png",
+      xinch = 15inch, yinch = 6inch
+    )
+  end
+  return model
+end
+
+function handle_balance!(model, pltl, stratdict; post = true)
+
+  lsv = model.stratvar == Symbol("")
+  p = (post == true)
+
+  if !p & !lsv
+    model.pl_cb_pre = plot_balance(
+      model.meanbalances_pre,
+      model.stratvar, "Pre",
+      stratdict;
+      savename = pltl * namemodel(model) * "_cb_pre" * ".png",
+      xinch = 15inch, yinch = 6inch
+    )
+  elseif p & !lsv
+    model.pl_cb_post = plot_balance(
+      model.meanbalances_post,
+      model.stratvar, "Post",
+      stratdict;
       savename = pltl * namemodel(model) * "_cb_post" * ".png",
       xinch = 15inch, yinch = 6inch
     )

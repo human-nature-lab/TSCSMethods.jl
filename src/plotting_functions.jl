@@ -59,8 +59,14 @@ end
 stratdict::Dict points from stratvar to desired label
 """
 function plot_balance(
-  meanbalances, stratvar::Symbol, when::String, stratdict::Dict;
-  savename = "", xinch = 15inch, yinch = 8inch)
+  meanbalances,
+  stratvar::Symbol,
+  when::String,
+  stratdict::Dict;
+  savename = "",
+  xinch = 15inch,
+  yinch = 8inch
+)
 
   sv = String(stratvar) * "_stratum";
 
@@ -87,8 +93,14 @@ function plot_balance(
 end
 
 function plot_balance(
-  meanbalances, stratvar::Symbol, when::String, ygv::Symbol;
-  savename = "", xinch = 15inch, yinch = 8inch)
+  meanbalances,
+  stratvar::Symbol,
+  when::String,
+  ygv::Symbol;
+  savename = "",
+  xinch = 15inch,
+  yinch = 8inch
+)
 
   sv = String(stratvar) * "_stratum";
 
@@ -113,7 +125,12 @@ function plot_balance(
 end
 
 
-function plot_balance(meanbal_pre, meanbal_post; savename = "")
+function plot_balance(
+  meanbal_pre,
+  meanbal_post;
+  savename = ""
+)
+
   meanbal_pre.pre = repeat(["pre-refinement"], nrow(meanbal_pre))
   meanbal_post.pre = repeat(["post-refinement"], nrow(meanbal_post))
   
