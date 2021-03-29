@@ -1,5 +1,10 @@
 using CSV, DataFrames, DataFramesMeta
 
+"""
+  getvarind()
+
+get the indices of a unit over time time periode
+"""
 function getvarind(
     dat::DataFrame, unit, id, t, K)
   

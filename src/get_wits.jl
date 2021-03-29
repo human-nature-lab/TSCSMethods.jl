@@ -290,6 +290,8 @@ function missingmats(
           c4 = (!).(ismissing.(om[:, j]))
           chk2 = @views(om[c1 .& c2 .& c3 .& c4, j])
           wm[c1 .& c2 .& c3 .& c4, j] .= -1.0 / length(chk2) # matches so negative
+          om[i, j] = 0
+          wm[i, j] = 0
         end
       end
     end
