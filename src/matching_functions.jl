@@ -1,4 +1,4 @@
-using StatsBase, Statistics
+using StatsBase, Statistics, DataFrames, DataFramesMeta
 
 import LinearAlgebra
 import IterTools.product
@@ -43,7 +43,7 @@ function matching(
   
   unid = unique(did);
 
-  mlen = 20;
+  mlen = 20; # this needs to be generalized to something like length(tmax - tmin + 1) where tmin is next to the treatment point, or just use tpoint
 
   pp = collect(product(ky, unid)); # collect since required by @threads
   ppl = length(pp);
