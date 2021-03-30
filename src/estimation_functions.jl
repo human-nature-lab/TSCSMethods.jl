@@ -41,6 +41,7 @@ function handlemats(
   fmin, fmax;
   summarize = true
 )
+
   outcomemat = Matrix{Union{Float64, Missing}}(missing, length(uid), tl);
   dwitmat = similar(outcomemat);
   makemats!(
