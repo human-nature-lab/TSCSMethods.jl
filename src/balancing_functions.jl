@@ -1,4 +1,4 @@
-function sdtreated(dt, did, cmat, tmin, mlen, dtr, tpoint)
+function sdtreated(dt, did, cmat, mmin, mmax, mlen, dtr)
   #= need to collect all match period indices, across all treated obs
   only for the treated units
   should this only draw from matches?
@@ -21,12 +21,12 @@ function sdtreated(dt, did, cmat, tmin, mlen, dtr, tpoint)
 
   indstore = Vector{Union{Missing, Int64}}(missing, mlen * length(tobst));
   matchtimes = similar(indstore);
+  
   iloc = 1
-
   for i = eachindex(tobst)
     ttime = @views(tobst[i])
     unit = @views(tobsid[i])
-    K = (tmin + (tpoint + ttime) + 1) : (tpoint + ttime)
+    K = (mmin + ttime) : (mmax + ttime)
     iind = getvarind(did, dt, unit, K);
     
     ulim = (iloc + length(iind) - 1);
@@ -56,10 +56,11 @@ function sdtreated(dt, did, cmat, tmin, mlen, dtr, tpoint)
 end
 
 # this version calculates and stores the distance for each unit
-function getbalance(m, covariates, dat, tmin, tpoint, id, t, treatment)
+function getbalance(m, covariates, dat, mmin, mmax, id, t, treatment)
   # this probably excludes units without matches (even using mm)
 
-  mlen = tpoint - tmin + 1;
+  mlen = length(mmin:mmax;)
+
   clen = length(covariates);
 
   cmat = convert(Matrix{Float64}, dat[!, covariates]);
@@ -72,7 +73,7 @@ function getbalance(m, covariates, dat, tmin, tpoint, id, t, treatment)
 
   # -20:-1
   sdcovariates = sdtreated(
-    dt, did, cmat, tmin, mlen, dat[!, treatment], tpoint
+    dt, did, cmat, mmin, mmax, mlen, dat[!, treatment]
   );
 
   trtind = findall(uid .== utrtid);
@@ -94,8 +95,8 @@ function getbalance(m, covariates, dat, tmin, tpoint, id, t, treatment)
   balance!(
     balval, matchtimes, treatedunits, treatedtimes,
     did, dt, cmat,
-    trtind, utrtid, uid, ut, tmin,
-    mlen, tpoint,
+    trtind, utrtid, uid, ut,
+    mmin, mmax, mlen,
     sdcovariates);
     
   balances.score = reshape(balval, length(trtind) * mlen * clen);
@@ -111,13 +112,14 @@ end
 function balance!(
   balval, matchtimes, treatedunits, treatedtimes,
   did::Vector{Int64}, dt::Vector{Int64}, cmat::Matrix{Float64},
-  trtind, utrtid, uid, ut, tmin,
-  mlen, tpoint,
+  trtind, utrtid, uid, ut,
+  mmin, mmax, mlen,
   sdcovariates)
 
   # pre-refinement is very slow without parallel
   # for i = eachindex(trtind)
   @inbounds Threads.@threads for i = eachindex(trtind)
+
     e = trtind[i]
     tunit = utrtid[e]
     tt = ut[e]
@@ -129,7 +131,7 @@ function balance!(
     # oc = Vector{Union{Float64, Missing}}(missing, 20);
     oc = zeros(Float64, mlen, size(cmat)[2]);
     
-    K = (tmin : tpoint) .+ tt;
+    K = (mmin + tt):(mmax + tt);
     for (ii, u) in enumerate(units)
 
       iix = getvarind(
@@ -148,7 +150,7 @@ function balance!(
     lidx = (i - 1) * mlen + 1
     uidx = mlen * i
     balval[lidx:uidx, :] = oc ./ sdcovariates # balance at each time point for treated unit
-    matchtimes[lidx:uidx] = tmin:tpoint # possible issue
+    matchtimes[lidx:uidx] = mmin:mmax
     treatedunits[lidx:uidx] .= tunit
     treatedtimes[lidx:uidx] .= tt
   end
@@ -170,8 +172,10 @@ not the stratum subset
 function getbalance_restricted(
   matches_pd,
   stratvar::Symbol,
-  covariates, dat, tmin, tpoint, id, t, treatment
-  )
+  covariates, dat,
+  mmin, mmax, mlen,
+  id, t, treatment
+)
 
   sv = Symbol(String(stratvar) * "_stratum");
   S = unique(matches_pd[!, sv]);
@@ -191,7 +195,10 @@ function getbalance_restricted(
     sub = @view(matches_pd[idx, :]);
     
     balances_post_s, meanbalances_post_s = getbalance(
-      sub, covariates, dat, tmin, tpoint, id, t, treatment);
+      sub, covariates, dat,
+      mmin, mmax, mlen,
+      id, t, treatment
+    );
 
     balances_post_s[!, sv] = ones(Int64, nrow(balances_post_s)) * s
     meanbalances_post_s[!, sv] = ones(Int64, nrow(meanbalances_post_s)) * s

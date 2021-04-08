@@ -248,57 +248,122 @@ output:
 function missingmats(
   om::Array{Union{Missing, Float64}, 2},
   wm::Array{Union{Missing, Float64}, 2},
-  uid, utid, ut
+  uid, utid, ut,
   )
 
-  idbl = Vector{Int64}()
-  tbl = Vector{Int64}()
-  fbl = Vector{Int64}()
-  for j in 2:size(om)[2]
-    @inbounds for i = eachindex(uid)
+  # check bl
+  tulx = findall((uid .== utrtid));
+  sum(ismissing.(outcomemat[tulx, :])) # this difference could be the problem
+
+  hcat(
+    sum(ismissing.(outcomemat[tulx, :]), dims = 2),
+    utrtid[tulx]
+  )
+  
+  # MM = DataFrame(ismissing.(outcomemat[tulx, :]));
+  # MM.tunit = utrtid[tulx];
+  # MM.tt = ut[tulx];
+
+  # MM = stack(MM, Not([:tunit, :tt]))
+  # MM = MM[MM.value .!= 0, :]
+  # MM.variable = string.(MM.variable);
+  # [MM.variable[i] = split(MM.variable[i], "x")[2] for i in eachindex(MM.variable)]
+  # MM.variable = parse.(Int64, MM.variable)
+  # bl.count = 1
+  # MC = leftjoin(MM, bl, on = [:tunit => :id, :tt => :t, :variable => :f])
+  # mc = @where(MC, ismissing.(:count))
+
+  # upper bound: number of missing entries
+  # possible missing num treated x f
+  poss = sum(uid .== utrtid) * size(om)[2]
+
+  # idbl = Vector{Int64}(undef, poss)
+  # tbl = Vector{Int64}(undef, poss)
+  # fbl = Vector{Int64}(undef, poss)
+
+  om = deepcopy(outcomemat);
+  wm = deepcopy(dwitmat);
+
+  idbl = zeros(Int64, poss, Threads.nthreads());
+  tbl = zeros(Int64, poss, Threads.nthreads());
+  fbl = zeros(Int64, poss, Threads.nthreads());
+
+  cnts = zeros(Int64, Threads.nthreads());
+
+  @time om, wm, idbl, tbl, fbl = innermissing(
+    uid, utid, ut,
+    om, wm, cnts
+  )
+  
+  idbl = reshape(idbl, poss * Threads.nthreads())
+  tbl = reshape(tbl, poss * Threads.nthreads())
+  fbl = reshape(fbl, poss * Threads.nthreads())
+
+  # these treated obs are missing at 
+  bl = unique(DataFrame(id = idbl, t = tbl, f = fbl))
+  bl = bl[bl.id .!= 0, :]
+  return om, wm, bl
+end
+
+function innermissing(
+  uid, utid, ut,
+  om, wm, cnt
+)
+  @inbounds Threads.@threads for j in 2:size(om)[2]
+    q = Threads.threadid()
+    for i = eachindex(uid)
+      # cannot use Threads.@threads with push!
+      # cannot use @inbounds -- need safe
 
       ui = uid[i]
       uti = utid[i]
       tt = ut[i]
 
       # if outcome is missing, make all other uti x ut values missing
-      if (ui == uti) & ismissing(om[i, j])
+      if (ui == uti) & ismissing(@views(om[i, j]))
         c1 = ut .== tt;
         c2 = utid .== uti;
-        wm[c1 .& c2, j] .= 0 # give all matches to missing treated outcome weight zero
-        om[c1 .& c2, j] .= 0
+        wm[c1 .& c2, j] .= 0.0 # give all matches to missing treated outcome weight zero
+        om[c1 .& c2, j] .= 0.0
 
         # add treated x t x f to blacklist
-        push!(idbl, uti)
-        push!(tbl, tt)
-        push!(fbl, j)
+        # append!(idbl, uti)
+        # append!(tbl, tt)
+        # append!(fbl, j)
+        cnt[q] += 1
+        idbl[cnt[q], q] = uti
+        tbl[cnt[q], q] = tt
+        fbl[cnt[q], q] = j
       elseif (ui != uti) & ismissing(om[i, j])
         c1 = ut .== tt
-        c2 = utid .== uti
+        c2 = utid .== uti # c2 and c3 problem?
         c3 = utid .!= uid
         chk = ismissing.(@views(om[c1 .& c2 .& c3, j]))
         if sum(chk) == length(chk) # if all matches are missing
-          wm[c1 .& c2, j] .= 0 # give all matches to missing treated outcome zero weight & outcome, also for treated unit itself
-          om[c1 .& c2, j] .= 0
+          wm[c1 .& c2, j] .= 0.0 # give all matches to missing treated outcome zero weight & outcome, also for treated unit itself
+          om[c1 .& c2, j] .= 0.0
+          # could the above just be [i, j]?
           
           # add treated x t x f to blacklist
-          push!(idbl, uti)
-          push!(tbl, tt)
-          push!(fbl, j)
+          # append!(idbl, uti)
+          # append!(tbl, tt)
+          # append!(fbl, j)
+          cnt[q] += 1
+          idbl[cnt[q], q] = uti
+          tbl[cnt[q], q] = tt
+          fbl[cnt[q], q] = j
         elseif sum(chk) < length(chk)
           # change weights of remaining
-          c4 = (!).(ismissing.(om[:, j]))
+          c4 = (!).(ismissing.(@views(om[:, j])))
           chk2 = @views(om[c1 .& c2 .& c3 .& c4, j])
           wm[c1 .& c2 .& c3 .& c4, j] .= -1.0 / length(chk2) # matches so negative
-          om[i, j] = 0
-          wm[i, j] = 0
+          om[i, j] = 0.0
+          wm[i, j] = 0.0
         end
       end
     end
-  end   
-  # these treated obs are missing at 
-  bl = unique(DataFrame(id = idbl, t = tbl, f = fbl))
-  return om, wm, bl
+  end
+  return om, wm, idbl, tbl, fbl
 end
 
 # slow because operating over rows...

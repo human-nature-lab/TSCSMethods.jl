@@ -19,7 +19,8 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
   fmax::Int64
   stratvar::Symbol = Symbol()
   tpoint::Int64
-  tmin::Int64 # gives length of matching period with tpoint
+  mmin::Int64 # minimum of matching pt. w.r.t. treatment
+  mmax::Int64 # maximum of matching pt. w.r.t. treatment
   refinementnum::Int64 = Int64(0)
   # store either dataframe or reference to dataframe, dep on use cases
   matches::ReforDataFrame = Base.RefValue{DataFrame}()
@@ -48,6 +49,7 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
   treatednum::Union{Int64, Dict{Int64, Int64}} = Int64(0)
   # number of treated left over after filtering or caliper
   treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64(0)
+  estimator::String = "ATT"
 end
 
 
@@ -61,8 +63,8 @@ function matching!(model::cicmodel, variancesonly::Bool;
     model.data[], model.matchingcovar,
     model.id, model.t,
     model.fmin, model.fmax,
+    model.mmin, model.mmax, # add to model
     model.treatment,
-    model.tpoint,
     model.matchingcovar, # use these for caliper distance calc
     variancesonly);
 
@@ -115,8 +117,8 @@ function getbalance!(model::cicmodel; post = true)
       getfield(model, wmatches),
       model.matchingcovar,
       model.data[],
-      model.tmin,
-      model.tpoint,
+      model.mmin,
+      model.mmax,
       model.id,
       model.t,
       model.treatment
@@ -129,8 +131,8 @@ function getbalance!(model::cicmodel; post = true)
       model.stratvar,
       model.matchingcovar,
       model.data[],
-      model.tmin,
-      model.tpoint,
+      model.mmin,
+      model.mmax,
       model.id,
       model.t,
       model.treatment
@@ -147,7 +149,6 @@ end
 function estimate!(
   model::cicmodel;
   post::Bool = true,
-  ATT::Bool = true,
   outboot::Bool = false
 )
 
@@ -166,23 +167,25 @@ function estimate!(
     res = standard_estimation(
       model.boot_iterations,
       getfield(model, wmatches),
-      model.fmin:model.fmax, # nothing fancier will work yet
+      model.fmin,
+      model.fmax,
       model.tpoint,
       model.data[],
       model.id, model.t, model.outcome,
-      ATT,
+      model.estimator == "ATT",
       outboot
     );
   elseif !c1
     res = restricted_estimation(
       model.boot_iterations,
       getfield(model, wmatches),
-      model.fmin:model.fmax,
+      model.fmin,
+      model.fmax,
       model.tpoint,
       model.data[],
       model.stratvar,
       id, t, outcome,
-      ATT,
+      model.estimator == "ATT",
       outboot
     );
   end

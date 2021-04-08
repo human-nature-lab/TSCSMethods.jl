@@ -6,7 +6,14 @@
 process the bootstrap and estimation output into a dataframe
 for easy access and plotting
 """
-function outputprocess(booteststr, ests, Fset; ptiles = [0.025, 0.5, 0.975])
+function outputprocess(
+  booteststr,
+  ests,
+  fmin,
+  fmax;
+  ptiles = [0.025, 0.5, 0.975]
+)
+
   lwr = zeros(Float64, length(ests));
   med = zeros(Float64, length(ests));
   upr = zeros(Float64, length(ests));
@@ -16,7 +23,7 @@ function outputprocess(booteststr, ests, Fset; ptiles = [0.025, 0.5, 0.975])
   end
 
   results = DataFrame(
-    f = Fset,
+    f = fmin:fmax,
     att = ests,
     lwer = lwr,
     med = med,
@@ -80,7 +87,8 @@ estimation without restricted averaging
 =#
 function standard_estimation(
   iternum::Int64, matches5::DataFrame,
-  Fset, tpoint,
+  fmin, fmax,
+  tpoint,
   dat::DataFrame,
   id::Symbol, t::Symbol, outcome::Symbol,
   ATT::Bool,
@@ -100,17 +108,18 @@ function standard_estimation(
   mcnts = matchcounts(matches5);
   nd = outcomedict(did, dt, doc);
   
-  tl = length(Fset) + 1;
+  tl = length(fmin:fmax) + 1;
 
   omsm, wmsm, uidsm, utsm, trtbool, blmat, omiss = handlemats(
     uid, utrtid, ut, mcnts, nd, tpoint, tl,
-    minimum(Fset), maximum(Fset)
+    fmin, fmax
   )
   
   println("mats have been made")
 
   bootests = attboot(
-    iternum, Fset,
+    iternum,
+    fmin, fmax,
     utrtid, uid,
     did,
     omsm, wmsm,
@@ -131,7 +140,7 @@ function standard_estimation(
     
   bootests = permutedims(bootests)
 
-  results = outputprocess(bootests, ests, Fset);
+  results = outputprocess(bootests, ests, fmin, fmax);
 
   if outboot == true
     return results, bootests
@@ -154,11 +163,13 @@ end
 
 # input pre-constructed integer vect for the group splits
 function restricted_estimation(
-  iternum, m, Fset, tpoint,
+  iternum, m,
+  fmin, fmax, tpoint,
   dat, stratvar::Symbol,
   id, t, outcome,
   ATT::Bool,
-  outboot::Bool)
+  outboot::Bool
+)
 
   stratname = Symbol(String(stratvar) * "_stratum");
 
@@ -173,27 +184,27 @@ function restricted_estimation(
     end
   end
 
-  mm = sort(m, [stratname, :ttime, :tunit, :munit]);
+  m = sort(m, [stratname, :ttime, :tunit, :munit]);
   
   did = dat[!, id];
   dt = dat[!, t];
   doc = dat[!, outcome];
 
-  utrtid = mm[!, :tunit];
-  uid = mm[!, :munit];
-  ut = mm[!, :ttime];
+  utrtid = m[!, :tunit];
+  uid = m[!, :munit];
+  ut = m[!, :ttime];
   
-  us = mm[!, stratname];
+  us = m[!, stratname];
   S = unique(us);
 
-  mcnts = matchcounts(mm);
+  mcnts = matchcounts(m);
   nd = outcomedict(did, dt, doc);
   
-  tl = length(Fset) + 1;
+  tl = length(fmin:fmax) + 1;
   
   om, wm, bl, omiss = handlemats(
     uid, utrtid, ut, mcnts, nd, tpoint, tl,
-    minimum(Fset), maximum(Fset);
+    fmin, fmax;
     summarize = false
   )
 
@@ -210,7 +221,8 @@ function restricted_estimation(
     Results, om, wm,
     utrtid, uid, ut,
     bl, mcnts,
-    Fset, did, iternum,
+    fmin, fmax,
+    did, iternum,
     S, us,
     omiss,
     ATT,
@@ -230,7 +242,8 @@ function restricted_estimation_inner!(
   Results, om, wm,
   utrtid, uid, ut,
   bl, mcnts,
-  Fset, did, iternum,
+  fmin, fmax,
+  did, iternum,
   S, us,
   omiss,
   ATT,
@@ -238,8 +251,10 @@ function restricted_estimation_inner!(
   Sbootests,
 )
 
-  @inbounds Threads.@threads for i = eachindex(S)
-  # for s in S
+  # @inbounds Threads.@threads for i = eachindex(S)
+  cnt = 0
+  for i = eachindex(S)
+    cnt += 1
     s = S[i];
 
     sind = findall(us .== s);
@@ -273,7 +288,8 @@ function restricted_estimation_inner!(
       uid_s, ut_s, om_s, wm_s, bl_s, keys(mcnts));
 
     bootests_s = attboot(
-      iternum, Fset,
+      iternum,
+      fmin, fmax,
       utrtid_s, uid_s,
       did,
       omsm,
@@ -289,12 +305,17 @@ function restricted_estimation_inner!(
     ests_s = att(omsm, wmsm, tn_s);
       
     bootests_s = permutedims(bootests_s)
+    
+    # this is not kosher
+    # nans are probably happening in some models b/c the included treated units are not sampled, so we divide by zero
+    # keepinx = findall(reshape(isnan.(sum(bootests_s, dims = 2)), size(bootests_s)[1]) .== 0);
+    # bootests_s = bootests_s[keepinx, :];
 
     if outboot == true
       Sbootests[s] = bootests_s;
     end
 
-    results = outputprocess(bootests_s, ests_s, Fset);
+    results = outputprocess(bootests_s, ests_s, fmin, fmax);
 
     results.stratum = s * ones(Int64, nrow(results));
 

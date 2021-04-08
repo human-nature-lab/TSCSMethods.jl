@@ -84,7 +84,8 @@ function make_check_sample!(units, clusters, treatedunits, x)
 end
 
 function attboot(
-  iternum, Fset,
+  iternum,
+  fmin, fmax,
   utrtid, uid,
   did,
   omsm, wmsm,
@@ -97,12 +98,15 @@ function attboot(
   trtidunique = unique(utrtid);
   munique = unique(uid);
 
-  bootests = zeros(length(Fset), iternum);
+  bootests = zeros(length(fmin:fmax), iternum);
 
   uidsmrep = countmemb(uidsm);
 
   uidsmtoind = Dict{Int64, Vector{Int64}}();
   makeuiddict!(uidsmtoind, uidsm);
+
+  # treated units left after missing handling, caliper
+  trtleft = intersect(utrtid, uidsm);
 
   # 1 iter: 2.1 sec, 44 MiB
   attboot_inner!(
@@ -114,6 +118,7 @@ function attboot(
     uidsmrep, uidsmtoind,
     iternum,
     omiss,
+    trtleft,
     ATT
   )
 
@@ -136,6 +141,7 @@ function attboot_inner!(
   uidsmrep, uidsmtoind,
   iternum,
   omiss,
+  trtleft,
   ATT
 )
 
@@ -143,7 +149,7 @@ function attboot_inner!(
   # for k = eachindex(1:iternum)
     units = sample(clusters, length(clusters), replace = true); # 29 μs
 
-    make_check_sample!(units, clusters, trtidunique, 0); # 540.9
+    make_check_sample!(units, clusters, trtleft, 0); # 540.9
 
     tn, inx = treatednum(
       uidsm, utsm,
@@ -155,6 +161,24 @@ function attboot_inner!(
       omiss,
       ATT
     );
+
+    while any(tn < 1)
+      # should work for missing and vector tn
+      # may cause endless loop if there are zero observations for some f in F?
+      # maybe use blmat to skip entirely if an f has no treated units
+      units = sample(clusters, length(clusters), replace = true); # 29 μs
+
+      tn, inx = treatednum(
+        uidsm, utsm,
+        units, clusters,
+        uidsmrep,
+        munique,
+        uidsmtoind,
+        blmat, trtbool,
+        omiss,
+        ATT
+      );
+    end
 
     bootests[:, k] = att(
       @views(omsm[inx, :]),

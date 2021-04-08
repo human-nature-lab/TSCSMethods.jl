@@ -493,3 +493,92 @@ end
 #   :running;
 #   savename = pltl * namemodel(v_cc_cal) * "_att_wk" * ".png"
 # )
+
+"""
+      datamake(covariates, varset, fmin, fmax, tmin,
+      id, tpoint, treatment
+      )
+
+use this function when the original data is mutated in some model run...
+"""
+function datamake(
+  covariates, varset,
+  fmin, fmax, tmin,
+  id, tpoint, treatment
+)
+
+  @load "../covid-19-data/data/cvd_dat.jld2"
+
+  dat = @where(dat, :running .>= 0);
+
+  dat = remove_incomplete(
+    dat, covariates, fmin, fmax, tmin, id, t, treatment, tpoint);
+
+  select!(dat, varset);
+  return dat
+end
+
+
+import CSV.read
+
+"""
+      datamakecc(covariates, varset, fmin, fmax, tmin,
+      id, tpoint, treatment
+      )
+
+use this function when the original data is mutated in some model run...
+"""
+function datamakecc(
+  covariates, varset,
+  fmin, fmax, mmin,
+  id, tpoint, treatment
+)
+
+  @load "../covid-19-data/data/cvd_dat.jld2"
+
+  dat = @where(dat, :running .>= 0);
+
+  select!(dat, varset)
+  
+  evac = read("data/hurricane_evacuation_orders.csv", DataFrame);
+  select!(evac, [:Hurricane, :Date, :Place, :fips, :Mandatory])
+
+  evac = @where(evac, :fips .!= "NA");
+
+  evac.fips = parse.(Int64, evac.fips);
+
+  evac = @where(evac, ismissing.(:Date) .== false);
+
+  # move date back
+  evac.Date = evac.Date .- Dates.Day(5)
+
+  evac.evac = ones(Int64, nrow(evac))
+
+  dat = leftjoin(dat, evac, on = [:date => :Date, :fips]);
+  dat.evac[ismissing.(dat.evac)] .= 0;
+
+  dat = remove_incomplete(
+    dat, covariates, fmin, fmax, mmin, id, t, treatment, tpoint);
+
+  codist = CSV.read("/Users/emf/Library/Mobile Documents/com~apple~CloudDocs/Yale/yale research/COVID19/covid-19-data/data/sf12010countydistance500miles.csv", DataFrame)
+  
+  exc = @where( # exclude county2
+    codist,
+    :mi_to_county .< 250,
+    :county1 .∈ Ref(evac.fips),
+    :county2 .∉ Ref(evac.fips)
+    );
+
+  destfips = [48453, 48029];
+
+  dat = @where(
+    dat,
+    :fips .∉ Ref(setdiff(exc.county2, destfips))
+  );
+
+  c1 = dat.fips .∈ Ref([48453, 48029]);
+  c2 = dat.date .== (Dates.Date("2020-08-25") - Dates.Day(5));
+  dat.evac[c1 .& c2, :] .= 1
+
+  return dat
+end
