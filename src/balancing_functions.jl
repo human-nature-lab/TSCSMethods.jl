@@ -26,8 +26,7 @@ function sdtreated(dt, did, cmat, mmin, mmax, mlen, dtr)
   for i = eachindex(tobst)
     ttime = @views(tobst[i])
     unit = @views(tobsid[i])
-    K = (mmin + ttime) : (mmax + ttime)
-    iind = getvarind(did, dt, unit, K);
+    iind = getvarind(did, dt, unit, (mmin + ttime), (mmax + ttime));
     
     ulim = (iloc + length(iind) - 1);
 
@@ -131,11 +130,10 @@ function balance!(
     # oc = Vector{Union{Float64, Missing}}(missing, 20);
     oc = zeros(Float64, mlen, size(cmat)[2]);
     
-    K = (mmin + tt):(mmax + tt);
     for (ii, u) in enumerate(units)
 
       iix = getvarind(
-        did, dt, u, K)
+        did, dt, u, (mmin + tt), (mmax + tt))
       if length(iix) != mlen
         println(tunit)
         println(u)
@@ -171,10 +169,13 @@ not the stratum subset
 """
 function getbalance_restricted(
   matches_pd,
-  stratvar::Symbol,
-  covariates, dat,
-  mmin, mmax, mlen,
-  id, t, treatment
+  stratvar,
+  covariates,
+  dat,
+  mmin, mmax,
+  id,
+  t,
+  treatment
 )
 
   sv = Symbol(String(stratvar) * "_stratum");
@@ -196,7 +197,7 @@ function getbalance_restricted(
     
     balances_post_s, meanbalances_post_s = getbalance(
       sub, covariates, dat,
-      mmin, mmax, mlen,
+      mmin, mmax,
       id, t, treatment
     );
 

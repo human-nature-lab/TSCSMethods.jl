@@ -240,7 +240,7 @@ function caliper!(
     model.treatedleft = Dict{Int64,Int64}()
     model.treatednum = Dict{Int64,Int64}()
 
-    svals = unique(model.matches[sv])
+    svals = unique(model.matches[!, sv])
     
     # create empties for strata without calipers, so it will plot
     for sval in svals
@@ -255,7 +255,7 @@ function caliper!(
         string(model.stratvar) * " stratum " * " no. " * string(key) * ":"
       )
 
-      ms = findall(model.matches[sv] .== key);
+      ms = findall(model.matches[!, sv] .== key);
 
       mcalsi, lostsi, nleft, norig = caliper(
         model.caliper[key],

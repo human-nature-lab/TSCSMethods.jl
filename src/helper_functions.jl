@@ -14,30 +14,45 @@ function getvarind(
       )
   end
   
-  function getvarind(
-    did::Vector{Int64},
-    dt::Vector{Int64},
-    unit, K)
-  
-    return findall(
-      (dt .>= minimum(K)) .& (dt .<= maximum(K)) .&
-      (did .== unit)
-      )
-  end
-  
-  function getvarindset(
-    did::Vector{Int64},
-    dt::Vector{Int64},
-    unit, K)
-  
-    a = (did .== unit);
-    b1 = (dt .== K[1]);
-    b2 = (dt .>= K[2]) .& (dt .<= maximum(K));
-  
-    return findall(a .& (b1 .| b2))
-  end
+function getvarind(
+  did::Vector{Int64},
+  dt::Vector{Int64},
+  unit,
+  kmin, kmax
+)
 
-  # this should replace getoutcomes!() above, just use enumerate and input K
+return findall(
+  (dt .>= kmin) .& (dt .<= kmax) .&
+  (did .== unit)
+  )
+end
+
+function getvarind(
+  didsub::SubArray,
+  dtsub::SubArray,
+  unit,
+  kmin, kmax
+)
+
+return findall(
+  (dtsub .>= kmin) .& (dtsub .<= kmax) .&
+  (didsub .== unit)
+  )
+end
+
+function getvarindset(
+  did::Vector{Int64},
+  dt::Vector{Int64},
+  unit, K)
+
+  a = (did .== unit);
+  b1 = (dt .== K[1]);
+  b2 = (dt .>= K[2]) .& (dt .<= maximum(K));
+
+  return findall(a .& (b1 .| b2))
+end
+
+# this should replace getoutcomes!() above, just use enumerate and input K
 # for a treated observation
 function getvarvals!(
   outcol, tpoint, uti,
@@ -397,7 +412,7 @@ function weeklyatt(
       maximum(resk.f)
     )
     sumres = processattsum(bss, attsums, udow)
-    sumres.stratum = k
+    sumres[!, :stratum] .= k
     append!(SumRes, sumres)
   end
   return SumRes

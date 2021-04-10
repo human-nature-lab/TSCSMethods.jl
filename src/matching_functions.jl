@@ -7,6 +7,24 @@ import IterTools.product
 new matching functions
 =#
 
+function get_Σs!(Σdict, cmat, covnum, dt, uniqt, mmin, mmax)
+
+  for tt in unique(uniqt)
+    for mt in mmin:mmax
+      inx = findall(dt .== tt + mt);
+      if length(inx) > 0
+        Σdict[(tt, mt)] = StatsBase.cov(@views(cmat[inx, :]));
+      else
+        Σdict[(tt, mt)] = Matrix{Union{Float64, Missing}}(
+          missing, covnum, covnum
+        );
+      end
+    end
+  end
+
+  return Σdict
+end
+
 # 402 sec with maha dist calculation
 # 408 sec with caliper (on two variables)
 # TODO
@@ -15,13 +33,15 @@ new matching functions
 # possible options: keep/drop impossible matches
 # methods: caliper or not, distance or not (maybe options instead?)
 function matching(
-  dat, covariates::Vector{Symbol},
+  dat::DataFrame,
+  covariates::Vector{Symbol},
   id::Symbol, t::Symbol,
   fmin, fmax,
   mmin, mmax,
   treatment::Symbol,
   calvars::Vector{Symbol},
-  variancesonly::Bool)
+  variancesonly::Bool
+)
 
   sort!(dat, [id, t]);
 
@@ -33,13 +53,14 @@ function matching(
 
   did = dat[!, id];
   dt = dat[!, t];
+  dtrt = dat[!, treatment];
 
   cmat = convert(Matrix{Float64}, dat[!, covariates]);
 
   # treatment point reference
   rid = @view(did[treatment_points]);
   rt = @view(dt[treatment_points]);
-  ky = 1:length(rid);
+  #  ky = 1:length(rid);
   
   unid = unique(did);
 
@@ -49,35 +70,53 @@ function matching(
 
   mlen = length(mmin:mmax)
 
-  pp = collect(product(ky, unid)); # collect since required by @threads
-  ppl = length(pp);
+  # pp = collect(product(ky, unid)); # collect since required by @threads
+  # ppl = length(pp);
 
-  idI = zeros(Int64, ppl);
-  tI = zeros(Int64, ppl);
-  idJ = zeros(Int64, ppl);
-  possible = zeros(Int64, ppl);
-  mdist = Inf .* zeros(Float64, ppl);
-  caldists = Inf .* zeros(Float64, length(cvkey), ppl);
+  L = length(unid) * length(treatment_points);
 
-  # ΣΣ, ΣΣtimes = get_Σs(cmat, dt, unique(rt), mlen, tpoint);
+  idtreat = zeros(Int64, L);
+  ttimes = zeros(Int64, L);
+  idmatch = zeros(Int64, L);
+  possible = [false for i in 1:L];
+  mdist = Inf .* zeros(Float64, L);
+  caldists = Inf .* zeros(Float64, length(cvkey), L);
 
-  Σdict = Dict{Tuple{Int64, Int64}, Array{Union{Float64, Missing}, 2}}()
-  get_Σs!(Σdict, cmat, dt, unique(rt), mmin, mmax);
+  Σdict = Dict{Tuple{Int64, Int64}, Array{Union{Float64, Missing}, 2}}();
+  get_Σs!(Σdict, cmat, size(cmat)[2], dt, unique(rt), mmin, mmax);
 
-  matching_inner!(
-    pp, rid, rt,
-    idI, tI, idJ, possible, mdist, caldists,
-    did, dt, cmat,
-    calvars,
-    cvkey,
-    fmin, fmax,
+  # matching_inner!(
+  #   pp, rid, rt,
+  #   idI, tI, idJ, possible, mdist, caldists,
+  #   did, dt, cmat,
+  #   calvars,
+  #   cvkey,
+  #   fmin, fmax,
+  #   Σdict,
+  #   mmin, mmax, mlen,
+  #   variancesonly
+  # )
+
+  matching_inner_alt!(
+    # preall
+    idtreat, idmatch, ttimes,
+    possible, mdist, caldists,
+    # data
+    rid, rt,
+    did, dt, dtrt, cmat,
+    unid,
     Σdict,
+    # params
+    fmin, fmax,
     mmin, mmax, mlen,
-    variancesonly
+    calvars, cvkey,
+    # options
+    variancesonly;
+    nopriortrt = true
   )
 
   matches = DataFrame(
-    ttime = tI, tunit = idI, munit = idJ,
+    ttime = ttimes, tunit = idtreat, munit = idmatch,
     possible = possible,
     mdist = mdist);
 
@@ -87,15 +126,10 @@ function matching(
 
   matches = hcat(matches, caldf)
 
-  keepind = findall((isnan.(matches.mdist) .- 1) .* - 1 .== 1);
-  matches = matches[keepind, :]
+  # keepind = findall((isnan.(matches.mdist) .- 1) .* - 1 .== 1);
+  # matches = matches[keepind, :]
 
-  # make sure there is a match for every treated unit
-  matches1 = groupby(matches, [:ttime, :tunit]);
-  combine(
-    matches1,
-    nrow
-  )
+  matches = matches[isnan.(matches.mdist) .== false, :];
 
   #= this is an inefficient solution to an apparent problem. make better.
   it should happen, most efficiently, in the inner function =#
@@ -121,90 +155,197 @@ function matching(
   return matches
 end
 
-function matching_inner!(
-  pp, rid, rt,
-  idI, tI, idJ, possible, mdist, caldists,
-  did, dt, cmat, # dat,
-  calvars,
-  cvkey,
-  fmin, fmax,
+function matching_inner_alt!(
+  # preall
+  idtreat, idmatch, ttimes,
+  possible, mdist, caldists,
+  # data
+  rid, rt,
+  did, dt, dtrt, cmat,
+  unid,
   Σdict,
+  # params
+  fmin, fmax,
   mmin, mmax, mlen,
+  calvars, cvkey,
+  # options
+  variancesonly;
+  nopriortrt = true
+)
+
+  @inbounds Threads.@threads for i = eachindex(rid)
+
+    tu = @views(rid[i])
+    tt = @views(rt[i])
+
+    tmn = tt + mmin - fmax;
+
+    ftu = dt[findfirst(did .== tu)]; # first time that treated unit exists
+    # only proceed if data for treated exists during whole match period
+    # not back to tmn, so: far enough back or first point in data
+    # "or first point" assumes no treatments prior to data...
+
+    if (ftu > tt + mmin) .& nopriortrt
+      # set possible values to zero by default for the combinations
+      continue # if treatment, for tu, is too early skip over the tobs and its possible matches
+    elseif (ftu > tmn) .& !nopriortrt
+      continue # if we don't assume no prior treatment, the data needs to go further back
+    else 
+      tmx = tt + fmax - fmin;
+
+      # select only data in time range that we need to check for possible matches
+      # maybe faster than repeatedly searching the whole dataset?
+      ct = ((dt .>= tmn) .& (dt .<= tmx));
+      dtsub = @views(dt[ct]);
+      didsub = @views(did[ct]);
+      dtrtsub = @views(dtrt[ct]);
+      cmatsub = @views(cmat[ct, :]);
+
+      tmnadj = max(tmn, minimum(dt));
+
+      # t-unit
+      tux = getvarind(didsub, dtsub, tu, (tt + mmin), (tt + mmax));
+
+      # section to alter for a thread
+      jsect = ((i - 1) * length(unid) + 1) : (length(unid) * i);
+
+      idtreat[jsect],
+      idmatch[jsect],
+      ttimes[jsect],
+      possible[jsect],
+      mdist[jsect],
+      caldists[:, jsect] = matchdistances(
+        @views(idtreat[jsect]),
+        @views(idmatch[jsect]),
+        @views(ttimes[jsect]),
+        @views(possible[jsect]),
+        @views(mdist[jsect]),
+        @views(caldists[:, jsect]),
+        didsub, dtsub, dtrtsub, cmatsub, # data
+        tmn, tmnadj,
+        unid,
+        tt, tu,
+        Σdict,
+        calvars, cvkey,
+        mmin, mlen,
+        tux,
+        nopriortrt,
+        variancesonly
+      );
+
+    end
+  # i loop level
+  end
+  return idtreat, idmatch, ttimes, possible, mdist, caldists
+end
+ 
+"""
+will operate on
+(i - 1) * length(unid) + 1 : length(unid) * i
+"""
+function matchdistances(
+  idtreatr, idmatchr, ttimesr, # preall
+  possibler, mdistr, caldistsr,
+  didsub, dtsub, dtrtsub, cmatsub, # data
+  tmn, tmnadj,
+  unid,
+  tt, tu,
+  Σdict,
+  calvars, cvkey,
+  mmin, mlen,
+  tux,
+  nopriortrt,
   variancesonly
 )
 
-  @inbounds Threads.@threads for i = eachindex(pp)
-  # for (i, p) in enumerate(pp)
+  # reference / checking
+  # idtreatr = @views(idtreat[jsect]);
+  # idmatchr = @views(idmatch[jsect]);
+  # ttimesr = @views(ttimes[jsect]);
+  # possibler = @views(possible[jsect]);
+  # mdistr = @views(mdist[jsect]);
+  # caldistsr = @views(caldists[:, jsect]);
+  # sort(
+  #   @where(v_standard.matches, :tunit .== 4001),
+  #   [:ttime, :munit, :possible]
+  # )[1:10, :]
+  # sort(
+  #   @where(vnew.matches, :tunit .== 4001),
+  #   [:ttime, :munit, :possible]
+  # )[1:10, :]
+  # hcat(ttimesr, idtreatr, idmatchr, mdistr, caldistsr')[224, :]'
 
-    idI[i] = rid[pp[i][1]];
-    tI[i] = rt[pp[i][1]];
-    idJ[i] = pp[i][2];
+  @inbounds for (j, mu) in enumerate(unid)
 
-    idi = @views(idI[i]);
-    ti = @views(tI[i]);
-    idj = @views(idJ[i]);
+    # there are I (nrow robs) * J (length(unid)) combinations
+    # l = (i - 1) * length(unid) + j
 
-    tmn = max(ti + mmin - fmax, 0);
-    tmx = ti + fmax - fmin;
-
-    if (idi == idj)
-      mdist[i] = 0.0
-      caldists[:, i] .= 0.0
-
+    idtreatr[j] = tu
+    idmatchr[j] = mu
+    ttimesr[j] = tt
+    
+    if (tu == mu)
+      mdistr[j] = 0.0
+      caldistsr[:, j] .= 0.0
+    
     # the match (idj) must exist at or before tmn
     # save time by relying on [id, t] order (28 seconds w/ 2mill len loop)
     # elseif (minimum(dt[did .== idj]) <= tmn)
-    elseif dt[findfirst(did .== idj)] <= tmn;
-    
-      idpl = findall(rid .== idj)
-      tref = @view(rt[idpl])
+    else
+      # data must exist far enough back
+      # first time point for potential match must be less than tmnadj
+      # that is, less-than-or-equal to (tt + mmin - fmax) or (the first time point in the data)
+      # tmnadj becomes tmn if not assuming prior treatment
+      if nopriortrt
+        cp1 = dtsub[findfirst(didsub .== mu)] <= tmnadj;
+      elseif !nopriortrt
+        cp1 = (dtsub[findfirst(didsub .== mu)] <= tmn);
+      end
+      
+      # may want check on length of data for a potential match, or even the treated, not just the range
 
-      v = 1 * !any((tref .>= tmn) .& (tref .<= tmx))
+      if !cp1
+        possibler[j] = false
+        continue
+      else
+        poss = (sum(dtrtsub[didsub .== mu]) == 0);
+        possibler[j] = poss # no treatments in range
+      end
 
-      possible[i] = v
-
-      if v == 1
+      if poss # if possible do dist calcs
 
         # get unit indices for the match period
-        
-        ix = getvarind(
-          did, dt, idi, (ti + mmin) : (ti + mmax)); # t-unit
-        
-        
-        jx = getvarind(did, dt, idj, (ti + mmin) : (ti + mmax)); # m-unit
+        # data must exist for whole match period
+
+        # m-unit
+        mux = getvarind(didsub, dtsub, mu, (tt + mmin), (tt + mmax));
           
-        if (length(ix) == length(jx) == mlen)
+        if (length(tux) == length(mux) == mlen)
 
-          # this should be @views()
-          # Σs = indexΣΣ(ΣΣ, ΣΣtimes, ti) # slow for index
-
-          # length check here? somewhere?
-          y = @views(cmat[ix, :]) # just sel and arrange columns up front
-          x = @views(cmat[jx, :])
+          y = @views(cmatsub[tux, :]) # just sel and arrange columns up front
+          x = @views(cmatsub[mux, :])
 
           dissum = [0.0] # Float64 is immutable
           calsums = zeros(Float64, length(calvars))
           
-          #try 
           matching_distancecalc_barrier!(
-            dissum, calsums, y, x, ti,
-            Σdict, cvkey, covariates,
+            dissum, calsums, y, x, tt,
+            Σdict, cvkey, calvars,
             mmin, mlen,
-            variancesonly)
-          #catch
-          #  @warn "error at i = " * string(i)
-          #end
+            variancesonly
+          )
 
           # avg dist between treated observation and possible match
           # over match period
           # must be mlen since we don't allow missingness in match period
-          mdist[i] = @views(dissum[1]) / mlen
-          caldists[:, i] = calsums / mlen
+          mdistr[j] = @views(dissum[1]) / mlen
+          caldistsr[:, j] = calsums / mlen
+
         end
       end
     end
   end
-  return idI, tI, idJ, possible, mdist, caldists
+  return idtreatr, idmatchr, ttimesr, possibler, mdistr, caldistsr
 end
 
 function matching_distancecalc_barrier!(
@@ -216,15 +357,12 @@ function matching_distancecalc_barrier!(
 )
 
   @inbounds for l in 1:mlen # for each l in match period
-    
-    # @btime Σ_t = @views(Σs[:, :, 1]); # slow?
 
     mp = (l - 1) + mmin
 
-
-    if variancesonly == false
+    if !variancesonly
       Σinv = LinearAlgebra.pinv(Σdict[(ti, mp)]);
-    elseif variancesonly == true
+    elseif variancesonly
       Σinv = LinearAlgebra.pinv(LinearAlgebra.Diagonal(Σdict[(ti, mp)]));
     end
 
@@ -237,11 +375,8 @@ function matching_distancecalc_barrier!(
 
     diffs = yy - xx; # trt - cntrl
     # maha dist at t-l:
-    if variancesonly == true
-      dissum[1] += sqrt(
-        transpose(diffs) * Σinv * diffs
-        # changed to pinv()
-      );
+    if variancesonly
+      dissum[1] += sqrt(transpose(diffs) * Σinv * diffs);
     end
 
     # this is not faster b/c of reshape?
@@ -258,11 +393,13 @@ function matching_distancecalc_barrier!(
     σ_t = @view(Σinv[dval]);
 
     matching_distancecalc_caliper_barrier!(calsums, y, x, cvkey, σ_t, l)
+
   end
   return dissum, calsums
 end
 
 function matching_distancecalc_caliper_barrier!(calsums, y, x, cvkey, σ_t, l)
+
   for (h, m) in enumerate(cvkey) # key from names to cols in dat
     yyc = @views(y[l, m]);
     xxc = @views(x[l, m]);
@@ -273,6 +410,7 @@ function matching_distancecalc_caliper_barrier!(calsums, y, x, cvkey, σ_t, l)
 end
 
 function refine(matches::DataFrame, setsize::Int64)
+
     sort!(matches, [:ttime, :tunit, :possible, :mdist])
 
     tobs = unique(matches[!, [:ttime, :tunit]]);
@@ -306,6 +444,7 @@ cdict = Dict(:cum_death_rte => 0.5, :first_case => 0.5);
 matchescal = caliper(cdict, matches);
 """
 function caliper(cdict::Dict, matches5::DataFrame)
+
   ntobsp = nrow(unique(matches5[!, [:ttime, :tunit]]));
   # need to add mdist
 
@@ -345,256 +484,3 @@ function caliper(cdict::Dict, matches5::DataFrame)
 
   return matches5, lost, ntobs, ntobsp
 end
-
-#=
-needed old code, needed, likely to be modified
-=#
-
-# calculate the standard deviations
-# need all c_list covariates in a dataframe, with
-# a col to standardize the running vals (with trt as day 1)
-# then, work with groupby for each time point
-
-function get_trt_sd(dat, c_list, mm, mlen, id, t)
-  c_types = get_c_types(dat, covariates)
-
-  # trt_obs = dat[treatment_points, [id, t]];
-  trt_obs = unique(mm[!, [:trt_fips, :trt_t]]);
-
-  # need to get treatment points in dat from
-  # trt_obs
-  trt_obs.trt_pts = 0
-  for i = 1:nrow(trt_obs)
-    trt_obs.trt_pts[i] = findall(
-      (dat.fips .== trt_obs.trt_fips[i]) .&
-      (dat.running .== trt_obs.trt_t[i])
-    )[1]
-  end
-  rename!(trt_obs, [id, t, :trt_pts])
-
-  trt_covs_nrow = nrow(trt_obs) * mlen; # only works with tmin before trt
-  trt_covs = DataFrame(
-    vcat(c_types, [Int64, Int64, Int64]),
-    vcat(c_list, [t, :mtch_t, id]),
-    trt_covs_nrow);
-  
-  # trt_covs[c_list[1]] = Int64[]
-  for i in 1:nrow(trt_obs)
-    fps = trt_obs[id][i]
-    trt_run = trt_obs[t][i]
-    run_min = trt_run + mmin
-
-    i_obs = get_trt_covariates(
-      trt_run, fps, dat, c_list, tmin, id, t, delay = 0);
-    i_obs = @transform(
-      i_obs,
-      mtch_t = :running .- (minimum(:running) - 1)
-      )
-    i_obs[id] = fps;
-    # earliest matching period is 1
-    # highest is 20, just before treatment onset
-
-    # put into dataframe -- we a priori know its length this time
-    # only work with tmin before trt (negative in value)
-    idex_s = (mlen) * (i - 1) + 1
-    idex_e = (mlen) * i
-    trt_covs[idex_s:idex_e, :] = i_obs;
-  end
-  return trt_covs
-end
-
-function get_Σs!(Σdict, cmat, dt, uniqt, mmin, mmax)
-
-  for tt in unique(uniqt)
-    for mt in mmin:mmax
-      inx = findall(dt .== tt + mt);
-      if length(inx) > 0
-        Σdict[(tt, mt)] = StatsBase.cov(@views(cmat[inx, :]));
-      else
-        Σdict[(tt, mt)] = Matrix{Union{Float64, Missing}}(
-          missing, covnum, covnum
-        );
-      end
-    end
-  end
-
-  return Σdict
-end
-
-function get_Σs_inner(
-  cmat, dt,
-  ΣΣ, ΣΣtimes,
-  TT,
-  mmin, mmax,
-  xy_dim
-)
-
-  for i = eachindex(TT)
-    tt = TT[i]
-    match_times = [(tt + mmin) : 1 : (tt + mmax);]
-    # storage? 3x3x20 x length(uniq_treat_times)
-    ΣΣ[:, :, :, i] = get_sample_covars(
-      match_times, dt, cmat, xy_dim)
-    ΣΣtimes[i] = tt
-  end
-  return ΣΣ, ΣΣtimes
-end
-
-function get_sample_covars(
-  match_times, dt, cmat, xy_dim)
-  
-  Σs = Array{Union{Float64, Missing}}(
-    undef, xy_dim, xy_dim, mlen
-  );
-  t_adjust = minimum(match_times) - 1; # still needed?
-
-  get_sample_covar_t!(Σs, match_times, dt, cmat, t_adjust, xy_dim);
-  
-  return Σs
-end
-
-function get_sample_covar_t!(Σs, match_times, dt, cmat, t_adjust, xy_dim)
-  
-  for mt in match_times
-    mtind = findall(dt .== mt);
-    #=
-    essentially, the number of units that exist at some match point
-    there should maybe be a lower bound above 1 here for calculating the sample
-    covariance mat at that time
-    =#
-    if length(mtind) > 0
-      MCov_t = StatsBase.cov(@view(cmat[mtind, :]));
-    else
-      MCov_t = Matrix{Union{Float64, Missing}}(missing, xy_dim, xy_dim);
-    end
-
-    Σs[:, :, mt - t_adjust] = MCov_t
-  end
-
-  return Σs
-end
-
-"""
-      indexΣΣ(ΣΣ, ΣΣtimes, trt_t)
-
-helper function to grab the correct set of sample covars:
-there is a unique one for each treatment time in the data
-"""
-function indexΣΣ(ΣΣ, ΣΣtimes, trt_t)
-  idex = findall(ΣΣtimes .== trt_t)
-  Σs = ΣΣ[:, :, :, idex];
-  return reshape(Σs, size(Σs)[1], size(Σs)[2], size(Σs)[3])
-end
-
-# functions required by functions to be modified
-
-"""
-    get_trt_covariates(trt_t, trt_fips, dat, c_list, tmin)
-
-this method grabs the covariates in the matching period
-"""
-function get_trt_covariates(trt_t::Int,
-                            trt_fips::Int,
-                            dat::DataFrame,
-                            c_list::Array{Symbol,1},
-                            tmin,
-                            id::Symbol, t::Symbol;
-                            delay::Int = 0)
-  t_min = trt_t + tmin
-
-  y = findall(
-    (dat[!, t] .>= t_min) .&
-      (dat[!, t] .< (trt_t + delay)) .&
-      (dat[!, id] .== trt_fips))
-
-  return dat[y, vcat(c_list, t)]
-end
-
-"""
-    get_trt_covariates(trt_t, trt_fips, dat, c_list, tmin, tmax)
-
-this should be made more general, to get covariates
-either for the match period, or some post-primary period
-
-tmin, days before/after treatment, tmax = days before/after treatment
-constraint: tmin < tmax
-"""
-function get_trt_covariates(trt_t::Int,
-                            trt_fips::Int,
-                            dat::DataFrame,
-                            c_list::Array{Symbol,1},
-                            tmin::Int,
-                            tmax::Int,
-                            id::Symbol, t::Symbol)
-
-  if (tmin >= tmax)
-    error("tmax must be strictly larger than tmin")
-  end
-
-  t_min = trt_t + tmin
-  t_max = trt_t + tmax
-
-  y = findall(
-    (dat[!, t] .>= t_min) .&
-    (dat[!, t] .<= t_max) .&
-    (dat[!, id] .== trt_fips))
-
-  return dat[y, vcat(c_list, :running)]
-end
-
-# # this should get the treated points directly from the data
-# function sdtreatedold(dat, covariates, tmin, id, t, treatment)
-  
-#   c_types = get_c_types(dat, covariates)
-  
-#   treatment_points = get_all_treatment_points(dat, treatment);
-
-#   trt_obs = dat[treatment_points, [id, t]];
-
-#   # need to get treatment points in dat from
-#   # trt_obs
-#   trt_obs.trt_pts = zeros(Int64, nrow(trt_obs))
-#   for i = eachindex(1:nrow(trt_obs))
-#     a = dat.fips .== trt_obs.fips[i]
-#     b = dat[!, t] .== trt_obs[!, t][i]
-#     trt_obs.trt_pts[i] = findall(a .& b)[1]
-#   end
-
-#   trt_covs_nrow = nrow(trt_obs) * -tmin; # only works with tmin before trt
-#   trt_covs = DataFrame(
-#     vcat(c_types, [Int64, Int64, Int64]),
-#     vcat(covariates, [t, :mtch_t, id]),
-#     trt_covs_nrow);
-  
-#   # trt_covs[c_list[1]] = Int64[]
-#   for i = eachindex(1:nrow(trt_obs))
-#     fps = trt_obs[!, id][i]
-#     trt_run = trt_obs[!, t][i]
-#     run_min = trt_run + tmin
-
-#     i_obs = get_trt_covariates(
-#       trt_run, fps, dat, covariates, tmin, id, t, delay = 0);
-#     i_obs = @transform(
-#       i_obs,
-#       mtch_t = :running .- (minimum(:running) - 1)
-#       )
-#     i_obs[:, id] = fps * ones(Int64, nrow(i_obs));
-#     # earliest matching period is 1
-#     # highest is 20, just before treatment onset
-
-#     # put into dataframe -- we a priori know its length this time
-#     # only work with tmin before trt (negative in value)
-#     idex_s = (-tmin) * (i - 1) + 1
-#     idex_e = (-tmin) * i
-#     trt_covs[idex_s:idex_e, :] = i_obs;
-#   end
-
-#   trt_covs = groupby(trt_covs, :mtch_t);
-#   trt_std = combine(
-#     trt_covs,
-#     covariates .=> std,
-#     );
-#   new_names_std = replace.(names(trt_std), "_std" => "")
-#   rename!(trt_std, new_names_std)
-#   return trt_std
-# end
