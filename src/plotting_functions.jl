@@ -7,15 +7,20 @@ import Cairo, Fontconfig
   
 function plot_balance(meanbalances, when::String; savename = "")
 
+  ncv = Symbol("Matching Covariate");
+
   plt = plot(
-    meanbalances,
+    rename(
+      sort(meanbalances, [:covariate]),
+      :covariate => "Matching Covariate",
+    ),
     x = :matchtime,
     y = :meanscore,
-    color = :covariate,
+    color = ncv,
     Geom.point, Geom.line,
-    #Guide.yticks(ticks = [-0.3:0.1:0.3;]),
-    Guide.title("Covariate Balance " * when * " Refinement"),
-    Guide.xlabel("Match Period"),
+    Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);]),
+    Guide.title("Covariate Balance " * when * "-Refinement"),
+    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
     Guide.ylabel("Standardized Balance Score")
   )
   if length(savename) > 0
@@ -33,21 +38,27 @@ function plot_balance(
   yinch = 8inch
 )
 
-  sv = String(stratvar) * "_stratum";
+  sv = String(stratvar) * " Stratum";
+
+  ncv = Symbol("Matching Covariate");
 
   plt = plot(
-    sort(meanbalances, [:covariate, sv]),
+    rename(
+      sort(meanbalances, [:covariate, sv]),
+      :covariate => "Matching Covariate",
+    ),
     x = :matchtime,
     y = :meanscore,
-    color = :covariate,
+    color = ncv,
     xgroup = sv,
-    Guide.title("Covariate Balance " * when * " Refinement"),
-    Guide.xlabel("Match Period"),
+    Guide.title("Covariate Balance " * when * "-Refinement"),
+    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
     Guide.ylabel("Standardized Balance Score"),
     Geom.subplot_grid(
       Geom.point, Geom.line,
-      free_y_axis = true)
-      # Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
+      free_y_axis = true,
+      Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);])
+    )
   )
   if length(savename) > 0
     draw(PNG(savename, xinch, yinch), plt)
@@ -68,23 +79,29 @@ function plot_balance(
   yinch = 8inch
 )
 
-  sv = String(stratvar) * "_stratum";
+  sv = String(stratvar) * " Stratum";
 
   meanbalances.svlabel = getindex.(Ref(stratdict), meanbalances[!, sv])
 
+  ncv = Symbol("Matching Covariate");
+
   plt = plot(
-    sort(meanbalances, [:covariate, sv]),
+    rename(
+      sort(meanbalances, [:covariate, sv]),
+      :covariate => "Matching Covariate",
+    ),
     x = :matchtime,
     y = :meanscore,
-    color = :covariate,
+    color = ncv,
     xgroup = :svlabel,
-    Guide.title("Covariate Balance " * when * " Refinement"),
-    Guide.xlabel("Match Period"),
+    Guide.title("Covariate Balance " * when * "-Refinement"),
+    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
     Guide.ylabel("Standardized Balance Score"),
     Geom.subplot_grid(
       Geom.point, Geom.line,
-      free_y_axis = true)
-      # Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
+      free_y_axis = true,
+      Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);])
+    )
   )
   if length(savename) > 0
     draw(PNG(savename, xinch, yinch), plt)
@@ -102,22 +119,28 @@ function plot_balance(
   yinch = 8inch
 )
 
-  sv = String(stratvar) * "_stratum";
+  sv = String(stratvar) * " Stratum";
+
+  ncv = Symbol("Matching Covariate");
 
   plt = plot(
-    sort(meanbalances, [:covariate, sv]),
+    rename(
+      sort(meanbalances, [:covariate, sv]),
+      :covariate => ncv,
+    ),
     x = :matchtime,
     y = :meanscore,
-    color = :covariate,
+    color = ncv,
     xgroup = ygv,
-    Guide.title("Covariate Balance " * when * " Refinement"),
-    Guide.xlabel("Match Period"),
+    Guide.title("Covariate Balance " * when * "-Refinement"),
+    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
     Guide.ylabel("Standardized Balance Score"),
     Geom.subplot_grid(
       Geom.point, Geom.line,
-      free_y_axis = true)
-      # Guide.yticks(ticks = [-0.1, -0.05, 0.05, 0.1]))
-  )
+      free_y_axis = true),
+      Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);]
+      )
+    )
   if length(savename) > 0
     draw(PNG(savename, xinch, yinch), plt)
   end
@@ -137,17 +160,27 @@ function plot_balance(
   # long format for Gadfly
   meanbal = vcat(meanbal_pre, meanbal_post)
 
+  ncv = Symbol("Matching Covariate");
+
   plt = plot(
+    rename(
+      sort(meanbalances, [:covariate]),
+      :covariate => ncv,
+    ),
     meanbal,
     x = :matchtime,
     y = :meanscore,
-    color = :covariate,
+    color = ncv,
     Scale.y_continuous(minvalue = -0.3, maxvalue = 0.3),
     Guide.title("Covariate Balance"),
     Guide.xlabel("Match Period"),
     Guide.ylabel("Standardized Balance Score"),
     xgroup = :pre,
-    Geom.subplot_grid(Geom.point, Geom.line)
+    Geom.subplot_grid(
+      Geom.point,
+      Geom.line,
+      Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);])
+    )
   )
 
   if length(savename) > 0
@@ -158,7 +191,7 @@ end
 
 # estimation plots
 
-function plot_att(atts; savename = "")
+function plot_att(atts, estimator; savename = "")
   fmin = minimum(atts.f)
 
   att_plt = plot(
@@ -170,9 +203,9 @@ function plot_att(atts; savename = "")
       Geom.point,
       Geom.vline(style = :dot, color = "black", size = [0.2mm]),
       Geom.errorbar,
-      Guide.title("ATT"),
-      Guide.ylabel("f"),
-      Guide.xlabel("estimate"),
+      Guide.title(estimator),
+      Guide.ylabel("Day After Treatment"),
+      Guide.xlabel("Estimate"),
       Coord.Cartesian(ymin = fmin)
   )
 
@@ -193,7 +226,7 @@ function plot_att(
 
   # sv = String(stratvar) * "_stratum";
 
-  ttl = "ATT" * " by " * String(replace(String(stratvar), "_" => " "))
+  ttl = estimator * " by " * String(replace(String(stratvar), "_" => " "))
 
   fmin = minimum(atts.f)
   fmax = maximum(atts.f)
@@ -206,8 +239,8 @@ function plot_att(
     xmin = :lwer, xmax = :uper,
     xgroup = :stratum,
     Guide.title(ttl),
-    Guide.ylabel("Days since " * String(treatment)),
-    Guide.xlabel("estimate"),
+    Guide.ylabel("Day After Treatment"),
+    Guide.xlabel("Estimate"),
     Geom.subplot_grid(
       Geom.point,
       Geom.vline(style = :dot, color = "black", size = [0.2mm]),
@@ -233,7 +266,7 @@ function plot_att(
   treatment = :treatment
 )
 
-  ttl = "ATT" * " by " * String(replace(String(stratvar), "_" => " "))
+  ttl = estimator * " by " * String(replace(String(stratvar), "_" => " "))
 
   fmin = minimum(atts.f)
   fmax = maximum(atts.f)
@@ -249,8 +282,8 @@ function plot_att(
     xmin = :lwer, xmax = :uper,
     xgroup = :svlabel,
     Guide.title(ttl),
-    Guide.ylabel("Days since " * String(treatment)),
-    Guide.xlabel("estimate"),
+    Guide.ylabel("Day After Treatment"),
+    Guide.xlabel("Estimate"),
     Geom.subplot_grid(
       Geom.point,
       Geom.vline(style = :dot, color = "black", size = [0.2mm]),

@@ -171,7 +171,7 @@ function restricted_estimation(
   outboot::Bool
 )
 
-  stratname = Symbol(String(stratvar) * "_stratum");
+  stratname = Symbol(String(stratvar) * " Stratum");
 
   # must not include missing
   if eltype(m[!, stratname]) != Int64

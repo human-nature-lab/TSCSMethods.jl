@@ -300,7 +300,7 @@ function assignquantile(
     sq = quantile(ref[!, stratvar]);
   end
 
-  stratname = Symbol(String(stratvar) * "_stratum");
+  stratname = Symbol(String(stratvar) * " Stratum");
   ref[!, stratname] = zeros(Int64, nrow(ref));
 
   for i = eachindex(ref[!, stratname])
@@ -326,6 +326,31 @@ function labelquantile(sq)
     string(round(sq[i], digits = 2))
   end
   return pdkey
+end
+
+function make_qdicts(sv, id, t, mmin, treatment, dat)
+
+  stratref, sq = assignquantile(
+    sv, id, t, mmin, treatment, dat
+  );
+
+  stratref = Dict(
+    stratref[!, id] .=> stratref[!, Symbol(String(sv) * " Stratum")]
+  );
+
+  pdkey = labelquantile(sq);
+  
+  return stratref, pdkey
+end
+
+function joinstrat!(v_pd, sv, sr)
+
+  vnme = Symbol(string(sv) * " Stratum")
+
+  v_pd.matches[!, vnme] = getindex.(Ref(sr), v_pd.matches.tunit);
+  v_pd.matches5[!, vnme] = getindex.(Ref(sr), v_pd.matches5.tunit);
+
+  return v_pd
 end
 
 """

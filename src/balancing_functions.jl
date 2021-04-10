@@ -178,7 +178,7 @@ function getbalance_restricted(
   treatment
 )
 
-  sv = Symbol(String(stratvar) * "_stratum");
+  sv = Symbol(String(stratvar) * " Stratum");
   S = unique(matches_pd[!, sv]);
 
   balances_post_strat = DataFrame(
