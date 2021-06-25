@@ -1,29 +1,30 @@
 module tscsmethods
 
-# load all dependencies
+  include("dependencies.jl")
 
-using StatsBase, Statistics
+  include("pkg_types.jl")
+  include("matching_functions.jl")
+  include("balancing_functions.jl")
+  include("estimation_functions.jl")
+  include("get_wits.jl")
+  include("bootstrap_estimation.jl")
+  include("plotting_functions.jl")
+  include("wrappers.jl")
+  include("internal_helpers.jl")
+  include("weekly_att.jl")
 
-import LinearAlgebra.Diagonal
-import IterTools.product # this may be deprecated
+  export cicmodel,
+    matching!,
+    getbalance!, handle_balance!,
+    estimate!,
+    handle_att!, handle_attsum,
+    caliper!,
+    namemodel, StratDict
 
-using CSV, DataFrames, DataFramesMeta
+end
 
-using Gadfly
-import Cairo, Fontconfig
-
-# include code files here
-
-include("helper_functions.jl")
-include("matching_functions.jl")
-include("balancing_functions.jl")
-include("estimation_functions.jl")
-include("get_wits.jl")
-include("bootstrap_estimation.jl")
-include("plotting_functions.jl")
-# include("load_and_clean.jl");
-  #= doesn't go into pkg
-  need to explain how the data should be formatted, etc. =#
-
-
-end # module tscsmethods
+# module MyModule
+#          x() = "x"
+#          export x
+#        end
+# using .MyModule

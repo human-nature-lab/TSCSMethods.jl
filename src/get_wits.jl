@@ -16,13 +16,18 @@ function checkmatchnums(mm)
   ut = unique(@view(mm[[:tunit, :ttime]]).ttime);
 
   nms = similar(uid);
+  checkmatchnums_inner!(nms, uid, ut, mm)
 
+  return uid, ut, nms
+end
+
+function checkmatchnums_inner!(nms, uid, ut, mm)
   for i = eachindex(uid)
     nms[i] = length(
       findall((mm.trt_t .== @view(ut[i])) .& (mm.tunit .== @view(uid[i])))
       );
   end
-  return uid, ut, nms
+  return nms
 end
 
 function getoutcomes!(
@@ -178,40 +183,6 @@ function get_dwits_outcomes(
   return outcomemat, dwitmat
 end
 
-#= this would need to be written for summarized dwits,
-  adding the value to each entry of dw, each time 
-=#
-# function assign_dwits_to_dat!(dw, utrtid, uid, ut, mcnt)
-#   # dw = zeros(Float64, length(did));
-
-#   # utrtid # treated
-#   # uid # matches and treated
-#   # ut # times
-
-#   for i = eachindex(1:length(ut))
-#     tu = utrtid[i]
-#     mu = uid[i]
-#     tt = ut[i]
-#     mc = mcnt[(tt, tu)]
-
-#     ctp = dt .== tt + tpoint;
-#     cfpl = dt .>= tt + fmin;
-#     cfpu = dt .<= tt + fmax;
-#     c2 = did .== mu;
-    
-#     cif = mu == tu;
-#     if cif
-#       dw[ctp .& c2][] = -1.0
-#       dw[cfpl .& cfpu .& c2] .= 1.0
-#     else
-#       dw[ctp .& c2][] = 1.0/mc
-#       dw[cfpl .& cfpu .& c2] .= -1.0/mc # try countmap
-#     end
-
-#   end
-#   return dw
-# end
-
 """
 this is the new, faster function to make the outcome and dwit mats
 we cannot simply add the wits to the dataframe, since we are keeping them
@@ -248,15 +219,15 @@ output:
 function missingmats(
   om::Array{Union{Missing, Float64}, 2},
   wm::Array{Union{Missing, Float64}, 2},
-  uid, utid, ut,
-  )
+  uid, utid, ut, utrtid
+)
 
   # check bl
   tulx = findall((uid .== utrtid));
-  sum(ismissing.(outcomemat[tulx, :])) # this difference could be the problem
+  sum(ismissing.(om[tulx, :])) # this difference could be the problem
 
   hcat(
-    sum(ismissing.(outcomemat[tulx, :]), dims = 2),
+    sum(ismissing.(om[tulx, :]), dims = 2),
     utrtid[tulx]
   )
   
@@ -281,8 +252,8 @@ function missingmats(
   # tbl = Vector{Int64}(undef, poss)
   # fbl = Vector{Int64}(undef, poss)
 
-  om = deepcopy(outcomemat);
-  wm = deepcopy(dwitmat);
+  om = deepcopy(om);
+  wm = deepcopy(wm);
 
   idbl = zeros(Int64, poss, Threads.nthreads());
   tbl = zeros(Int64, poss, Threads.nthreads());
@@ -290,7 +261,8 @@ function missingmats(
 
   cnts = zeros(Int64, Threads.nthreads());
 
-  @time om, wm, idbl, tbl, fbl = innermissing(
+  om, wm, idbl, tbl, fbl = innermissing(
+    idbl, tbl, fbl,
     uid, utid, ut,
     om, wm, cnts
   )
@@ -306,6 +278,7 @@ function missingmats(
 end
 
 function innermissing(
+  idbl, tbl, fbl,
   uid, utid, ut,
   om, wm, cnt
 )
@@ -369,12 +342,12 @@ end
 # slow because operating over rows...
 # cannot summarize to above unit
 function summarizemats(uid, ut, om, wm, bl, mk)
-  uid2 = convert(Vector{Int64}, uid);
+  uid = convert(Vector{Int64}, uid);
   # ut
   # om
   # wm
 
-  obs = unique(hcat(uid2, ut), dims = 1);
+  obs = unique(hcat(uid, ut), dims = 1);
 
   # tobs = unique(matches5[[:ttime, :tunit]])
 
@@ -387,18 +360,21 @@ function summarizemats(uid, ut, om, wm, bl, mk)
     blmat = zeros(Int64, size(obs)[1], size(omsm)[2] - 1);
   else blmat = zeros(Int64, 0, 0);
   end
+
+  summarizemats_inner!(obs, mk, trtsm, bl, blmat, uid, ut, omsm, wmsm, om, wm)
+
+  return omsm, wmsm, obs[:, 1], obs[:, 2], trtsm, blmat
+end
+
+function summarizemats_inner!(
+  obs, mk, trtsm, bl, blmat, uid, ut, omsm, wmsm, om, wm
+)
+
   for i in 1:size(obs)[1]
     lid = @views(obs[i , 1]) # id
     lt = @views(obs[i , 2]) # time
 
-    # for j in 1:length(tobs.ttime)
-    for (kt, kid) in mk
-      # if (lt == tobs.ttime[j]) & (lid == tobs.tunit[j])
-      if (lt == kt) & (lid == kid)
-        trtsm[i] += 1 # can only ever add a total of one for each i anyway
-        continue # may save some time
-      end
-    end
+    summarizemats_inner_inner!(trtsm, i, mk, lt, lid)
 
     if size(bl)[1] > 0
       blf = @views(bl[(bl[!, :id] .== lid) .& (bl[!, :t] .== lt), :f]) .- 1;
@@ -407,41 +383,25 @@ function summarizemats(uid, ut, om, wm, bl, mk)
       end
     end
 
-    found = findall((uid2 .== lid) .& (ut .== lt))
+    found = findall((uid .== lid) .& (ut .== lt))
 
-    omsm[i, :] = om[@views(found[1]), :]
-    wmsm[i, :] = sum(@views(wm[found, :]), dims = 1)
+    omsm[i, :] = om[@view(found[1]), :]
+    wmsm[i, :] = sum(@view(wm[found, :]), dims = 1)
   end
-
-  return omsm, wmsm, obs[:, 1], obs[:, 2], trtsm, blmat
+  return omsm, wmsm, blmat, trtsm
 end
 
-        
-
-
-# function makemats_old!(om, wm, uid, utid, ut, mcnts, nd, tpoint)
-#   # om = similar(outcomemat);
-
-#   @inbounds Threads.@threads for j = eachindex(uid)
-#   # for j = eachindex(uid)
-#     mu = @views(uid[j])
-#     tu = @views(utid[j])
-#     tt = @views(ut[j])
-#     mc = @views(mcnts[(tt, tu)])
-
-#     for (i, φ) in enumerate(vcat(tpoint , collect(fmin:fmax)))
-#       # outcomemat[i, j]
-#       om[i, j] = get(nd, (mu, tt + φ), missing)
-
-#       if ismissing(om[i, j])
-#         wm[i, j] = missing
-#       else
-#         wm[i, j] = witcal(mu, tu, i, mc)
-#       end
-#     end
-#   end
-#   return om, wm
-# end
+function summarizemats_inner_inner!(trtsm, i, mk, lt, lid)
+  # for j in 1:length(tobs.ttime)
+  for (kt, kid) in mk
+    # if (lt == tobs.ttime[j]) & (lid == tobs.tunit[j])
+    if (lt == kt) & (lid == kid)
+      trtsm[i] += 1 # can only ever add a total of one for each i anyway
+      continue # may save some time
+    end
+  end
+  return trtsm
+end
 
 """
 witcal(mu, tu, j, mc)

@@ -146,7 +146,6 @@ function attboot_inner!(
 )
 
   @inbounds Threads.@threads for k = eachindex(1:iternum)
-  # for k = eachindex(1:iternum)
     units = sample(clusters, length(clusters), replace = true); # 29 μs
 
     make_check_sample!(units, clusters, trtleft, 0); # 540.9
@@ -162,7 +161,7 @@ function attboot_inner!(
       ATT
     );
 
-    while any(tn < 1)
+    while any(tn .< 1)
       # should work for missing and vector tn
       # may cause endless loop if there are zero observations for some f in F?
       # maybe use blmat to skip entirely if an f has no treated units

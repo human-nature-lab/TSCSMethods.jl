@@ -1,5 +1,6 @@
 function sdtreated(dt, did, cmat, mmin, mmax, mlen, dtr)
-  #= need to collect all match period indices, across all treated obs
+  #=
+  need to collect all match period indices, across all treated obs
   only for the treated units
   should this only draw from matches?
   what happens when we apply a caliper?
@@ -58,11 +59,12 @@ end
 function getbalance(m, covariates, dat, mmin, mmax, id, t, treatment)
   # this probably excludes units without matches (even using mm)
 
-  mlen = length(mmin:mmax;)
+  mlen = length(mmin:mmax;);
 
   clen = length(covariates);
 
-  cmat = convert(Matrix{Float64}, dat[!, covariates]);
+  cmat = Matrix(dat[!, covariates]);
+  cmat = Missings.disallowmissing(cmat);
   did = dat[!, id];
   dt = dat[!, t];
 
@@ -124,7 +126,7 @@ function balance!(
     tt = ut[e]
     units = uid[findall((utrtid .== tunit) .& (ut .== tt))]
 
-    ws = (units .!= tunit) .* - 1 / (length(units) - 1)
+    ws = (units .!= tunit) .* - 1 / (length(units) - 1);
     ws[units .== tunit] .= 1;
 
     # oc = Vector{Union{Float64, Missing}}(missing, 20);
@@ -181,15 +183,25 @@ function getbalance_restricted(
   sv = Symbol(String(stratvar) * " Stratum");
   S = unique(matches_pd[!, sv]);
 
-  balances_post_strat = DataFrame(
-    [Float64, String, Int64, Int64, Int64, Int64],
-    [:score, :covariate, :matchtime, :treatedunit, :treatedtime, sv]
-    );
+  balances_post_strat = mkDataFrame(
+    Dict(
+      :score => Float64[],
+      :covariate => String[],
+      :matchtime => Int64[],
+      :treatedunit => Int64[],
+      :treatedtime => Int64[],
+      sv => Int64[]
+    )
+  );
 
-  meanbalances_post_strat = DataFrame(
-    [String, Int64, Float64, Int64],
-    [:covariate, :matchtime, :meanscore, sv]
-    );
+  meanbalances_post_strat = mkDataFrame(
+    Dict(
+      :covariate => String[],
+      :matchtime => Int64[],
+      :meanscore => Float64[],
+      sv => Int64[]
+    )
+  );
 
   for s in S
     idx = findall(matches_pd[!, sv] .== s);

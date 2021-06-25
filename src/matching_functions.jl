@@ -1,8 +1,3 @@
-using StatsBase, Statistics, DataFrames, DataFramesMeta
-
-import LinearAlgebra
-import IterTools.product
-
 #=
 new matching functions
 =#
@@ -45,7 +40,7 @@ function matching(
 
   sort!(dat, [id, t]);
 
-  treatment_points = findall(dat[!, treatment] .== 1)
+  treatment_points = findall(dat[!, treatment] .== 1);
 
   cvkey = [findfirst(covariates .== e) for e in calvars];
 
@@ -55,7 +50,9 @@ function matching(
   dt = dat[!, t];
   dtrt = dat[!, treatment];
 
-  cmat = convert(Matrix{Float64}, dat[!, covariates]);
+  # this is kind of wasteful
+  # this needs to be sorted a bit better
+  cmat = convert(Matrix{Float64}, Matrix(dat[!, covariates]));
 
   # treatment point reference
   rid = @view(did[treatment_points]);
@@ -113,18 +110,21 @@ function matching(
     # options
     variancesonly;
     nopriortrt = true
-  )
+  );
 
   matches = DataFrame(
-    ttime = ttimes, tunit = idtreat, munit = idmatch,
+    ttime = ttimes,
+    tunit = idtreat,
+    munit = idmatch,
     possible = possible,
-    mdist = mdist);
+    mdist = mdist
+  );
 
-  caldf = DataFrame(caldists')
+  caldf = DataFrame(permutedims(caldists), :auto)
   calvarsnmes = [Symbol(String(calvar) * "_mdist") for calvar in calvars]
-  rename!(caldf, calvarsnmes)
+  rename!(caldf, calvarsnmes);
 
-  matches = hcat(matches, caldf)
+  matches = hcat(matches, caldf);
 
   # keepind = findall((isnan.(matches.mdist) .- 1) .* - 1 .== 1);
   # matches = matches[keepind, :]
@@ -173,6 +173,7 @@ function matching_inner_alt!(
   nopriortrt = true
 )
 
+  # for i = eachindex(rid)
   @inbounds Threads.@threads for i = eachindex(rid)
 
     tu = @views(rid[i])
@@ -209,18 +210,26 @@ function matching_inner_alt!(
       # section to alter for a thread
       jsect = ((i - 1) * length(unid) + 1) : (length(unid) * i);
 
+      idtreatr = @views(idtreat[jsect]);
+      idmatchr = @views(idmatch[jsect]);
+      ttimesr = @views(ttimes[jsect]);
+      possibler = @views(possible[jsect]);
+      mdistr = @views(mdist[jsect]);
+      caldistsr = @views(caldists[:, jsect]);
+
       idtreat[jsect],
       idmatch[jsect],
       ttimes[jsect],
       possible[jsect],
       mdist[jsect],
-      caldists[:, jsect] = matchdistances(
-        @views(idtreat[jsect]),
-        @views(idmatch[jsect]),
-        @views(ttimes[jsect]),
-        @views(possible[jsect]),
-        @views(mdist[jsect]),
-        @views(caldists[:, jsect]),
+      caldists[:, jsect] = 
+      matchdistances(
+        idtreatr,
+        idmatchr,
+        ttimesr,
+        possibler,
+        mdistr,
+        caldistsr,
         didsub, dtsub, dtrtsub, cmatsub, # data
         tmn, tmnadj,
         unid,
@@ -275,6 +284,8 @@ function matchdistances(
   # )[1:10, :]
   # hcat(ttimesr, idtreatr, idmatchr, mdistr, caldistsr')[224, :]'
 
+  # setdiff(unid, unique(didsub))
+
   @inbounds for (j, mu) in enumerate(unid)
 
     # there are I (nrow robs) * J (length(unid)) combinations
@@ -297,9 +308,20 @@ function matchdistances(
       # that is, less-than-or-equal to (tt + mmin - fmax) or (the first time point in the data)
       # tmnadj becomes tmn if not assuming prior treatment
       if nopriortrt
-        cp1 = dtsub[findfirst(didsub .== mu)] <= tmnadj;
+        cpt = findfirst(didsub .== mu)
+        if isnothing(cpt)
+          possibler[j] = false
+          continue
+        else cp1 = dtsub[cpt] <= tmnadj;
+        end
       elseif !nopriortrt
-        cp1 = (dtsub[findfirst(didsub .== mu)] <= tmn);
+        cpt = findfirst(didsub .== mu)
+        if isnothing(cpt)
+          possibler[j] = false
+          continue
+        else
+          cp1 = (dtsub[cpt] <= tmn);
+        end
       end
       
       # may want check on length of data for a potential match, or even the treated, not just the range
@@ -443,7 +465,7 @@ Examples
 cdict = Dict(:cum_death_rte => 0.5, :first_case => 0.5);
 matchescal = caliper(cdict, matches);
 """
-function caliper(cdict::Dict, matches5::DataFrame)
+function caliper(cdict::Dict{Symbol, Float64}, matches5::DataFrame)
 
   ntobsp = nrow(unique(matches5[!, [:ttime, :tunit]]));
   # need to add mdist

@@ -1,11 +1,13 @@
 # plotting_functions.jl
 
-using Gadfly, Compose
-import Cairo, Fontconfig
-
 # matching plots
   
-function plot_balance(meanbalances, when::String; savename = "")
+function plot_balance(
+  meanbalances, when::String;
+  xinch = 89mm,
+  yinch = 89mm * 0.75,
+  savename = ""
+)
 
   ncv = Symbol("Matching Covariate");
 
@@ -18,13 +20,23 @@ function plot_balance(meanbalances, when::String; savename = "")
     y = :meanscore,
     color = ncv,
     Geom.point, Geom.line,
-    Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);]),
-    Guide.title("Covariate Balance " * when * "-Refinement"),
-    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
-    Guide.ylabel("Standardized Balance Score")
+    Guide.xticks(
+      ticks = [
+        minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);
+      ],
+      orientation = :vertical
+    ),
+    Guide.title("Covariate Balance (" * when * "-Refinement)"),
+    Guide.xlabel("Day Before Treatment"),
+    Guide.ylabel("Balance Score"),
+    Theme(
+      key_position = :right,
+      key_label_font_size = 07pt,
+      key_title_font_size = 09pt
+    )
   )
   if length(savename) > 0
-    draw(PNG(savename, 9inch, 5inch), plt)
+    draw(PNG(savename, xinch, yinch), plt)
   end
   return plt
 end
@@ -34,8 +46,8 @@ function plot_balance(
   stratvar::Symbol,
   when::String;
   savename = "",
-  xinch = 15inch,
-  yinch = 8inch
+  xinch = 89mm * 2,
+  yinch = 89mm * 1.5 * 2,
 )
 
   sv = String(stratvar) * " Stratum";
@@ -50,14 +62,19 @@ function plot_balance(
     x = :matchtime,
     y = :meanscore,
     color = ncv,
-    xgroup = sv,
+    ygroup = sv,
     Guide.title("Covariate Balance " * when * "-Refinement"),
-    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
-    Guide.ylabel("Standardized Balance Score"),
+    Guide.xlabel("Day Before Treatment", orientation = :horizontal),
+    Guide.ylabel("Balance Score", orientation = :vertical),
     Geom.subplot_grid(
       Geom.point, Geom.line,
       free_y_axis = true,
       Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);])
+    ),
+    Theme(
+      key_position = :right,
+      key_label_font_size = 07pt,
+      key_title_font_size = 09pt
     )
   )
   if length(savename) > 0
@@ -75,8 +92,8 @@ function plot_balance(
   when::String,
   stratdict::Dict;
   savename = "",
-  xinch = 15inch,
-  yinch = 8inch
+  xinch = 89mm * 2,
+  yinch = 89mm * 1.5 * 2,
 )
 
   sv = String(stratvar) * " Stratum";
@@ -93,14 +110,24 @@ function plot_balance(
     x = :matchtime,
     y = :meanscore,
     color = ncv,
-    xgroup = :svlabel,
+    ygroup = :svlabel,
     Guide.title("Covariate Balance " * when * "-Refinement"),
-    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
-    Guide.ylabel("Standardized Balance Score"),
+    Guide.xlabel("Day Before Treatment"),
+    Guide.ylabel("Balance Score"),
     Geom.subplot_grid(
       Geom.point, Geom.line,
       free_y_axis = true,
-      Guide.xticks(ticks = [minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);])
+      Guide.xticks(
+        ticks = [
+          minimum(meanbalances.matchtime):1:maximum(meanbalances.matchtime);
+        ],
+        orientation = :vertical
+      )
+    ),
+    Theme(
+      key_position = :right,
+      key_label_font_size = 07pt,
+      key_title_font_size = 09pt
     )
   )
   if length(savename) > 0
@@ -115,8 +142,8 @@ function plot_balance(
   when::String,
   ygv::Symbol;
   savename = "",
-  xinch = 15inch,
-  yinch = 8inch
+  xinch = 89mm * 2,
+  yinch = 89mm * 1.5 * 2,
 )
 
   sv = String(stratvar) * " Stratum";
@@ -131,10 +158,10 @@ function plot_balance(
     x = :matchtime,
     y = :meanscore,
     color = ncv,
-    xgroup = ygv,
+    ygroup = ygv,
     Guide.title("Covariate Balance " * when * "-Refinement"),
-    Guide.xlabel("Day in Matching Period (w.r.t. treatment)"),
-    Guide.ylabel("Standardized Balance Score"),
+    Guide.xlabel("Day Before Treatment"),
+    Guide.ylabel("Balance Score"),
     Geom.subplot_grid(
       Geom.point, Geom.line,
       free_y_axis = true),
@@ -173,8 +200,8 @@ function plot_balance(
     color = ncv,
     Scale.y_continuous(minvalue = -0.3, maxvalue = 0.3),
     Guide.title("Covariate Balance"),
-    Guide.xlabel("Match Period"),
-    Guide.ylabel("Standardized Balance Score"),
+    Guide.xlabel("Day Before Treatment"),
+    Guide.ylabel("Balance Score"),
     xgroup = :pre,
     Geom.subplot_grid(
       Geom.point,
@@ -191,36 +218,64 @@ end
 
 # estimation plots
 
-function plot_att(atts, estimator; savename = "")
+"""
+    plot_att(atts, estimator; savename = "")
+
+"""
+function plot_att(
+  atts, estimator;
+  xinch = 89mm,
+  yinch = 89mm * 0.75,
+  savename = "")
   fmin = minimum(atts.f)
+  fmax = maximum(atts.f)
 
   att_plt = plot(
-      atts,
-      xintercept = [0],
-      y = :f,
-      x = :att,
-      xmin = :lwer, xmax = :uper,
+    atts,
+    layer(
+      x = :f,
+      y = :att,
+      ymin = :lwer,
+      ymax = :uper,
       Geom.point,
-      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
-      Geom.errorbar,
-      Guide.title(estimator),
-      Guide.ylabel("Day After Treatment"),
-      Guide.xlabel("Estimate"),
-      Coord.Cartesian(ymin = fmin)
+      Geom.errorbar
+    ),
+    layer(
+      yintercept = [0],
+      Geom.hline(style = :dot, color = "black", size = [0.5mm])
+    ),
+    Guide.xlabel("Day After Treatment"),
+    Guide.ylabel("Estimate"),
+    Guide.title(estimator),
+    Guide.xticks(ticks = collect(fmin : fmax), orientation = :vertical)
   )
 
   if length(savename) > 0
-    draw(PNG(savename, 9inch, 5inch), att_plt)
+    draw(PNG(savename, xinch, yinch), att_plt)
   end
   return att_plt
 end
 
+"""
+    plot_att(
+      atts,
+      stratvar::Symbol,
+      savename = "",
+      xinch = 15inch,
+      yinch = 6inch,
+      treatment = :treatment
+    )
+
+Plot restricted estimates, without key for strata.
+
+"""
 function plot_att(
   atts,
-  stratvar::Symbol;
+  stratvar::Symbol,
+  estimator;
   savename = "",
-  xinch = 15inch,
-  yinch = 6inch,
+  xinch = 89mm * 2,
+  yinch = 89mm * 0.75 * 1.5 * 2,
   treatment = :treatment
 )
 
@@ -237,13 +292,13 @@ function plot_att(
     y = :f,
     x = :att,
     xmin = :lwer, xmax = :uper,
-    xgroup = :stratum,
+    ygroup = :stratum,
     Guide.title(ttl),
-    Guide.ylabel("Day After Treatment"),
-    Guide.xlabel("Estimate"),
+    Guide.xlabel("Day After Treatment"),
+    Guide.ylabel("Estimate"),
     Geom.subplot_grid(
+      Geom.vline(style = :dot, color = "black", size = [0.5mm]),
       Geom.point,
-      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
       Geom.errorbar,
       free_y_axis = true,
       # free_x_axis = true,
@@ -256,13 +311,28 @@ function plot_att(
   return plt
 end
 
+"""
+    plot_att(
+      atts,
+      stratvar::Symbol,
+      stratdict::Dict;
+      savename = "",
+      xinch = 15inch,
+      yinch = 6inch,
+      treatment = :treatment
+    )
+
+Plot restricted estimates, with key for strata.
+
+"""
 function plot_att(
   atts,
   stratvar::Symbol,
-  stratdict::Dict;
+  stratdict::Dict,
+  estimator;
   savename = "",
-  xinch = 15inch,
-  yinch = 6inch,
+  xinch = 89mm * 2,
+  yinch = 89mm * 0.75 * 1.5 * 2,
   treatment = :treatment
 )
 
@@ -276,21 +346,24 @@ function plot_att(
 
   plt = plot(
     sort(atts, [:stratum, :f]),
-    xintercept=[0],
-    y = :f,
-    x = :att,
-    xmin = :lwer, xmax = :uper,
-    xgroup = :svlabel,
+    yintercept = [0],
+    x = :f,
+    y = :att,
+    ymin = :lwer,
+    ymax = :uper,
+    ygroup = :svlabel,
     Guide.title(ttl),
-    Guide.ylabel("Day After Treatment"),
-    Guide.xlabel("Estimate"),
+    Guide.xlabel("Day After Treatment"),
+    Guide.ylabel("Estimate"),
     Geom.subplot_grid(
       Geom.point,
-      Geom.vline(style = :dot, color = "black", size = [0.2mm]),
+      Geom.hline(style = :dot, color = "black", size = [0.5mm]),
       Geom.errorbar,
       free_y_axis = true,
-      # free_x_axis = true,
-      Guide.yticks(ticks = fmin : 1 : fmax)
+      Guide.xticks(
+        ticks = fmin : 1 : fmax,
+        orientation = :vertical
+      )
     )
   )
   if length(savename) > 0
@@ -298,34 +371,6 @@ function plot_att(
   end
   return plt
 end
-
-# function plot_att_strat(atts, savename, dirloc)
-#   fmin = minimum(atts.f)
-
-#   S = unique(atts.stratum);
-#   for s in S
-
-#     tt = "avg. effect of treatment on the treated " * string(s)
-
-#     attsi = atts[findall(atts.stratum .== s), :]
-
-#     att_plt = plot(
-#       attsi,
-#       x = :f, y = :att,
-#       ymin = :lwer, ymax = :uper,
-#       Geom.point,
-#       Geom.errorbar,
-#       Guide.title(tt),
-#       Guide.xlabel("f"),
-#       Guide.ylabel("estimate"),
-#       Coord.Cartesian(xmin=fmin)
-#       )
-
-#     sn = dirloc * string(s) * " " * savename
-
-#     draw(PNG(sn, 9inch, 5inch), att_plt)
-#   end
-# end
 
 """
     plot_mdistances(matches5, calvars; savenme = "")

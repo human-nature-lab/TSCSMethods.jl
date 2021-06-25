@@ -37,8 +37,13 @@ DDict = Dict{Tuple{Int64, Int64}, Float64};
 
 function outcomedict(did, dt, dout)
   nd = DDict();
-  for i = eachindex(1:length(dt))
-    nd[(did[i], dt[i])] = dout[i]
+  outcomedict_inner!(nd, did, dt, dout)
+  return nd
+end
+
+function outcomedict_inner!(nd, did, dt, dout)
+  for i = 1:length(dt)
+    nd[(@views(did[i]), @views(dt[i]))] = @views(dout[i])
   end;
   return nd
 end
@@ -69,7 +74,10 @@ function handlemats(
 
   if (typeof(outcomemat) == Array{Union{Missing, Float64},2}) & (typeof(dwitmat) == Array{Union{Missing, Float64},2})
     # om = deepcopy(outcomemat); wm = deepcopy(dwitmat);
-    outcomemat, dwitmat, bl = missingmats(outcomemat, dwitmat, uid, utrtid, ut);
+    outcomemat, dwitmat, bl = missingmats(
+      outcomemat, dwitmat,
+      uid, utrtid, ut, utrtid
+    );
   else bl = DataFrame();
   end
 
@@ -95,7 +103,7 @@ function standard_estimation(
   outboot::Bool
 )
   # order makes a HUGE time difference
-  sort!(matches5, [:ttime, :tunit, :possible, :munit]);
+  sort!(matches5, [:ttime, :tunit, :possible, :munit]); # 97 MiB
 
   utrtid = matches5[!, :tunit];
   uid = matches5[!, :munit];
@@ -105,15 +113,15 @@ function standard_estimation(
   dt = dat[!, t];
   doc = dat[!, outcome];
 
-  mcnts = matchcounts(matches5);
-  nd = outcomedict(did, dt, doc);
+  mcnts = matchcounts(matches5); # 11 MiB
+  nd = outcomedict(did, dt, doc); # 63 MiB -- creating inner function reduces to 49
   
   tl = length(fmin:fmax) + 1;
-
+  
   omsm, wmsm, uidsm, utsm, trtbool, blmat, omiss = handlemats(
     uid, utrtid, ut, mcnts, nd, tpoint, tl,
     fmin, fmax
-  )
+  ) # 1.9 GiB
   
   println("mats have been made")
 
@@ -126,7 +134,7 @@ function standard_estimation(
     uidsm, utsm, trtbool, blmat,
     omiss,
     ATT
-  );
+  ); # 6.5 GiB
 
   println("boots have been strapped")
 
@@ -210,10 +218,16 @@ function restricted_estimation(
 
   println("mats have been made")
 
-  Results = DataFrame(
-    [Int64, Int64, Float64, Float64, Float64, Float64],
-    [:stratum, :f, :att, :lwer, :med, :uper]
-  )
+  Results = mkDataFrame(
+    Dict(
+      :stratum => Int64[],
+      :f => Int64[],
+      :att => Float64[],
+      :lwer => Float64[],
+      :med => Float64[],
+      :uper => Float64[] 
+    )
+  );
 
   Sbootests = Dict{Int64, Matrix{Float64}}();
 
