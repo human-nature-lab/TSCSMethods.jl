@@ -157,15 +157,6 @@ function matchcounts(matches5)
 end
 
 """
-helper to sum the bootstrap distributions over some f range
-"""
-function estsum(bs)
-  Z = sum(bs, dims = 2);
-  Z = reshape(Z, size(Z)[1])
-  return mean(Z), quantile(Z, [0.025, 0.5, 0.975])
-end
-
-"""
 https://stackoverflow.com/questions/40694157/how-to-reverse-a-dictionary-in-julia
 """
 function invert_dict(dict, warning::Bool = false)
