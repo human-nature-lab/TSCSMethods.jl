@@ -7,13 +7,15 @@ function matching!(model::cicmodel, variancesonly::Bool;
 )
   
   model.matches = matching(
-    model.data[], model.matchingcovar,
+    model.data[],
+    model.matchingcovar,
     model.id, model.t,
     model.fmin, model.fmax,
     model.mmin, model.mmax, # add to model
     model.treatment,
     model.matchingcovar, # use these for caliper distance calc
-    variancesonly);
+    variancesonly
+  );
 
   model = refine!(model);
   
