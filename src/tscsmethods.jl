@@ -19,12 +19,6 @@ module tscsmethods
     estimate!,
     handle_att!, handle_attsum,
     caliper!,
-    namemodel, StratDict
-
+    namemodel, StratDict,
+    runmodel
 end
-
-# module MyModule
-#          x() = "x"
-#          export x
-#        end
-# using .MyModule
