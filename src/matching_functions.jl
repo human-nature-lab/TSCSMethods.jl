@@ -236,7 +236,7 @@ function matching_inner_alt!(
         tt, tu,
         Σdict,
         calvars, cvkey,
-        mmin, mlen,
+        mmin, mmax, mlen,
         tux,
         nopriortrt,
         variancesonly
@@ -261,7 +261,7 @@ function matchdistances(
   tt, tu,
   Σdict,
   calvars, cvkey,
-  mmin, mlen,
+  mmin, mmax, mlen,
   tux,
   nopriortrt,
   variancesonly
