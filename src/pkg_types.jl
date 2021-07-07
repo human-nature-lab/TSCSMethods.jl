@@ -39,11 +39,11 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
     # need to alter estimation output to make this happen
   # plot slots
   # covariate balance pre and post refinement
-  pl_cb_pre::Plot = Plot()
-  pl_cb_post::Plot = Plot()
+  pl_cb_pre::Bool = false
+  pl_cb_post::Bool = false
   # att estimates pre and post refinement
-  pl_att_pre::Plot = Plot()
-  pl_att_post::Plot = Plot()
+  pl_att_pre::Bool = false
+  pl_att_postBool = false
   # total number of treated observations
   treatednum::Union{Int64, Dict{Int64, Int64}} = Int64(0)
   # number of treated left over after filtering or caliper
