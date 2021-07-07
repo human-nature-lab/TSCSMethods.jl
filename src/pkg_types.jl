@@ -43,7 +43,7 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
   pl_cb_post::Bool = false
   # att estimates pre and post refinement
   pl_att_pre::Bool = false
-  pl_att_postBool = false
+  pl_att_post::Bool = false
   # total number of treated observations
   treatednum::Union{Int64, Dict{Int64, Int64}} = Int64(0)
   # number of treated left over after filtering or caliper
