@@ -19,6 +19,7 @@ module tscsmethods
     estimate!,
     handle_att!, handle_attsum,
     caliper!,
+    refine!,
     namemodel, StratDict,
     runmodel
 end
