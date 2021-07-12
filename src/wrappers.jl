@@ -393,23 +393,3 @@ function handle_balance!(model, pltl, stratdict; post = true)
   end
   return model
 end
-
-"""
-        runmodel(mloc)
-
-execute script at mloc. prevents global variable scope.
-"""
-function runmodel(mloc::String)
-    include(mloc)
-end
-
-"""
-        runmodel(mlocs)
-
-execute scripts at mlocs. prevents global variable scope.
-"""
-function runmodel(mloc::Vector{String})
-  for ml in mloc
-    include(ml)
-  end
-end
