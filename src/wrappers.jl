@@ -17,7 +17,7 @@ function matching!(model::cicmodel, variancesonly::Bool;
     variancesonly
   );
 
-  model = refine!(model);
+  refine!(model);
   
   return model
 end
