@@ -1,6 +1,4 @@
-#=
-new matching functions
-=#
+# matching functions
 
 function get_Σs!(Σdict, cmat, covnum, dt, uniqt, mmin, mmax)
 
@@ -44,14 +42,12 @@ function matching(
 
   cvkey = [findfirst(covariates .== e) for e in calvars];
 
-  allvars = vcat([t, id, treatment], covariates);
-
   did = dat[!, id];
   dt = dat[!, t];
   dtrt = dat[!, treatment];
 
   # this is kind of wasteful
-  # this needs to be sorted a bit better
+  # this needs to be a bit better
   cmat = convert(Matrix{Float64}, Matrix(dat[!, covariates]));
 
   # treatment point reference
@@ -72,27 +68,24 @@ function matching(
 
   L = length(unid) * length(treatment_points);
 
-  idtreat = zeros(Int64, L);
-  ttimes = zeros(Int64, L);
-  idmatch = zeros(Int64, L);
-  possible = [false for i in 1:L];
-  mdist = Inf .* zeros(Float64, L);
+  matches = DataFrame(
+    ttime = zeros(Int64, L), # ttimes,
+    tunit = zeros(Int64, L), # idtreat,
+    munit = zeros(Int64, L), # idmatch,
+    possible = [false for i in 1:L], # possible,
+    mdist = Inf .* zeros(Float64, L) # mdist
+  );
+
+  idtreat = matches[!, :tunit];
+  ttimes = matches[!, :ttime];
+  idmatch = matches[!, :munit];
+  possible = matches[!, :possible];
+  mdist = matches[!, :mdist];
+
   caldists = Inf .* zeros(Float64, length(cvkey), L);
 
   Σdict = Dict{Tuple{Int64, Int64}, Array{Union{Float64, Missing}, 2}}();
   get_Σs!(Σdict, cmat, size(cmat)[2], dt, unique(rt), mmin, mmax);
-
-  # matching_inner!(
-  #   pp, rid, rt,
-  #   idI, tI, idJ, possible, mdist, caldists,
-  #   did, dt, cmat,
-  #   calvars,
-  #   cvkey,
-  #   fmin, fmax,
-  #   Σdict,
-  #   mmin, mmax, mlen,
-  #   variancesonly
-  # )
 
   matching_inner_alt!(
     # preall
@@ -112,27 +105,21 @@ function matching(
     nopriortrt = true
   );
 
-  matches = DataFrame(
-    ttime = ttimes,
-    tunit = idtreat,
-    munit = idmatch,
-    possible = possible,
-    mdist = mdist
-  );
-
-  caldf = DataFrame(permutedims(caldists), :auto)
+  caldists = DataFrame(permutedims(caldists), :auto)
   calvarsnmes = [Symbol(String(calvar) * "_mdist") for calvar in calvars]
-  rename!(caldf, calvarsnmes);
+  rename!(caldists, calvarsnmes);
 
-  matches = hcat(matches, caldf);
+  matches = hcat(matches, caldists);
 
   # keepind = findall((isnan.(matches.mdist) .- 1) .* - 1 .== 1);
   # matches = matches[keepind, :]
 
   matches = matches[isnan.(matches.mdist) .== false, :];
 
+  # remove treated observations without any possible matches
+
   #= this is an inefficient solution to an apparent problem. make better.
-  it should happen, most efficiently, in the inner function =#
+  it should happen more efficiently, in the inner function =#
   tobst = unique(matches[!, [:tunit, :ttime]])[!, :ttime];
   tobsu = unique(matches[!, [:tunit, :ttime]])[!, :tunit];
 
