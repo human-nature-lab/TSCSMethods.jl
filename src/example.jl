@@ -160,7 +160,7 @@ using Colors, CairoMakie
 plot_cb(
   cc;
   labels = labels,
-  variablenames = vn,
+  variablecolors = varcol,
   fw = 700, fl = 300,
   spath = nothing
 )
@@ -169,7 +169,7 @@ plot_cbs(
   cc,
   ccr;
   labels = labels,
-  variablenames = vn,
+  variablecolors = varcol,
   fw = 700,
   fl = 300,
   spath = nothing
@@ -191,6 +191,6 @@ save_modelset(
 
 plot_modelset(
   model_path;
-  variablenames = VariableNames(), # from paper pkg.
+  variablecolors = varcol, # from paper pkg.
   base_savepath = "" # ends in /
 );

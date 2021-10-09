@@ -95,13 +95,13 @@ function ax_att(
 end
 
 """
-    makeseries(cbi; variablenames::Union{VariableNames, Nothing} = nothing)
+    makeseries(cbi; variablecolors::Union{Dict, Nothing} = nothing)
 
 Convert a grandbalances dictionary into a series, with labels and colors, to plot. Output goes into series!(), inputs a grandbalances object for a non-stratified analysis, or a single stratum.
 
-variablenames allows input of a custom color set.
+variablecolors allows input of a custom color set.
 """
-function makeseries(cbi; variablenames::Union{VariableNames, Nothing} = nothing)
+function makeseries(cbi; variablecolors::Union{Dict{Symbol, RGB}, Nothing} = nothing)
   # length of time-varying coeff
   clen = maximum([length(v) for v in values(cbi)]);
   rlen = length(keys(cbi));
@@ -117,10 +117,10 @@ function makeseries(cbi; variablenames::Union{VariableNames, Nothing} = nothing)
     end
   end
 
-  if !isnothing(variablenames)
-    varcol = mk_covpal(variablenames)
+  if !isnothing(variablecolors)
+    varcol = mk_covpal(variablecolors)
   else
-    varcol = mk_covpal(labs)
+    varcol = variablecolors
   end
   
   sercols = [varcol[lab] for lab in labs];
@@ -131,12 +131,12 @@ end
 function ax_cb(
   fsub,
   cbi,
-  variablenames;
+  variablecolors;
   cbttl = "",
   step = 5
 )
 
-  servals, serlabs, sercols = makeseries(cbi; variablenames = variablenames);
+  servals, serlabs, sercols = makeseries(cbi; variablecolors = variablecolors);
 
   axcb = Axis(
     fsub,
@@ -184,7 +184,7 @@ function plot_cbs(
   model1::Union{cicmodel, calipercicmodel},
   model2::refinedcicmodel;
   labels = Dict{Int, String}(),
-  variablenames = nothing,
+  variablecolors = nothing,
   fw = 700,
   fl = 300,
   spath = nothing
@@ -199,7 +199,7 @@ function plot_cbs(
   f1 = plot_cb(
     model1;
     labels = labels,
-    variablenames = variablenames,
+    variablecolors = variablecolors,
     fw = fw, fl = fl,
     spath = spath
   )
@@ -213,7 +213,7 @@ function plot_cbs(
   f2 = plot_cb(
     model2;
     labels = labels,
-    variablenames = variablenames,
+    variablecolors = variablecolors,
     fw = fw, fl = fl,
     spath = spath
   )
@@ -237,7 +237,7 @@ Construct a pre- or post-refinement balance plot. Handles two cases:
 function plot_cb(
   model;
   labels = Dict{Int, String}(),
-  variablenames = nothing,
+  variablecolors = nothing,
   fw = 700, fl = 300,
   spath = nothing
 )
@@ -272,7 +272,7 @@ function plot_cb(
       cbi = model.grandbalances[s];
 
       fpos = pdict[i];
-      axc, ser = ax_cb(f[fpos...][1, 1], cbi, variablenames);
+      axc, ser = ax_cb(f[fpos...][1, 1], cbi, variablecolors);
 
       label_tt = Label(
         f,
@@ -283,7 +283,7 @@ function plot_cb(
   else
 
     fpos = [1, 1]
-    axc, ser = ax_cb(f[fpos...][1,1], cb, variablenames);
+    axc, ser = ax_cb(f[fpos...][1,1], cb, variablecolors);
 
     hm_sublayout = GridLayout()
     f[1, 1] = hm_sublayout
@@ -320,7 +320,7 @@ pl_ratio(mo) = mo == :death_rate ? Relative(13/31) : Relative(13/38)
 function model_pl(
   model::AbstractCICModel;
   labels = Dict{Int, String}(),
-  variablenames = nothing,
+  variablecolors = nothing,
   fw = 700, fl = 300
 )
 
@@ -365,7 +365,7 @@ function model_pl(
       
       fpos = pdict[i];
       axa, rb = ax_att(f[fpos...][1,1], resi; outcome = model.outcome);
-      axc, ser = ax_cb(f[fpos...][1,2], cbi, variablenames; step = 10);
+      axc, ser = ax_cb(f[fpos...][1,2], cbi, variablecolors; step = 10);
 
       axs = [axc, axa];
 
@@ -384,7 +384,7 @@ function model_pl(
   else
     fpos = [1,1]
     axa, rb = ax_att(f[fpos...][1,1], model.results; outcome = model.outcome);
-    axc, ser = ax_cb(f[fpos...][1,2], model.grandbalances, variablenames);
+    axc, ser = ax_cb(f[fpos...][1,2], model.grandbalances, variablecolors);
 
     axs = [axc, axa];
 
@@ -446,13 +446,13 @@ function make_pdict()
 end
 
 """
-    plot_modelset(model_path; variablenames = nothing, base_savepath = "")
+    plot_modelset(model_path; variablecolors = nothing, base_savepath = "")
 
 Generate the plots, in a new directory, for a set of models in some model set file. Base_savepath should end in "/".
 """
 function plot_modelset(
   model_path;
-  variablenames = nothing,
+  variablecolors = nothing,
   base_savepath = "" # ends in /
 )
 
@@ -476,7 +476,7 @@ function plot_modelset(
         mp = model_pl(
         mod;
         labels = labels,
-        variablenames = variablenames
+        variablecolors = variablecolors
       )
       
       save(
