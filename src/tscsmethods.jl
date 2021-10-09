@@ -3,22 +3,25 @@ module tscsmethods
   include("dependencies.jl")
 
   include("pkg_types.jl")
-  include("matching_functions.jl")
-  include("balancing_functions.jl")
-  include("estimation_functions.jl")
-  include("get_wits.jl")
-  include("bootstrap_estimation.jl")
-  include("plotting_functions.jl")
-  include("wrappers.jl")
-  include("internal_helpers.jl")
-  include("weekly_att.jl")
+  include("matching.jl")
+  include("caliper.jl")
+  include("balancing.jl")
+  include("estimation.jl")
+  include("stratification.jl")
+  include("plotting.jl")
 
-  export cicmodel,
-    matching!,
-    getbalance!, handle_balance!,
+  export
+    # types
+    AbstractCICModel, cicmodel, calipercicmodel, refinedcicmodel,
+    # mechanics
+    match!,
+    balance!, balancecheck,
+    make_refined, make_caliper,
     estimate!,
-    handle_att!, handle_attsum,
-    caliper!,
-    refine!,
-    namemodel, StratDict
+    stratify!, variablestrat!,
+    # plotting
+    plot_cb, plot_cbs,
+    model_pl, plot_modelset,
+    # saving
+    save_modelset
 end

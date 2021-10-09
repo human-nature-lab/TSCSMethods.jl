@@ -1,12 +1,13 @@
 # dependencies.jl
 
-using CSV, DataFrames, DataFramesMeta
-using StatsBase, Statistics, Gadfly, Compose, Parameters
+using JLD2:load_object,save_object
+using LinearAlgebra:permutedims, pinv, diag, diagind
 
-import LinearAlgebra.Diagonal, LinearAlgebra
+using DataFrames, DataFramesMeta
+using StatsBase:cov,mean,std,sample
+using Statistics:quantile
+using Distances:mahalanobis, weuclidean
+using Parameters:@with_kw
 
-import IterTools.product
-
-import Cairo, Fontconfig
-
-import JLD2, Dates
+using CairoMakie
+import Colors
