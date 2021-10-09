@@ -1,12 +1,4 @@
-#= possible matches with sliding window
-also seems like a better procedure in general
-
-TODO:
-- make this work with the wrappers, write compatible estimation scheme
-- add checks, and conditions (e.g. minimum allowable match length)
-- add a non-sliding window option
-- make the "possibles" dataframe better (better var names, initialization, etc.)
-=#
+# matching.jl
 
 """
 give fs for a position
@@ -102,8 +94,6 @@ function distance_sums!(
       il = Vector{Float64}(undef, length(covariates))
       jl = similar(il)
       
-      # fillrow!(il, jl, covariates, c1tusdf, c1ousdf, lcnt);
-
       fillrow!(
         il, jl, covariates, c1tusdf, c1ousdf, lcnt
       )
@@ -145,10 +135,8 @@ function matching_barrier_2!(
   Σinvdict,
   covariates,
   treatment,
-  # outcome,
   t,
   distances,
-  # tref,
   i, j
 )
   # then we simply index LF
@@ -183,22 +171,6 @@ function matching_barrier_2!(
       # possibles[ijk, :poss] = false; # default already
       continue
     end
-
-    #=
-    possibles[ijk, :treatpretreat] = tusdf[trtdx + tref, outcome];
-    possibles[ijk, :matchpretreat] = ousdf[trtdx + tref, outcome];
-
-    # assign match period average value
-    possibles[ijk, :treatmatchperavg] = mean(tusdf[1:(trtdx + f - 1), outcome]);
-    possibles[ijk, :matchmatchperavg] = mean(ousdf[1:(trtdx + f - 1), outcome]);
-
-    # get the outcome at f
-    # minimum will be at least the treatment date
-    # this tx must exist by structure of the data
-
-    possibles[ijk, :treatoutcome] = tusdf[trtdx + f, outcome]
-    possibles[ijk, :matchoutcome] = ousdf[trtdx + f, outcome]
-    =#
 
     Lf = LF[k : ((k - 1) + lmm)];
     c1j = ousdf[!, t] .∈ Ref(Lf);
@@ -365,12 +337,6 @@ function setupmatches(dat, t, id, treatment, mmin, mmax, fmin, fmax)
     f = zeros(Int64, L),
     possible = [false for i in 1:L]
   );
-    # treatpretreat = zeros(Float64, L),
-    # matchpretreat = zeros(Float64, L),
-    # treatmatchperavg = zeros(Float64, L),
-    # matchmatchperavg = zeros(Float64, L),
-    # treatoutcome = zeros(Float64, L),
-    # matchoutcome = zeros(Float64, L)
 
   # add caliper vars
   for calvar in vcat(:mdist, covariates)
@@ -386,7 +352,7 @@ end
 """
     match!(cic::cicmodel, dat::DataFrame; distances = true)
   
-Perform matching for treatment events.
+Perform matching for treatment events, using Mahalanobis distance matching. Optionally specify that standardized Euclidean distances for the individual covariates are specified.
 """
 function match!(cic::cicmodel, dat::DataFrame; distances = true)
 

@@ -11,25 +11,15 @@ function gen_colors(n)
     )
     return convert(Vector{Color}, cs)
   end
-  
-function mk_covpal(vn::varnames; n = 12)
 
-  pal = gen_colors(n);
+function mk_covpal(variables::Vector{Symbol})
+  varcol = Dict{Symbol, RGB}();
 
-  varcol = Dict(
-      vn.cdr => pal[3],
-      vn.ccr => pal[5],
-      vn.fc => pal[2],
-      vn.pd => pal[1],
-      vn.res => pal[4],
-      vn.groc => pal[12],
-      vn.rec => pal[6],
-      vn.pbl => pal[7],
-      vn.phi => pal[8],
-      vn.ts16 => pal[9],
-      vn.mil => pal[10],
-      vn.p65 => pal[11]
-  );
+  pal = gen_colors(length(variables));
+
+  for (i, variable) in enumerate(variables)
+    varcol[variable] = pal[i]
+  end
   return varcol
 end
 
@@ -62,25 +52,23 @@ function ax_att(
   CIbnds = [Symbol("2.5%"), Symbol("97.5%")]
 )
 
-  names
-
-  outlab = Dict(
-    :death_rte => "Death Rate",
-    :case_rte => "Case Rate"
-  );
-
-  outcol = Dict(
-    :death_rte => gen_colors(3)[3],
-    :case_rte => gen_colors(5)[5]
-  );
-
+  # paper specific
   if outcome == :death_rte
-    xt = collect(10:3:40) # generalize
+    xt = collect(10:3:40)
+    ocolor = gen_colors(3)[3]
+    olab = "Death Rate"
   elseif outcome == :case_rte
-    xt = collect(3:3:40) # generalize
+    xt = collect(3:3:40)
+    ocolor = gen_colors(5)[5]
+    olab = "Case Rate"
+  # general
+  else
+    fmin = minimum(atts.f); fmax = maximum(atts.f)
+    xt = collect(fmin:(fmax-fmin)/10:fmax)
+    ocolor = gen_colors(3)[3]
+    olab = string(outcome)
   end
 
-  # f = Figure()
   ax = Axis(
     fsub,
     title = attl,
@@ -95,10 +83,10 @@ function ax_att(
   rb = rangebars!(
     atts.f,
     atts[!, CIbnds[1]], atts[!, CIbnds[2]],
-    color = outcol[outcome];
+    color = ocolor;
     whiskerwidth = 10,
-    label = outlab[outcome]
-  ) # same low and high error
+    label = olab
+  )
 
   # plot position scatters so low and high errors can be discriminated
   scatter!(atts.f, atts.att, markersize = 5, color = :black)
@@ -107,11 +95,13 @@ function ax_att(
 end
 
 """
-    makeseries(cbi)
+    makeseries(cbi; variablenames::Union{VariableNames, Nothing} = nothing)
 
 Convert a grandbalances dictionary into a series, with labels and colors, to plot. Output goes into series!(), inputs a grandbalances object for a non-stratified analysis, or a single stratum.
+
+variablenames allows input of a custom color set.
 """
-function makeseries(cbi)
+function makeseries(cbi; variablenames::Union{VariableNames, Nothing} = nothing)
   # length of time-varying coeff
   clen = maximum([length(v) for v in values(cbi)]);
   rlen = length(keys(cbi));
@@ -127,41 +117,26 @@ function makeseries(cbi)
     end
   end
 
-  varcol = mk_covpal(varnames(); n = 12)
+  if !isnothing(variablenames)
+    varcol = mk_covpal(variablenames)
+  else
+    varcol = mk_covpal(labs)
+  end
+  
   sercols = [varcol[lab] for lab in labs];
   
   return servals, string.(labs), sercols
 end
 
-function makeseries_state(datsub, idvar, tvar, var)
-
-  select!(datsub, [idvar, tvar, var]);
-  
-  datsub = unstack(
-    datsub,
-    tvar,
-    var
-  );
-
-  # already filtered to stratum
-  sort!(datsub, [idvar])
-
-  serlabs = datsub[!, idvar];
-  servals = Matrix(select(datsub, Not(idvar)));
-
-  sercols = gen_colors(length(serlabs)); # assume same states for each metric
-
-  return servals, serlabs, sercols
-end
-
 function ax_cb(
   fsub,
-  cbi;
+  cbi,
+  variablenames;
   cbttl = "",
   step = 5
 )
 
-  servals, serlabs, sercols = makeseries(cbi);
+  servals, serlabs, sercols = makeseries(cbi; variablenames = variablenames);
 
   axcb = Axis(
     fsub,
@@ -209,6 +184,7 @@ function plot_cbs(
   model1::Union{cicmodel, calipercicmodel},
   model2::refinedcicmodel;
   labels = Dict{Int, String}(),
+  variablenames = nothing,
   fw = 700,
   fl = 300,
   spath = nothing
@@ -223,6 +199,7 @@ function plot_cbs(
   f1 = plot_cb(
     model1;
     labels = labels,
+    variablenames = variablenames,
     fw = fw, fl = fl,
     spath = spath
   )
@@ -236,6 +213,7 @@ function plot_cbs(
   f2 = plot_cb(
     model2;
     labels = labels,
+    variablenames = variablenames,
     fw = fw, fl = fl,
     spath = spath
   )
@@ -259,6 +237,7 @@ Construct a pre- or post-refinement balance plot. Handles two cases:
 function plot_cb(
   model;
   labels = Dict{Int, String}(),
+  variablenames = nothing,
   fw = 700, fl = 300,
   spath = nothing
 )
@@ -293,7 +272,7 @@ function plot_cb(
       cbi = model.grandbalances[s];
 
       fpos = pdict[i];
-      axc, ser = ax_cb(f[fpos...][1, 1], cbi);
+      axc, ser = ax_cb(f[fpos...][1, 1], cbi, variablenames);
 
       label_tt = Label(
         f,
@@ -304,7 +283,7 @@ function plot_cb(
   else
 
     fpos = [1, 1]
-    axc, ser = ax_cb(f[fpos...][1,1], cb);
+    axc, ser = ax_cb(f[fpos...][1,1], cb, variablenames);
 
     hm_sublayout = GridLayout()
     f[1, 1] = hm_sublayout
@@ -341,6 +320,7 @@ pl_ratio(mo) = mo == :death_rate ? Relative(13/31) : Relative(13/38)
 function model_pl(
   model::AbstractCICModel;
   labels = Dict{Int, String}(),
+  variablenames = nothing,
   fw = 700, fl = 300
 )
 
@@ -385,7 +365,7 @@ function model_pl(
       
       fpos = pdict[i];
       axa, rb = ax_att(f[fpos...][1,1], resi; outcome = model.outcome);
-      axc, ser = ax_cb(f[fpos...][1,2], cbi; step = 10);
+      axc, ser = ax_cb(f[fpos...][1,2], cbi, variablenames; step = 10);
 
       axs = [axc, axa];
 
@@ -404,7 +384,7 @@ function model_pl(
   else
     fpos = [1,1]
     axa, rb = ax_att(f[fpos...][1,1], model.results; outcome = model.outcome);
-    axc, ser = ax_cb(f[fpos...][1,2], model.grandbalances);
+    axc, ser = ax_cb(f[fpos...][1,2], model.grandbalances, variablenames);
 
     axs = [axc, axa];
 
@@ -445,104 +425,11 @@ function fdims(sn)
   return lf, wf, ns
 end
 
-function labdict(model)
-  svl = Symbol(string(model.stratvar) * " Stratum")
-  dd = unique(model.matches[!, [svl, :stratlab]])
-  dd = Dict(dd[!, svl] .=> dd[!, :stratlab])
-  return dd
-end
+"""
+    make_pdict()
 
-function extrtinfo!(UC, model, mname; refpth = false)
-  stratified = length(string(model.stratvar)) > 0 ? true : false
-
-  speci = namespec(mname);
-  eventype = nameevent(mname);
-  calval = contains(mname, "cal") ? "yes" : "no"
-  calbool = contains(mname, "cal")
-
-  if !(refpth == false) & calbool & stratified
-    refmod = JLD2.load_object(refpth * replace(mname, "cal" => "") * ".jld2")
-  end
-
-  if !stratified
-    # [name, stratum, label, type, value]
-    push!(
-      UC,
-      [eventype, speci, calval, mname, -1, "", "n", model.treatednum]
-    )
-    push!(UC,
-      [eventype, speci, calval, mname, -1, "", "l", model.treatedleft]
-    )
-  elseif stratified
-    if (refpth == false) | !calbool
-      # makes it way slow, refine beforehand
-      # if !calbool
-      #   tscsmethods.refine!(model);
-      # end
-      ldict = labdict(model);
-    else
-      # makes it way slow, refine beforehand
-      # tscsmethods.refine!(refmod);
-      ldict = labdict(refmod);
-    end
-
-    for (k1, v1) in model.treatednum
-      push!(
-        UC,
-        [eventype, speci, calval, mname, k1, ldict[k1], "n", v1]
-      )
-    end
-    for (k2, v2) in model.treatedleft
-      push!(
-        UC,
-        [eventype, speci, calval, mname, k2, ldict[k2], "l", v2]
-      )
-    end
-  end
-  return unique(UC)
-end
-
-function UCdf()
-  trt = DataFrame(
-    event = String[],
-    specification = String[],
-    caliper = String[],
-    name = String[],
-    stratum = Int64[],
-    label = String[],
-    type = String[],
-    value = Int64[],
-  );
-  return trt
-end
-
-function mktrtnumdf(UC)
-  trt = DataFrame(
-      name = String[],
-      stratum = Int64[],
-      type = String[],
-      value = Int64[],
-  );
-
-  # k =  "ga voting added_death_rte_Trump 2016 Vote Share__model";
-  # v = UC[k];
-
-  for (k, v) in UC
-      if typeof(v) == Tuple{Int64, Int64}
-          push!(trt, [k, 1, "n", v[1]])
-          push!(trt, [k, 1, "l", v[2]])
-      else
-          for (k1, v1) in v[1]
-              push!(trt, [k, k1, "n", v1])
-          end
-          for (k2, v2) in v[2]
-              push!(trt, [k, k2, "l", v2])
-          end
-      end
-  end
-  return trt
-end
-
+Manually-specified figure placement, for up to eight strata.
+"""
 function make_pdict()
 
   pdict = Dict{Int64, Vector{Int64}}();
@@ -558,34 +445,14 @@ function make_pdict()
   return pdict
 end
 
-function namespec(obs)
-  if contains(obs, "epi.")
-    ot = "Epi."
-  elseif contains(obs, "no mob.")
-    ot = "No Mob."
-  elseif contains(obs, "added")
-    ot = "Added."
-  else
-    ot = "Full"
-  end
-  return ot
-end
+"""
+    plot_modelset(model_path; variablenames = nothing, base_savepath = "")
 
-function nameevent(obs)
-  if contains(obs, "ga")
-    ot = "GA Special"
-  elseif contains(obs, "voting") & !contains(obs, "ga")
-    ot = "Primary"
-  elseif contains(obs, "trump")
-    ot = "Trump Rally"
-  elseif contains(obs, "protest")
-    ot = "BLM Protest"
-  end
-  return ot
-end
-
+Generate the plots, in a new directory, for a set of models in some model set file. Base_savepath should end in "/".
+"""
 function plot_modelset(
   model_path;
+  variablenames = nothing,
   base_savepath = "" # ends in /
 )
 
@@ -608,7 +475,8 @@ function plot_modelset(
     if !isnothing(mod)
         mp = model_pl(
         mod;
-        labels = labels
+        labels = labels,
+        variablenames = variablenames
       )
       
       save(

@@ -10,4 +10,4 @@ using Distances:mahalanobis, weuclidean
 using Parameters:@with_kw
 
 using CairoMakie
-import Colors
+using Colors
