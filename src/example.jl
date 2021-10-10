@@ -25,10 +25,7 @@ fmin = 10; fmax = 40;
 treatment = :primary; outcome = :death_rte;
 covariates = calvars = [Symbol("Pop. Density"), :death_rte];
 
-dat = @linq dat |>
-  where(
-    :running .> 0, :date .< Date("2020-10-01")
-  );
+@subset!(dat, :running .> 0, :date .< Date("2020-10-01"));
 
 covariates = [
   Symbol("Pop. Density"),
@@ -74,6 +71,8 @@ cc.balances = deepcopy(full.balances);
 
 # import JLD2; JLD2.save_object("cc.jld2", cc);
 =#
+
+# cc = deathmodel("test", :primary, :epi)
 
 # match
 

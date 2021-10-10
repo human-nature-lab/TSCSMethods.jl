@@ -47,6 +47,44 @@ end
 
 # generic stratification functions
 
+"""
+    customstrat!(
+      cc,
+      stratdict::Union{Dict{Tuple{Int64, Int64}, Int64}, Dict{Int64, Int64}}
+    )
+
+Stratify based on the values of some input dictionary, specifying strata for each (t, id) or each (id) for a stratification that varies only by unit.
+"""
+function customstrat!(
+  cc,
+  stratdict::Union{Dict{Tuple{Int64, Int64}, Int64}, Dict{Int64, Int64}}
+)
+
+  if typeof(stratdict) == Dict{Tuple{Int64, Int64}, Int64}
+    cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
+    @eachrow! cc.matches begin
+      :stratum = stratdict[(:treattime, :treatunit)]
+    end
+
+    cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
+    @eachrow! cc.meanbalances begin
+    :stratum = stratdict[(:treattime, :treatunit)]
+    end
+  else
+    @eachrow! cc.matches begin
+      # includes zerosep case by loop design (q = 0)
+      :stratum = stratdict[:treatunit]
+    end
+
+    # meanbalances
+    @eachrow! cc.meanbalances begin
+      # includes zerosep case by loop design (q = 0)
+      :stratum = stratdict[:treatunit]
+    end
+  end
+  return cc
+end
+
 function assignq(val, X, lenX)
   q = 0
   for i in 1:(lenX-1)
