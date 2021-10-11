@@ -9,8 +9,8 @@ outputs dict[t-l, covariate] where t-l is l days prior to the treatment
 """
 function std_treated(cc::AbstractCICModel, dat::DataFrame)
 
-  trtobs = unique(dat[dat[!, treatment] .== 1, [t, id]])
-  sort!(trtobs, [t, id])
+  trtobs = unique(dat[dat[!, cc.treatment] .== 1, [cc.t, cc.id]])
+  sort!(trtobs, [cc.t, cc.id])
   idx = Int[];
   L = Int[];
 
@@ -18,13 +18,13 @@ function std_treated(cc::AbstractCICModel, dat::DataFrame)
     to = trtobs[i, :]
 
     c1 = dat[!, cc.id] .== to[2];
-    ct = (dat[!, cc.t] .>= (to[1] - 1 + cc.mmin)) .& (dat[!, t] .<= to[1] + cc.fmax);
+    ct = (dat[!, cc.t] .>= (to[1] - 1 + cc.mmin)) .& (dat[!, cc.t] .<= to[1] + cc.fmax);
 
     append!(idx, findall((c1 .& ct)))
     append!(L, dat[c1 .& ct, cc.t] .- to[1]) # L relative to tt, not the actual time
   end
 
-  allvals = @view dat[idx, covariates];
+  allvals = @view dat[idx, cc.covariates];
 
   Lset = unique(L);
   Lstd = zeros(Float64, length(Lset));
@@ -70,7 +70,7 @@ function fullbalance!(cc::AbstractCICModel, dat::DataFrame)
 
   cc.balances = unique(cc.matches[!, [:treattime, :treatunit, :matchunit]])
 
-  Lrnge = length((cc.fmin + mmin):(cc.fmax + mmax))
+  Lrnge = length((cc.fmin + cc.mmin):(cc.fmax + cc.mmax))
 
   for tv in timevar
     # xname = Symbol(string(tv) * " balances")
@@ -108,16 +108,20 @@ function _balance!(
 
     ttl = (tt + cc.fmin + cc.mmin);
     ttu = (tt + cc.fmax - 1);
-    sdf = @view sdat[(sdat[!, t] .>= ttl) .& (sdat[!, t] .<= ttu), :];
+    sdf = @view sdat[(sdat[!, cc.t] .>= ttl) .& (sdat[!, cc.t] .<= ttu), :];
 
     iudat = @view sdf[sdf[!, cc.id] .== iu, :];
 
-    _row_balance!(gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ)
+    _row_balance!(
+      gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
+    )
   end
   return cc
 end
 
-function _row_balance!(gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ)
+function _row_balance!(
+  gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
+)
   # @eachrow! cc.balances[parentindices(gi)[1], :] begin
   # cgi = @view cc.balances[parentindices(gi)[1], :];
   for r in eachrow(gi)
@@ -137,7 +141,9 @@ function _row_balance!(gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmi
         # jul = judat[lcount, :]
 
         for tv in timevar
-          r[tv][l - ttl + 1] = tvcalc(iudat[lcount, tv], judat[lcount, tv], Lσ[l - tt, tv])          
+          r[tv][l - ttl + 1] = tvcalc(
+              iudat[lcount, tv], judat[lcount, tv], Lσ[l - tt, tv]
+            )
         end
       end
     end
