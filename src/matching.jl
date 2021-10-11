@@ -281,7 +281,6 @@ function getmatches!(
     iu = rid[i]; # need tou for distances
     tusdf = @view sdf[sdf[!, id] .== iu, :];
     
-    # each thread is overwriting the others' work?
     matching_barrier_1!(
       possibles,
       sdf, tusdf, iu, it, uid,
@@ -313,20 +312,20 @@ function processmatches!(cic::cicmodel)
   return cic
 end
 
-function setupmatches(dat, t, id, treatment, mmin, mmax, fmin, fmax)
+function setupmatches(dat, cc)
 
   # begin setup
-  uid = unique(dat[!, id]);
-  lmm = length(mmin:mmax);
+  uid = unique(dat[!, cc.id]);
+  lmm = length(cc.mmin:cc.mmax);
   luid = length(uid);
-  lff = length(fmin:fmax);
-  tmin = minimum(dat[!, t]);
+  lff = length(cc.fmin:cc.fmax);
+  tmin = minimum(dat[!, cc.t]);
 
-  varset = vcat([t, id, treatment, outcome], covariates);
+  varset = vcat([cc.t, cc.id, cc.treatment, cc.outcome], cc.covariates);
 
-  treatment_points = findall(dat[!, treatment] .== 1);
-  rid = @views dat[treatment_points, id];
-  rt = @views dat[treatment_points, t];
+  treatment_points = findall(dat[!, cc.treatment] .== 1);
+  rid = @views dat[treatment_points, cc.id];
+  rt = @views dat[treatment_points, cc.t];
 
   L = luid * length(treatment_points) * lff;
 
@@ -339,12 +338,14 @@ function setupmatches(dat, t, id, treatment, mmin, mmax, fmin, fmax)
   );
 
   # add caliper vars
-  for calvar in vcat(:mdist, covariates)
+  for calvar in vcat(:mdist, cc.covariates)
     possibles[!, calvar] .= 0.0;
   end
 
   # get sample variances
-  Σinvdict, σd = samplecovar(dat, unique(rid), covariates, t, id, treatment);
+  Σinvdict, σd = samplecovar(
+    dat, unique(rid), cc.covariates, cc.t, cc.id, cc.treatment
+  );
   return possibles, uid, lmm, luid, lff, tmin, rid, rt, varset, Σinvdict
 end
 
@@ -358,10 +359,7 @@ function match!(cc::cicmodel, dat::DataFrame; distances = true)
 
   cc.matches,
   uid, lmm, luid, lff,
-  tmin, rid, rt, varset, Σinvdict = setupmatches(
-    dat, cc.t, cc.id, cc.treatment,
-    cc.mmin, cc.mmax, cc.fmin, cc.fmax
-  );
+  tmin, rid, rt, varset, Σinvdict = setupmatches(dat, cc);
 
   getmatches!(
     cc.matches,
