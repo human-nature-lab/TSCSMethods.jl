@@ -23,5 +23,6 @@ module tscsmethods
     plot_cb, plot_cbs,
     model_pl, plot_modelset,
     # saving
+    name_model,
     save_modelset
 end
