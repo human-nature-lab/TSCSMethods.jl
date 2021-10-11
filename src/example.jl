@@ -72,8 +72,6 @@ cc.balances = deepcopy(full.balances);
 # import JLD2; JLD2.save_object("cc.jld2", cc);
 =#
 
-# cc = deathmodel("test", :primary, :epi)
-
 # match
 
 # @time match!(cc, dat; distances = true);

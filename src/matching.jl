@@ -354,7 +354,7 @@ end
   
 Perform matching for treatment events, using Mahalanobis distance matching. Optionally specify that standardized Euclidean distances for the individual covariates are specified.
 """
-function match!(cic::cicmodel, dat::DataFrame; distances = true)
+function match!(cc::cicmodel, dat::DataFrame; distances = true)
 
   cc.matches,
   uid, lmm, luid, lff,
@@ -377,9 +377,9 @@ function match!(cic::cicmodel, dat::DataFrame; distances = true)
     # pretreat = cc.reference
   );
 
-  processmatches!(cic)
+  processmatches!(cc)
 
-  return cic
+  return cc
 end
 
 function refine(cc::AbstractCICModel, refinementnum::Int)
