@@ -384,7 +384,9 @@ function model_pl(
   else
     fpos = [1,1]
     axa, rb = ax_att(f[fpos...][1,1], model.results; outcome = model.outcome);
-    axc, ser = ax_cb(f[fpos...][1,2], model.grandbalances, variablecolors);
+    axc, ser = ax_cb(
+      f[fpos...][1,2], model.grandbalances, variablecolors; step = 10
+    );
 
     axs = [axc, axa];
 
@@ -501,7 +503,8 @@ function plot_modelset(
   labels = nothing,
   variablecolors = nothing,
   base_savepath = "", # ends in /
-  overwrite_dir = true
+  overwrite_dir = true,
+  fw = 700, fl = 300
 )
 
   mpnames = [
@@ -526,11 +529,8 @@ function plot_modelset(
     mp1 = model_pl(
       cc;
       labels = labels,
-      variablecolors = variablecolors
-    )
-    save(
-      base_savepath * dirn * "/" * mpnames[1],
-      mp1
+      variablecolors = variablecolors,
+      fw = fw, fl = fl
     )
 
     push!(mpset, mp1)
@@ -541,11 +541,8 @@ function plot_modelset(
     mp2 = model_pl(
       ccr;
       labels = labels,
-      variablecolors = variablecolors
-    )
-    save(
-      base_savepath * dirn * "/" * mpnames[2],
-      mp2
+      variablecolors = variablecolors,
+      fw = fw, fl = fl
     )
     
     push!(mpset, mp2)
@@ -556,12 +553,10 @@ function plot_modelset(
     mp3 = model_pl(
       cal;
       labels = labels,
-      variablecolors = variablecolors
+      variablecolors = variablecolors,
+      fw = fw, fl = fl
     )
-    save(
-      base_savepath * dirn * "/" * mpnames[3],
-      mp3
-    )
+    
     push!(mpset, mp3)
   else push!(mpset, nothing)
   end
@@ -570,15 +565,23 @@ function plot_modelset(
     mp4 = model_pl(
       calr;
       labels = labels,
-      variablecolors = variablecolors
+      variablecolors = variablecolors,
+      fw = fw, fl = fl
     )
-    save(
-      base_savepath * dirn * "/" * mpnames[4],
-      mp4
-    )
+    
     push!(mpset, mp4)
   else push!(mpset, nothing)
   end
+  
+  for (i, pl) in enumerate(mpset)
 
+    if !isnothing(pl)
+      save(
+        dirn * "/" * mpnames[i],
+        pl
+      )
+    end
+  end
+  
   return mpset
 end
