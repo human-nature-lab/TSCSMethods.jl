@@ -117,7 +117,7 @@ function makeseries(cbi; variablecolors = nothing)
     end
   end
 
-  if !isnothing(variablecolors)
+  if isnothing(variablecolors)
     varcol = mk_covpal(variablecolors)
   else
     varcol = variablecolors
