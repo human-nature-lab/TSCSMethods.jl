@@ -25,6 +25,6 @@ module tscsmethods
     model_pl, plot_modelset,
     # saving
     name_model,
-    save_modelset
+    save_modelset,
     load_modelset
 end

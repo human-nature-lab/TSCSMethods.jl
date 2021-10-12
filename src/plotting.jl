@@ -101,7 +101,7 @@ Convert a grandbalances dictionary into a series, with labels and colors, to plo
 
 variablecolors allows input of a custom color set.
 """
-function makeseries(cbi; variablecolors::Union{Dict{Symbol, RGB}, Nothing} = nothing)
+function makeseries(cbi; variablecolors = nothing)
   # length of time-varying coeff
   clen = maximum([length(v) for v in values(cbi)]);
   rlen = length(keys(cbi));
@@ -485,4 +485,100 @@ function plot_modelset(
       )
     end
   end
+end
+
+"""
+    plot_modelset(model_path; variablecolors = nothing, base_savepath = "")
+
+Generate the plots, in a new directory, for a set of models in some model set file. Base_savepath should end in "/".
+"""
+function plot_modelset(
+  ;
+  cc::cicmodel = nothing,
+  ccr::refinedcicmodel = nothing,
+  cal::calipercicmodel = nothing,
+  calr::refinedcicmodel = nothing,
+  labels = nothing,
+  variablecolors = nothing,
+  base_savepath = "", # ends in /
+  overwrite_dir = true
+)
+
+  mpnames = [
+    "model_plot.png"
+    "refined_plot.png"
+    "caliper_plot.png"
+    "refinedcaliper_plot.png"
+  ];
+
+  dirn = base_savepath * name_model(cc);
+
+  if overwrite_dir
+    mkpath(dirn)
+  else mkdir(dirn);
+  end
+  
+  # cc, ccr, cal, calr, labels
+
+  mpset = [];
+
+  if !isnothing(cc)
+    mp1 = model_pl(
+      cc;
+      labels = labels,
+      variablecolors = variablecolors
+    )
+    save(
+      base_savepath * dirn * "/" * mpnames[1],
+      mp1
+    )
+
+    push!(mpset, mp1)
+  else push!(mpset, nothing)
+  end
+
+  if !isnothing(ccr)
+    mp2 = model_pl(
+      ccr;
+      labels = labels,
+      variablecolors = variablecolors
+    )
+    save(
+      base_savepath * dirn * "/" * mpnames[2],
+      mp2
+    )
+    
+    push!(mpset, mp2)
+  else push!(mpset, nothing)
+  end
+  
+  if !isnothing(cal)
+    mp3 = model_pl(
+      cal;
+      labels = labels,
+      variablecolors = variablecolors
+    )
+    save(
+      base_savepath * dirn * "/" * mpnames[3],
+      mp3
+    )
+    push!(mpset, mp3)
+  else push!(mpset, nothing)
+  end
+
+  if !isnothing(calr)
+    mp4 = model_pl(
+      calr;
+      labels = labels,
+      variablecolors = variablecolors
+    )
+    save(
+      base_savepath * dirn * "/" * mpnames[4],
+      mp4
+    )
+    push!(mpset, mp4)
+  else push!(mpset, nothing)
+  end
+
+  return mpset
 end
