@@ -8,6 +8,7 @@ module tscsmethods
   include("balancing.jl")
   include("estimation.jl")
   include("stratification.jl")
+  include("model.jl")
   include("plotting.jl")
 
   export
@@ -25,4 +26,5 @@ module tscsmethods
     # saving
     name_model,
     save_modelset
+    load_modelset
 end
