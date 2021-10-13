@@ -78,6 +78,7 @@ function fullbalance!(cc::AbstractCICModel, dat::DataFrame)
     else
       push!(staticvar, covar)
       cc.balances[!, covar] = zeros(Float64, nrow(cc.balances));
+    end
   end
 
   gdf = groupby(cc.balances, [:treattime, :treatunit]);
