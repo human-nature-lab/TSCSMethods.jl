@@ -65,21 +65,19 @@ function fullbalance!(cc::AbstractCICModel, dat::DataFrame)
 
   Lσ = std_treated(cc, dat);
 
-  staticvar = [Symbol("Pop. Density"), Symbol("Date of First Case")];
-  timevar = [Symbol("Cum. Death Rate")];
-
   cc.balances = unique(cc.matches[!, [:treattime, :treatunit, :matchunit]])
-
+  
   Lrnge = length((cc.fmin + cc.mmin):(cc.fmax + cc.mmax))
-
-  for tv in timevar
-    # xname = Symbol(string(tv) * " balances")
-    cc.balances[!, tv] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:nrow(cc.balances)]
-  end
-
-  for sv in staticvar
-    # xname = Symbol(string(sv) * " balances")
-    cc.balances[!, sv] = zeros(Float64, nrow(cc.balances));
+  
+  timevar = Vector{Symbol}();
+  staticvar = Vector{Symbol}();
+  for covar in cc.covariates
+    if cc.timevary[covar]
+      push!(timevar, covar)
+      cc.balances[!, covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:nrow(cc.balances)]
+    else
+      push!(staticvar, covar)
+      cc.balances[!, covar] = zeros(Float64, nrow(cc.balances));
   end
 
   gdf = groupby(cc.balances, [:treattime, :treatunit]);
