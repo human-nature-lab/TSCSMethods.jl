@@ -2,7 +2,8 @@ module tscsmethods
 
   include("dependencies.jl")
 
-  include("pkg_types.jl")
+  include("types.jl")
+  include("construction.jl")
   include("matching.jl")
   include("caliper.jl")
   include("balancing.jl")
@@ -20,6 +21,7 @@ module tscsmethods
     make_refined, make_caliper,
     estimate!,
     stratify!, variablestrat!,
+    inspectcaliper,
     # plotting
     plot_cb, plot_cbs,
     model_pl, plot_modelset,

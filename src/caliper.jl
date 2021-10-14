@@ -1,9 +1,9 @@
 # caliper.jl
 
 """
-this should be written to simply add the exclude column
+    applycaliper(cc::AbstractCICModel, covcaliper)
 
-ranking / counting should be a separate function call
+Find the matches that do not pass the caliper.
 """
 function applycaliper(cc::AbstractCICModel, covcaliper)
 
@@ -15,27 +15,6 @@ function applycaliper(cc::AbstractCICModel, covcaliper)
   return [all(r) for r in eachrow(chk)]
 end
 
-#=
-  for covar in cc.covariates
-    cc.matches[!, covar] .>= cc.caliper[covar]
-  end
-
-  cc.matches[!, :exclude] .= false;
-  idx = Int64[];
-  for covar in cc.covariates
-    append!(idx, findall(cc.matches[!, covar] .>= cc.caliper[covar]))
-  end
-
-  idx = sort(unique(idx));
-  cc.matches[idx, :exclude] .= true
-
-  cc_cal.matches = @subset(cc.matches, :exclude .== false)
-  rank!(cc_cal::cicmodel)
-
-  return cc_cal
-end
-=#
-
 function rank!(cc::AbstractCICModel)
   cc.matches = @chain cal.matches begin
     @orderby(:treattime, :treatunit, :f, :mdist)
@@ -46,6 +25,37 @@ function rank!(cc::AbstractCICModel)
     )
   end
   return cc
+end
+
+"""
+    inspectcaliper(cal::AbstractCICModel)
+
+Return a DataFrame containing the unique set of treated observations (left after the caliper), the unique set of f values included, the number of matches, and the match units for each match, and the fs left for each treated observation.
+"""
+function inspectcaliper(cal::AbstractCICModel)
+  
+  cset1 = [:treattime, :treatunit, :matchunit, :f];
+  cset2 = [:treattime, :treatunit];
+  if cal.stratifier == Symbol("")
+    push!(cset1, :stratum)
+    push!(cset2, :stratum)
+  end
+
+  calinsight = @chain cal.matches[!, cset1] begin
+    groupby(cset2)
+    combine(
+      :f => Ref∘unique => :fs,
+      :matchunit => Ref∘unique => :matches
+    )
+    @orderby(:treattime, :treatunit)
+    select(
+      :treattime, :treatunit,
+      :matches => ByRow(length) => :matchnum,
+      :fs => ByRow(length) => :fnum,
+      :matches, :fs
+    )
+  end
+  return calinsight
 end
 
 #= balance caliper

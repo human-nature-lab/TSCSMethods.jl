@@ -293,14 +293,21 @@ end
 Perform ATT estimation, with bootstrapped CIs.
 """
 function estimate!(
-  ccr::AbstractCICModel, dat::DataFrame;
+  ccr::AbstractCICModel,
+  dat::DataFrame;
   iter::Int = 500,
   qtiles::Union{Float64, Vector{Float64}} = [0.025, 0.5, 0.975]
 )
+
+  if nrow(ccr.matches) == 0
+    return "There are no matches."
+  end
+
   uid = unique(dat[!, ccr.id])
   W = observationweights(ccr, dat);
   ccr.results = att(W);
   boots = bootstrap(W, uid; iter = iter);
   bootinfo!(ccr.results, boots; qtiles = qtiles)
+  
   return ccr.results
 end
