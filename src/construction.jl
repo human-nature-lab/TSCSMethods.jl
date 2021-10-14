@@ -3,7 +3,7 @@
 """
     make_caliper(cc::cicmodel, caliper)
 
-only ever applied to the full model
+Create the caliper model from the full cic model, calculates the average, and overall balance scores, gives the number of treated observations that survive the caliper.
 """
 function make_caliper(cc::cicmodel, caliper)
   # caliper::Dict{Symbol, Float64}()
@@ -69,6 +69,11 @@ function make_caliper(cc::cicmodel, caliper)
   return cal
 end
 
+"""
+    make_refined(cc::AbstractCICModel; refinementnum = 5)
+
+Refine a full or caliper model less than or equal to the chosen number of best matches per treated observation. Calculates the average, and overall balance scores, gives the number of treated observations that survive the caliper.
+"""
 function make_refined(cc::AbstractCICModel; refinementnum = 5)
 
   if nrow(ccr.matches) == 0
