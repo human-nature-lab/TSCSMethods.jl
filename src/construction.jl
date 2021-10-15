@@ -9,10 +9,6 @@ function make_caliper(cc::cicmodel, caliper)
   # caliper::Dict{Symbol, Float64}()
   inc = applycaliper(cc, caliper);
 
-  if all(.!inc)
-    return "No matches survive the caliper(s)."
-  end
-
   cal = calipercicmodel(
     title = cc.title * " caliper",
     id = cc.id,
@@ -39,6 +35,10 @@ function make_caliper(cc::cicmodel, caliper)
     caliper = caliper,
     fullmod = Base.RefValue{cicmodel}
   )
+
+  if all(.!inc)
+    return "No matches survive the caliper(s)."
+  end
 
   meanbalance!(cal);
 
@@ -76,10 +76,6 @@ Refine a full or caliper model less than or equal to the chosen number of best m
 """
 function make_refined(cc::AbstractCICModel; refinementnum = 5)
 
-  if nrow(ccr.matches) == 0
-    return "There are no matches."
-  end
-
   if typeof(cc) == calipercicmodel
     calip = cc.caliper
   else
@@ -112,6 +108,10 @@ function make_refined(cc::AbstractCICModel; refinementnum = 5)
     caliper = calip,
     fullmod = Base.RefValue{cicmodel}
   )
+
+  if nrow(cc.matches) == 0
+    return "There are no matches."
+  end
 
   meanbalance!(rf)
   
