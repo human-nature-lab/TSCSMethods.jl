@@ -304,7 +304,7 @@ function plot_cb(
 
     cal = !isempty(model.caliper)
     mname = mkmname(model.title, "", model.outcome, cal; sv = svlab)
-    when = typeof(refinedcicmodel) ? "Post" : "Pre";
+    when = typeof(model) == refinedcicmodel ? "Post" : "Pre";
     
     save(
       spath * "model_" * when * "_" * mname * ".png",
