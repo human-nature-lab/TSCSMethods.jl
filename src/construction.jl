@@ -62,7 +62,7 @@ function make_caliper(cc::cicmodel, caliper)
     treatedlefts!(cal) # left
   end
 
-  trtxt = cc.treatedleft * " treated observations remain.";
+  trtxt = cal.treatedleft * " treated observations remain.";
   tntxt = "(" * "out of " * cc.treatednum * ")";
   println(trtxt * tntxt)
 
