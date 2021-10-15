@@ -36,7 +36,7 @@ function inspectcaliper(cal::AbstractCICModel)
   
   cset1 = [:treattime, :treatunit, :matchunit, :f];
   cset2 = [:treattime, :treatunit];
-  if cal.stratifier == Symbol("")
+  if cal.stratifier != Symbol("")
     push!(cset1, :stratum)
     push!(cset2, :stratum)
   end

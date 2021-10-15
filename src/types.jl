@@ -88,4 +88,3 @@ end
   caliper::Union{Dict{Symbol, Float64}, StratDict} = Dict{Symbol, Float64}()
   fullmod = Base.RefValue{cicmodel}
 end
-
