@@ -82,7 +82,7 @@ function customstrat!(
       :stratum = stratdict[:treatunit]
     end
   end
-  return cc
+  return cc, nothing # labels should come from elsewhere
 end
 
 function assignq(val, X, lenX)
