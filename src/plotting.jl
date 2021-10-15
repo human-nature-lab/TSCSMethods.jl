@@ -283,7 +283,7 @@ function plot_cb(
   else
 
     fpos = [1, 1]
-    axc, ser = ax_cb(f[fpos...][1,1], cb, variablecolors);
+    axc, ser = ax_cb(f[fpos...][1,1], model.grandbalances, variablecolors);
 
     hm_sublayout = GridLayout()
     f[1, 1] = hm_sublayout
