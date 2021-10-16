@@ -502,11 +502,18 @@ function balance!(cc::cicmodel, dat::DataFrame)
 end
 
 """
-    autobalance(cc; calmin = 0.08, step = 0.05, initial_bals = false)
+    autobalance(
+      cc;
+      refinementnum = 5,
+      calmin = 0.08, step = 0.05, initial_bals = false
+    )
 
 Automatically balance via a simple algorithm. Start with initial caliper of 1.0, and subtract `step` whenever the grand mean balance threshold (0.1) is not met.
 """
-function autobalance(cc; calmin = 0.08, step = 0.05, initial_bals = false)
+function autobalance(
+  cc;
+  refinementnum = 5, calmin = 0.08, step = 0.05, initial_bals = false
+)
 
   if !initial_bals
     caliper = Dict{Symbol, Float64}();
