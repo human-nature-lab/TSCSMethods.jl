@@ -56,7 +56,7 @@ end
 Stratify based on the values of some input dictionary, specifying strata for each (t, id) or each (id) for a stratification that varies only by unit.
 """
 function customstrat!(
-  cc,
+  cc, stratifier,
   stratdict::Union{Dict{Tuple{Int64, Int64}, Int64}, Dict{Int64, Int64}}
 )
 
@@ -82,6 +82,9 @@ function customstrat!(
       :stratum = stratdict[:treatunit]
     end
   end
+
+  cc.stratifier = stratifier
+
   return cc, nothing # labels should come from elsewhere
 end
 
