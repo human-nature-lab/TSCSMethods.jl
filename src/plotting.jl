@@ -302,7 +302,11 @@ function plot_cb(
 
   if !isnothing(spath)
 
-    cal = !isempty(model.caliper)
+    if typeof(model) == cicmodel
+      cal = false
+    else
+      cal = !isempty(model.caliper)
+    end
     mname = mkmname(model.title, "", model.outcome, cal; sv = svlab)
     when = typeof(model) == refinedcicmodel ? "Post" : "Pre";
     

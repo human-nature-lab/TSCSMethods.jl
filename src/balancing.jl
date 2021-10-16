@@ -457,7 +457,9 @@ function balancecheck(
 
   if cc.stratifier == Symbol("")
     chk = Dict{Symbol, Bool}();
-    _balancecheck!(chk, v, k, threshold)
+    for (k, v) in cc.grandbalances
+      _balancecheck!(chk, v, k, threshold)
+    end
   else
     chk = Dict{Int, Dict{Symbol, Bool}}();
     [chk[s] = Dict{Symbol, Bool}() for s in keys(cc.grandbalances)]
@@ -499,44 +501,35 @@ function balance!(cc::cicmodel, dat::DataFrame)
   return cc
 end
 
-#=
-## auto balancing
+"""
+    autobalance(cc; calmin = 0.08, step = 0.05, initial_bals = false)
 
-# do we need engage?
-function chk_check(chk)
-  for (k, v) in chk
-    if v
-      return x
+Automatically balance via a simple algorithm. Start with initial caliper of 1.0, and subtract `step` whenever the grand mean balance threshold (0.1) is not met.
+"""
+function autobalance(cc; calmin = 0.08, step = 0.05, initial_bals = false)
+
+  if !initial_bals
+    caliper = Dict{Symbol, Float64}();
+    for c in cc.covariates
+      caliper[c] = 1.0
+    end
+
+  end
+
+  cal = make_caliper(cc, caliper);
+  calr = make_refined(cal; refinementnum = refinementnum);
+
+  # check calr
+  bc = balancecheck(calr)
+
+  while any(values(bc)) & (nrow(calr.matches) > 0)
+
+    for covar in keys(bc)
+      if bc[covar] & (caliper[covar] > calmin)
+        caliper[covar] = caliper[covar] - step
+      end
     end
   end
-end
-
-# chk_check(chk)
-# stepsize = 1
-
-function docut(c::Vector{Int}, stepsize::Int)
-  mx = maximum(c)
-  if (mx < 6) | (mx + 1 <= stepsize)
-    return mx - stepsize;
-  else
-    return mx - 1
-  end
-end
-
-"""
-remove highest ranked matches from cc.matches
-"""
-function threshold!(cc::AbstractCICModel, stepsize)
   
-  G = groupby(cc.matches, [:treattime, :treatunit, :f]);
-  idx = Int64[];
-  for g in G
-    rcut = docut(g[!, :rank], stepsize)
-    append!(idx, parentindices(g)[1][(findall(g[!, :rank] .> rcut))])
-  end
-
-  delete!(cc.matches, idx)
-
-  return cc
+  return cal, calr
 end
-=#

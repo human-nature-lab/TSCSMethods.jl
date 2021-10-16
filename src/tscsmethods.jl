@@ -22,6 +22,7 @@ module tscsmethods
     estimate!,
     stratify!, variablestrat!, customstrat!,
     inspectcaliper,
+    autobalance,
     # plotting
     plot_cb, plot_cbs,
     model_pl, plot_modelset,
