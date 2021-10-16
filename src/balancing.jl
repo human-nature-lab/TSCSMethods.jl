@@ -474,7 +474,7 @@ function balancecheck(
 end
 
 function _balancecheck!(chki, v, k, threshold)
-  if any(v .> threshold)
+  if any(abs.(v) .> threshold)
     chki[k] = true
   else
     chki[k] = false
@@ -512,6 +512,7 @@ Automatically balance via a simple algorithm. Start with initial caliper of 1.0,
 """
 function autobalance(
   cc;
+  threshold = 0.1,
   refinementnum = 5, calmin = 0.08, step = 0.05, initial_bals = false
 )
 
@@ -527,7 +528,7 @@ function autobalance(
   calr = make_refined(cal; refinementnum = refinementnum);
 
   # check calr
-  bc = balancecheck(calr)
+  bc = balancecheck(calr; threshold = threshold)
 
   while any(values(bc)) & (nrow(calr.matches) > 0)
 
