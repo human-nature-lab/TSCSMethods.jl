@@ -412,7 +412,7 @@ function _grandbalance!(model::AbstractCICModel, us)
 
   for s in us
     
-    mb = @view[model.meanbalances.stratum .== s, :]
+    mb = @view model.meanbalances[model.meanbalances.stratum .== s, :]
 
     for covar in model.covariates
       if model.timevary[covar]
