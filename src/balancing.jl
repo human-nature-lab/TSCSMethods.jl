@@ -363,114 +363,86 @@ function _innersum!(mvec, rvec, nvec)
   return rvec, nvec
 end
 
-# rg = eachrow(cc.meanbalances)[(nrow(cc.meanbalances)-36363)]
-# rb = eachrow(cc.meanbalances)[(nrow(cc.meanbalances)-36362)]
-# rb[covar]
-# rbs = eachrow(cc.meanbalances)[(nrow(cc.meanbalances)-36362:nrow(cc.meanbalances)-36350)]
+function grandbalance!(model::AbstractCICModel)
 
-function grandbalance!(cc::AbstractCICModel)
-
-  if cc.stratifier != Symbol("")
-    cc.grandbalances = GrandDictStrat();
-    us = sort(unique(cc.meanbalances.stratum));
-    [cc.grandbalances[s] = GrandDictNoStrat() for s in us];
-    _grandbalance!(cc, us)
+  if model.stratifier != Symbol("")
+    model.grandbalances = GrandDictStrat();
+    us = sort(unique(model.meanbalances.stratum));
+    [model.grandbalances[s] = GrandDictNoStrat() for s in us];
+    _grandbalance!(model, us)
   else
-    cc.grandbalances = GrandDictNoStrat();
-    _grandbalance!(cc)
+    model.grandbalances = GrandDictNoStrat();
+    _grandbalance!(model)
   end
 
-  return cc
+  return model
 end
 
-function _grandbalance!(cc)
-  
-  for covar in cc.covariates
-    if cc.timevary[covar]
-      cc.grandbalances[covar] = zeros(Float64, length(cc.mmin:cc.mmax))
+function _grandbalance!(model::AbstractCICModel)
+  for covar in model.covariates
+    if model.timevary[covar]
+      model.grandbalances[covar] = zeros(Float64, length(model.mmin:model.mmax))
     else
-      cc.grandbalances[covar] = 0.0
+      model.grandbalances[covar] = 0.0
     end
   end
 
-  Ns = make_Ns_m(cc.covariates, cc.timevary, length(cc.mmin:cc.mmax));
-
-  for r in eachrow(cc.meanbalances) # [1:(nrow(cc.meanbalances)-36363)]
-    for covar in cc.covariates
-      if cc.timevary[covar]
-        _inner_sum_nan!(cc.grandbalances[covar], r[covar], Ns[covar])
-      else
-        cc.grandbalances[covar] += r[covar]
-        Ns[covar] += 1
-      end
-    end  
-  end
-
-  # cc.grandbalances[covar]
-
-  for covar in cc.covariates
-    cc.grandbalances[covar] = cc.grandbalances[covar] ./ Ns[covar]
-  end
-  
-  return cc
-end
-
-function _grandbalance!(cc, us)
-  
-  for s in us
-    for covar in cc.covariates
-      if cc.timevary[covar]
-        cc.grandbalances[s][covar] = zeros(Float64, length(cc.mmin:cc.mmax))
-      else
-        cc.grandbalances[s][covar] = 0.0
-      end
-    end
-
-    Ns = make_Ns_m(cc.covariates, cc.timevary, length(cc.mmin:cc.mmax));
-
-    mbs = @views cc.meanbalances[cc.meanbalances.stratum .== s, :];
-
-    for r in eachrow(mbs) # [1:(nrow(cc.meanbalances)-36363)]
-      for covar in cc.covariates
-        if cc.timevary[covar]
-          _inner_sum_nan!(cc.grandbalances[s][covar], r[covar], Ns[covar])
-        else
-          cc.grandbalances[s][covar] += r[covar]
-          Ns[covar] += 1
+  for covar in model.covariates
+    if model.timevary[covar]
+      for l in eachindex(model.mmin:model.mmax)
+        meanvec = Vector{Union{Missing, Float64}}(
+          missing, nrow(model.meanbalances)
+        );
+        for i in eachindex(1:nrow(model.meanbalances))
+          v = model.meanbalances[i, covar][l]
+          meanvec[i] = (!isnan(v) & !isinf(v)) ? v : missing
         end
-      end  
-    end
-
-    # cc.grandbalances[covar]
-
-    for covar in cc.covariates
-      cc.grandbalances[s][covar] = cc.grandbalances[s][covar] ./ Ns[covar]
-    end
-  end
-  
-  return cc
-end
-
-function _inner_sum_nan!(mvec, rvec, nvec)
-  for i in eachindex(mvec)
-    if !isnan(rvec[i])
-      mvec[i] += rvec[i]
-      nvec[i] += 1
-    end
-  end
-  return rvec, nvec
-end
-
-function make_Ns_m(covariates, timevary, mlen)
-  Ns = Dict{Symbol, Union{Int64, Vector{Int64}}}();
-  for covar in covariates
-    if timevary[covar]
-      Ns[covar] = zeros(Int64, mlen)
+        model.grandbalances[covar][l] = mean(skipmissing(meanvec))
+      end
     else
-      Ns[covar] = zero(Int64)
+      # assume no NaN or missing:
+      model.grandbalances[covar] = mean(model.meanbalances[!, covar]);
     end
   end
-  return Ns
+
+  return model
+end
+
+function _grandbalance!(model::AbstractCICModel, us)
+
+  for s in us
+    
+    mb = @view[model.meanbalances.stratum .== s, :]
+
+    for covar in model.covariates
+      if model.timevary[covar]
+        model.grandbalances[s][covar] = zeros(Float64, length(model.mmin:model.mmax))
+      else
+        model.grandbalances[s][covar] = 0.0
+      end
+    end
+
+    for covar in model.covariates
+      if model.timevary[covar]
+        for l in eachindex(model.mmin:model.mmax)
+          meanvec = Vector{Union{Missing, Float64}}(
+            missing, nrow(mb)
+          );
+          for i in eachindex(1:nrow(mb))
+            v = mb[i, covar][l]
+            meanvec[i] = (!isnan(v) & !isinf(v)) ? v : missing
+          end
+          model.grandbalances[s][covar][l] = mean(skipmissing(meanvec))
+        end
+      else
+        # assume no NaN or missing:
+        model.grandbalances[s][covar] = mean(mb[!, covar]);
+      end
+    end
+
+  end
+
+  return model
 end
 
 """
