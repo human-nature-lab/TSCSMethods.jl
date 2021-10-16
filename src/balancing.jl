@@ -446,13 +446,18 @@ function _grandbalance!(model::AbstractCICModel, us)
 end
 
 """
-    balancecheck(m::Dict{Symbol, Union{Float64, Vector{Float64}}}; threshold = 0.1)
+    balancecheck(
+      m::Dict{Symbol, Union{Float64, Vector{Float64}}};
+      threshold = 0.1, stratareduce = true
+    )
 
 Simply check whether the grand means are above the std. balance threshold. Returns a Bool for each covariate.
+If Stratareduce is true, then the strata balances will be agggregated to the covariate level, such that a violation in any caliper triggers a violation in the aggregated output.
 """
 function balancecheck(
   cc::AbstractCICModel;
-  threshold = 0.1
+  threshold = 0.1,
+  stratareduce = true
 )
 
   if cc.stratifier == Symbol("")
@@ -468,6 +473,22 @@ function balancecheck(
       _balancecheck!(chk[k], vi, ki, threshold)
       end
     end
+  end
+
+  if stratareduce & (cc.stratifier != Symbol(""))
+    bc2 = Dict{Symbol, Bool}()
+    for covar in cc.covariates
+      bc2[covar] = false
+    end
+    
+    for v in values(bc)
+      for (covar, booléen) in v
+        if booléen
+          bc2[covar] = true
+        end
+      end
+    end
+    return bc2
   end
 
   return chk
