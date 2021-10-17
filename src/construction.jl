@@ -110,7 +110,7 @@ function make_refined(cc::AbstractCICModel; refinementnum = 5)
     fullmod = Base.RefValue{cicmodel}
   )
 
-  if if all(.!inc) | (nrow(cc.matches) == 0)
+  if all(.!inc) | (nrow(cc.matches) == 0)
     println("There are no matches.")
     return rf 
   end
