@@ -561,6 +561,9 @@ function autobalance(
       end
     end
   end
+
+  cal = make_caliper(cc, caliper);
+  calr = make_refined(cal; refinementnum = refinementnum);
   
   return cal, calr
 end
