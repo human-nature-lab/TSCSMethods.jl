@@ -534,6 +534,7 @@ Automatically balance via a simple algorithm. Start with initial caliper of 1.0,
 function autobalance(
   cc;
   threshold = 0.1,
+  min_treated_obs = 10,
   refinementnum = 5, calmin = 0.08, step = 0.05, initial_bals = false
 )
 
@@ -550,8 +551,9 @@ function autobalance(
 
   # check calr
   bc = balancecheck(calr; threshold = threshold)
+  insight = inspectcaliper(calr);
 
-  while any(values(bc)) & (nrow(calr.matches) > 0)
+  while any(values(bc)) & (nrow(insight) >= min_treated_obs) & all(values(caliper) .>= calmin)
 
     for covar in keys(bc)
       if bc[covar] & (caliper[covar] > calmin)
