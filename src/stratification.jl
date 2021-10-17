@@ -119,7 +119,6 @@ function variablestrat!(
 
   if !timevary
     udf = unique(dat, [:fips, var], view = true);
-    
     udict = Dict(udf[!, :fips] .=> udf[!, var]);
     
     xvec = udf[!, var];
@@ -143,7 +142,9 @@ function variablestrat!(
     
   elseif timevary # do at time of treatment
     c1 = dat[:, cc.treatment] .== 1;
+    
     X = sort(quantile(@views(dat[c1, var])));
+    Xlen = length(X);
 
     udf = unique(@view(dat[c1, :]), [:fips, var], view = true);
 
