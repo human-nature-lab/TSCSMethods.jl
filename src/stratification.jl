@@ -148,7 +148,7 @@ function variablestrat!(
     udf = unique(@view(dat[c1, :]), [:fips, var], view = true);
 
     # treatment events
-    udict = Dict{Tuple{Int64, Int64}, Int64}();
+    udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, var])}();
     @eachrow udf begin
       udict[(:running, :fips)] = $var
     end
