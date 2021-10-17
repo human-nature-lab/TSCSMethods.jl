@@ -115,6 +115,9 @@ function variablestrat!(
 
   missingpresent = false;
 
+  # if separate zero
+  zs = 0;
+
   if isnothing(timevary)
     timevary = get(cc.timevary, var, false)
   end
@@ -161,7 +164,6 @@ function variablestrat!(
       udict[(:running, :fips)] = $var
     end
     
-    zs = 0;
     if zerosep
       c2 = dat[:, var] .> 0;
       X = sort(quantile(@views(dat[c2 .& c1, var])));
@@ -182,21 +184,33 @@ function variablestrat!(
   end
 
   stratlabels = label_variablestrat(
-    string.(round.(X, digits = 2)); missingpresent = missingpresent
+    string.(round.(X, digits = 2));
+    missingpresent = missingpresent,
+    zerosep = zerosep
   )
 
   return cc, stratlabels
 end
 
-function label_variablestrat(quantnames; missingpresent = false)
+function label_variablestrat(
+  quantnames; missingpresent = false, zerosep = false
+)
+
+  zs = !zerosep ? 0 : 1
+
   labels = Dict{Int, String}();
-  sizehint!(labels, length(quantnames)-1);
-  for i in 1:length(quantnames) - 1
-    labels[i] = quantnames[i] * " to " * quantnames[i+1]
+  sizehint!(labels, length(quantnames) - 1);
+  rnge = (1:length(quantnames) - 1) .+ zs
+  for i in rnge
+    labels[i] = quantnames[i - zs] * " to " * quantnames[i + 1 - zs]
+  end
+
+  if zerosep
+    labels[1] = "0.0"
   end
 
   if missingpresent
-    labels[length(quantnames)] = "Missing Values"
+    labels[length(quantnames) + zs] = "Missing Values"
   end
   return labels
 end
