@@ -481,7 +481,7 @@ function balancecheck(
       bc2[covar] = false
     end
     
-    for v in values(bc)
+    for v in values(chk)
       for (covar, booléen) in v
         if booléen
           bc2[covar] = true
