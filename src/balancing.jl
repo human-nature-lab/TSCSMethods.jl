@@ -538,32 +538,34 @@ function autobalance(
   refinementnum = 5, calmin = 0.1, step = 0.05, initial_bals = false
 )
 
-  if !initial_bals
-    caliper = Dict{Symbol, Float64}();
-    for c in cc.covariates
-      caliper[c] = 1.0
-    end
 
+if !initial_bals
+  caliper = Dict{Symbol, Float64}();
+  for c in cc.covariates
+    caliper[c] = 1.0
   end
+end
 
   cal = make_caliper(cc, caliper);
   calr = make_refined(cal; refinementnum = refinementnum);
 
-  # check calr
+  # check calr only
   bc = balancecheck(calr; threshold = threshold)
   insight = inspectcaliper(calr);
 
   while any(values(bc)) & (nrow(insight) >= min_treated_obs) & all(values(caliper) .>= calmin)
 
-    for covar in keys(bc)
+    covset = [k for k in keys(bc)];
+    for covar in tscsmethods.sample(covset, length(covset); replace = false)
       if bc[covar] & (caliper[covar] > calmin)
         caliper[covar] = caliper[covar] - step
       end
     end
+    cal = make_caliper(cc, caliper);
+    calr = make_refined(cal; refinementnum = refinementnum);
+    bc = balancecheck(calr; threshold = threshold)
+    insight = inspectcaliper(calr);
   end
 
-  cal = make_caliper(cc, caliper);
-  calr = make_refined(cal; refinementnum = refinementnum);
-  
   return cal, calr
 end
