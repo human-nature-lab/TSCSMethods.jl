@@ -113,6 +113,8 @@ function variablestrat!(
   cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
   cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
 
+  missingpresent = false;
+
   if isnothing(timevary)
     timevary = get(cc.timevary, var, false)
   end
@@ -122,22 +124,27 @@ function variablestrat!(
     udict = Dict(udf[!, :fips] .=> udf[!, var]);
     
     xvec = udf[!, var];
+    missingpresent = any(ismissing.(udf[!, var])) # update value
     # if there are missing values in the data, just skip them
-    if any(ismissing.(xvec))
-      xvec = xvec[.!ismissing.(xvec)]
+    if missingpresent
+      xvec = disallowmissing(xvec[.!ismissing.(xvec)]);
     end
     X = sort(quantile(xvec, qtes));
     Xlen = length(X);
 
     @eachrow! cc.matches begin
       # includes zerosep case by loop design (q = 0)
-      :stratum = assignq(udict[:treatunit], X, Xlen)
+      dictval = udict[:treatunit]
+      # new stratum if missing
+      :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
     end
 
     # meanbalances
     @eachrow! cc.meanbalances begin
-      # includes zerosep case by loop design (q = 0)
-      :stratum = assignq(udict[:treatunit], X, Xlen)
+    # includes zerosep case by loop design (q = 0)
+    dictval = udict[:treatunit]
+    # new stratum if missing
+    :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
     end
     
   elseif timevary # do at time of treatment
@@ -174,14 +181,22 @@ function variablestrat!(
     end
   end
 
-  return cc, label_variablestrat(string.(round.(X, digits = 2)))
+  stratlabels = label_variablestrat(
+    string.(round.(X, digits = 2)); missingpresent = missingpresent
+  )
+
+  return cc, stratlabels
 end
 
-function label_variablestrat(quantnames)
+function label_variablestrat(quantnames; missingpresent = false)
   labels = Dict{Int, String}();
   sizehint!(labels, length(quantnames)-1);
   for i in 1:length(quantnames) - 1
     labels[i] = quantnames[i] * " to " * quantnames[i+1]
+  end
+
+  if missingpresent
+    labels[length(quantnames)] = "Missing Values"
   end
   return labels
 end
