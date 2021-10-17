@@ -105,7 +105,7 @@ Assumes that matching, balancing, and meanbalancing has ocurred.
 """
 function variablestrat!(
   cc, dat, var;
-  qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false
+  qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false, timevary = nothing
 )
 
   cc.stratifier = var;
@@ -113,7 +113,11 @@ function variablestrat!(
   cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
   cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
 
-  if !cc.timevary[var]
+  if isnothing(timevary)
+    timevary = get(cc.timevary, var, false)
+  end
+
+  if !timevary
     udf = unique(dat, [:fips, var], view = true);
     
     udict = Dict(udf[!, :fips] .=> udf[!, var]);
@@ -132,7 +136,7 @@ function variablestrat!(
       :stratum = assignq(udict[:treatunit], X, Xlen)
     end
     
-  elseif cc.timevary # do at time of treatment
+  elseif timevary # do at time of treatment
     c1 = dat[:, cc.treatment] .== 1;
     X = sort(quantile(@views(dat[c1, var])));
 
