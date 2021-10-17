@@ -535,7 +535,7 @@ function autobalance(
   cc;
   threshold = 0.1,
   min_treated_obs = 10,
-  refinementnum = 5, calmin = 0.08, step = 0.05, initial_bals = false
+  refinementnum = 5, calmin = 0.1, step = 0.05, initial_bals = false
 )
 
   if !initial_bals

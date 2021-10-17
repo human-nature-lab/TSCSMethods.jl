@@ -36,8 +36,9 @@ function make_caliper(cc::cicmodel, caliper)
     fullmod = Base.RefValue{cicmodel}
   )
 
-  if all(.!inc)
-    return "No matches survive the caliper(s)."
+  if all(.!inc) | (nrow(cc.matches) == 0)
+    println("No matches survive the caliper(s).")
+    return cal
   end
 
   meanbalance!(cal);
@@ -109,8 +110,9 @@ function make_refined(cc::AbstractCICModel; refinementnum = 5)
     fullmod = Base.RefValue{cicmodel}
   )
 
-  if nrow(cc.matches) == 0
-    return "There are no matches."
+  if if all(.!inc) | (nrow(cc.matches) == 0)
+    println("There are no matches.")
+    return rf 
   end
 
   meanbalance!(rf)
