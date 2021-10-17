@@ -122,7 +122,12 @@ function variablestrat!(
     
     udict = Dict(udf[!, :fips] .=> udf[!, var]);
     
-    X = sort(quantile(udf[!, var], qtes));
+    xvec = udf[!, var];
+    # if there are missing values in the data, just skip them
+    if any(ismissing.(xvec))
+      xvec = xvec[.!ismissing.(xvec)]
+    end
+    X = sort(quantile(xvec, qtes));
     Xlen = length(X);
 
     @eachrow! cc.matches begin
