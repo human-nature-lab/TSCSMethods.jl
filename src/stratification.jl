@@ -7,12 +7,17 @@ just execute on each group of a grouped dataframe,
 and append output
 =#
 
-function stratify!(stratfunc::Function, stratargs)
+"""
+    stratify!(stratfunc::Function, args...; kwargs...)
 
-  cc, labels = stratfunc(stratargs...)
+Apply a stratification function, its arguments, to apply the stratification, calculate the stratified grandbalances, the treated observations in each group, and return the updated model with plot labels.
+"""
+function stratify!(stratfunc::Function, args...; kwargs...)
+
+  cc, labels = stratfunc(args...; kwargs...)
+  
   grandbalance!(cc)
-
-  treatednums!(cc::AbstractCICModel)
+  treatednums!(cc)
 
   return cc, labels
 end
