@@ -165,7 +165,10 @@ Calculate the mean balances, for each treated observation from the full set of b
 function meanbalance!(ccr::AbstractCICModel)
   ccr.meanbalances, groupedbalances = setup_meanbalance(ccr);
   mmlen = length(ccr.mmin:ccr.mmax);
-  _meanbalance!(ccr.meanbalances, groupedbalances, mmlen, ccr.fmin)
+  _meanbalance!(
+    ccr.meanbalances, groupedbalances,
+    ccr.covariates, ccr.timevary, mmlen, ccr.fmin
+  )
   return ccr
 end
 
@@ -199,16 +202,18 @@ function setup_meanbalance(ccr::AbstractCICModel)
 end
 
 ### meanbalances loop
-function _meanbalance!(meanbalances, groupedbalances, mmlen, fmin)
+function _meanbalance!(
+  meanbalances, groupedbalances, covariates, timevary, mmlen, fmin
+)
   for r in eachrow(meanbalances)
     # r = eachrow(MB)[1];
     fs = r[:fs];
     muset = r[:matchunitsets];
 
-    for covar in ccr.covariates
+    for covar in covariates
       # this is a [row, covar] for MB:
       #   the means across fs for a covariate (for a treated observation)
-      if ccr.timevary[covar]
+      if timevary[covar]
         r[covar] = Vector{Vector{Union{Float64, Missing}}}(undef, length(fs));
         row_covar_meanbalance!(
           r[covar], r[:treattime], r[:treatunit],
@@ -284,7 +289,7 @@ Calculate the overall mean covariate balance for a model.
 """
 function grandbalance!(model::AbstractCICModel)
 
-  mmlen = length(ccr.mmin:ccr.mmax)
+  mmlen = length(model.mmin:model.mmax)
 
   if model.stratifier != Symbol("")
     model.grandbalances = GrandDictStrat();
