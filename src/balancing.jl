@@ -158,291 +158,212 @@ get indices from f
 fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
 
 """
-    meanbalance(cc)
+    meanbalance(cc!)
 
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in cc.matches, e.g. in case a caliper has been applied.
 """
-function meanbalance!(cc::AbstractCICModel)
-  mlen = length(cc.mmin:cc.mmax);
-  flen = length(cc.fmin:cc.fmax);
-  G, cc.meanbalances, ix, tts, tus = _meanbalance_setup(cc, mlen);
-  gloop!(cc.meanbalances, ix, cc, G, mlen, flen, tts, tus);
-  return cc.meanbalances
+function meanbalance!(ccr::AbstractCICModel)
+  ccr.meanbalances, groupedbalances = setup_meanbalance(ccr);
+  mmlen = length(ccr.mmin:ccr.mmax);
+  _meanbalance!(ccr.meanbalances, groupedbalances, mmlen, ccr.fmin)
+  return ccr
 end
 
-function _meanbalance_setup(cc::AbstractCICModel, mlen::Int)
-
-  # do we need to sort this here, or can it be done locally?
-  # it is not used again directly
-  # sort!(cc.matches, [:treattime, :treatunit, :matchunit, :f, :mdist]);
+### setup meanbalances
+function setup_meanbalance(ccr::AbstractCICModel)
   
-  G = @chain cc.matches[!, [:treattime, :treatunit, :matchunit, :f]] begin
-    groupby([:treattime, :treatunit, :matchunit])
-    combine(:f => Ref∘unique => :fs)
-    @orderby(:treattime, :treatunit, :matchunit)
-    leftjoin(
-      cc.balances,
-      on = [:treattime, :treatunit, :matchunit]
+  MB = @chain ccr.matches[!, [:treattime, :treatunit, :matchunit, :f]] begin
+  groupby([:treattime, :treatunit, :f])
+    combine(
+      # :f => Ref => :fs,
+      :matchunit => Ref => :matchunits,
     )
     groupby([:treattime, :treatunit])
+    combine(
+      :f => Ref => :fs,
+      :matchunits => Ref => :matchunitsets,
+    )
   end;
-
-  # indexing problem solvable by including the number of fs for each treated unit, then have rolling sum
   
-  # G and M will be in the same order
-  # G = groupby(C, [:treattime, :treatunit]);
-  
-  M = @chain cc.matches[!, [:treattime, :treatunit, :f]] begin
-    unique([:treattime, :treatunit, :f])
-    sort([:treattime, :treatunit, :f])
-  end
-    #= must be sorted to match G
-       there will be an f missing for some (tt, tu) iff there are no exemplars
-       in matches
-       in which case, that row will not be called upon anyway
-    =#
-  
-  for covar in cc.covariates
+  for covar in ccr.covariates
     if cc.timevary[covar]
-      M[!, covar] = [zeros(Float64, mlen) for i in 1:nrow(M)];
-      # if we want to store the numbers
-      # M[!, Symbol(string(covar) * "N")] = [zeros(Int64, mlen) for i in 1:nrow(M)];
-    else
-      M[!, covar] = zeros(Float64, nrow(M));
-      # M[!, Symbol(string(covar) * "N")] = zeros(Int64, nrow(M));
+      MB[!, covar] = Vector{Vector{Vector{Union{Float64, Missing}}}}(undef, nrow(MB))
+    else 
+      MB[!, covar] = Vector{Vector{Union{Float64, Missing}}}(undef, nrow(MB))
     end
   end
-
-  # make index vector
-  ix = gindices(M, G);
-
-  Mg = unique(M[!, [:treattime, :treatunit]]);
-
-  return G, M, ix, Mg[!, :treattime], Mg[!, :treatunit]
-end
   
-function gindices(M, G)
+  GB = groupby(ccr.balances, [:treattime, :treatunit, :matchunit])
 
-  rns = (@chain M begin
-    groupby([:treattime, :treatunit])
-    combine(nrow => :rn)
-  end).rn
-
-  ix = Vector{Int64}(undef, length(G) + 1);
-  ix[1] = 1 
-  nr = 0
-  for (i, rn) in enumerate(rns)
-    nr += rn
-    ix[i + 1] = nr + 1
-  end
-  return ix
+  return MB, GB
 end
 
-function make_Ns(covariates, timevary, mlen, flen)
-  Ns = Dict{Symbol, Union{Vector{Int64}, Vector{Vector{Int64}}}}();
-  for covar in covariates
-    if timevary[covar]
-      Ns[covar] = [zeros(Int64, mlen) for i in 1:flen]
-    else
-      Ns[covar] = zeros(Int64, flen)
-    end
-  end
-  return Ns
-end
+### meanbalances loop
+function _meanbalance!(meanbalances, groupedbalances, mmlen, fmin)
+  for r in eachrow(meanbalances)
+    # r = eachrow(MB)[1];
+    fs = r[:fs];
+    muset = r[:matchunitsets];
 
-function gloop!(M, ix, cc, G, mlen, flen, tts, tus)
-  
-  # for (i, g) in enumerate(G)
-  @inbounds Threads.@threads for i = eachindex(tts)
-    g = get(
-      G,
-      (treattime = tts[i], treatunit = tus[i]),
-      false
-    );
-    Ns = make_Ns(cc.covariates, cc.timevary, mlen, flen);
-    
-    #=
-    gfsmin strategy will not work if fs for some match to a treated unit is not a single segment. if it is not in some setting, will need to search.
-    # the best way to do that would be, probably, enumerate over gfs and check if each element in gfs is in rfs (as it happens in the loop)
-
-    but, it should form a single segment in all possible cases here, since we
-    do not allow missingness between the start and end of a unit's time-series
-    =#
-    gfsmin = minimum(@views M[ix[i] : ix[i+1] - 1, :f]);
-    dog!(M, ix[i], g, cc, mlen, Ns, gfsmin);
-    Ndiv!(@view(M[ix[i]:ix[i + 1] - 1, :]), Ns, cc.covariates, cc.fmin);
-  end
-  return M
-end
-
-# @view(M[ix[i]:ix[i + 1] - 1, :])[1, covar] / Ns[covar][1][1]
-
-# function ρdiv!(ρc, Nsc, f, fmin)
-#   ρc = ρc ./ Nsc[f - fmin + 1]
-#   return ρc
-# end
-
-function Ndiv!(Mn, Ns, covariates, fmin)
-  for ρ in eachrow(Mn)
-  # for φm1 in 0:(ix[i + 1] - ix[i])
-    for covar in covariates
-      # ρdiv!(ρ[covar], Ns[covar], ρ[:f], fmin);
-      ρ[covar] = ρ[covar] ./ Ns[covar][ρ[:f] - fmin + 1]
-    end
-  end
-  return Mn
-end
-
-function dog!(M, ixi, g, cc, mlen, Ns, gfsmin)
-  # H = deepcopy(M);
-  # Ns = make_Ns(cc.covariates, cc.timevary, mlen, flen);
-  for r in eachrow(g) # [1:1726]
-    # H = deepcopy(cc.meanbalances);
-    addmean!(M, ixi, r, r[:fs], cc, mlen, Ns, gfsmin) # one row of M
-  end
-  #hcat(H[ixi, covar], Ns[covar][1], H[ixi, covar])
-  return M
-end
-  
-# #24,25
-# rg = eachrow(g)[1725]
-# rb = eachrow(g)[1726]
-
-# the Ns are getting stored property (fixed # rows)
-# unique f list
-# need this to find M row
-# this is important when there is f variation across matches to a treated observation
-# this is per g
-# gfsmin = minimum(@views M[ixi:ix[i+1] - 1, :f]);
-
-function addmean!(M, ixi, r, rfs, cc, mlen, Ns, gfsmin)
-  for covar in cc.covariates
-    for f in rfs
-
-      #=
-      N.B. indexing:
-
-      M over φ, Ns over f - fmin + 1
-      M is restricted to elem of r[:fs], Ns is not
-      Ns cannot really be, since it is a patchwork of fs present across matches to some treated observation
-      =#
-
-      if cc.timevary[covar]
-        
-        # PROBLEM M+φ is adding to 10, but we actually want 37
-        # because other units have that range, we need the total range present
-        # consider adding a check (maybe a test later?) that the things match...
-
-        _innersum!(
-          M[ixi + f - gfsmin, covar],
-          @views(r[covar][fidx(f, mlen, cc.fmin)]),
-          Ns[covar][f - cc.fmin + 1]
-        )
-          # alternatively, store in M
-          # M[rownumber(r) + φ - 1, Symbol(string(covar) * "N")],
-
-      else 
-        M[ixi + f - gfsmin, covar] += r[covar]
-        Ns[covar][f - cc.fmin + 1] += 1
-        
-        # M[rownumber(r) + φ - 1, Symbol(string(covar) * "N")] += 1
+    for covar in ccr.covariates
+      # this is a [row, covar] for MB:
+      #   the means across fs for a covariate (for a treated observation)
+      if ccr.timevary[covar]
+        r[covar] = Vector{Vector{Union{Float64, Missing}}}(undef, length(fs));
+        row_covar_meanbalance!(
+          r[covar], r[:treattime], r[:treatunit],
+          fs, muset, groupedbalances, mmlen, fmin, covar
+        );
+      else
+        r[covar] = Vector{Union{Float64, Missing}}(undef, length(fs));
+        row_covar_meanbalance!(
+          r[covar], r[:treattime], r[:treatunit],
+          fs, muset, groupedbalances, covar
+        );
       end
     end
   end
-
-  return M, Ns
+  return meanbalances
 end
 
-function _innersum!(mvec, rvec, nvec)
-  for l in eachindex(mvec)
-    if !ismissing(rvec[l])
-      mvec[l] += rvec[l]
-      nvec[l] += 1
+### inner functions
+function row_covar_meanbalance!(
+  Holding::Vector{Vector{Union{Missing, Float64}}},
+  treattime, treatunit,
+  fs, muset, GB, mmlen, fmin, covar
+)
+  for (i, f) in enumerate(fs)
+
+    ls = fidx(f, mmlen, fmin);
+    mus = muset[i];
+    
+    holding = Vector{Vector{Union{Float64, Missing}}}(undef, length(mus));
+    for m in eachindex(mus) # this is the site of averaging
+      g = get(
+        GB,
+        (treattime = treattime, treatunit = treatunit, matchunit = mus[m]),
+        nothing
+      );
+      holding[m] = g[1, covar][ls] # for a single match
+    end
+    
+    Holding[i] = Vector{Union{Missing, Float64}}(undef, mmlen);
+    for l in eachindex(ls)
+      Holding[i][l] = mean(skipmissing([vec[l] for vec in holding])) # assign to part of MB row, variable (for an f)
     end
   end
-  return rvec, nvec
+  return Holding
+end
+  
+function row_covar_meanbalance!(
+  Holding, treattime, treatunit, fs, muset, GB, covar
+)
+  for i in eachindex(fs)
+
+    mus = muset[i];
+    
+    holding = Vector{Union{Float64, Missing}}(undef, length(mus));
+    for m in eachindex(mus) # this is the site of averaging
+      g = get(
+        GB,
+        (treattime = treattime, treatunit = treatunit, matchunit = mus[m]),
+        nothing
+      );
+      holding[m] = g[1, covar] # for a single match
+    end
+
+    Holding[i] = mean(skipmissing(holding))
+  end
+  return Holding
 end
 
+"""
+    grandbalance!(model::AbstractCICModel)
+
+Calculate the overall mean covariate balance for a model.
+"""
 function grandbalance!(model::AbstractCICModel)
+
+  mmlen = length(ccr.mmin:ccr.mmax)
 
   if model.stratifier != Symbol("")
     model.grandbalances = GrandDictStrat();
     us = sort(unique(model.meanbalances.stratum));
     [model.grandbalances[s] = GrandDictNoStrat() for s in us];
-    _grandbalance!(model, us)
+    
+    for s in us
+      mb_s = @view(model.meanbalances[model.meanbalances.stratum .== s, :]);
+      __grandbalance!(
+        model.grandbalances, mb_s,
+        model.covariates, model.timevary, mmlen,
+        s
+      )
+    end
+
   else
     model.grandbalances = GrandDictNoStrat();
-    _grandbalance!(model)
+    __grandbalance!(
+      model.grandbalances, model.meanbalances,
+      model.covariates, model.timevary, mmlen
+    )
   end
 
   return model
 end
 
-function _grandbalance!(model::AbstractCICModel)
-  for covar in model.covariates
-    if model.timevary[covar]
-      model.grandbalances[covar] = zeros(Float64, length(model.mmin:model.mmax))
+function __grandbalance!(
+  grandbalances, meanbalances, covariates, timevary, mmlen, s
+)
+  for covar in covariates
+    if timevary[covar]
+      gbc = disallowmissing(
+        _grandbalance(
+          meanbalances[!, covar],
+          mmlen
+        )
+      )
+      grandbalances[s][covar] = gbc
     else
-      model.grandbalances[covar] = 0.0
+      grandbalances[s][covar] = _grandbalance(
+        meanbalances[!, covar]
+      )
     end
   end
-
-  for covar in model.covariates
-    if model.timevary[covar]
-      for l in eachindex(model.mmin:model.mmax)
-        meanvec = Vector{Union{Missing, Float64}}(
-          missing, nrow(model.meanbalances)
-        );
-        for i in eachindex(1:nrow(model.meanbalances))
-          v = model.meanbalances[i, covar][l]
-          meanvec[i] = (!isnan(v) & !isinf(v)) ? v : missing
-        end
-        model.grandbalances[covar][l] = mean(skipmissing(meanvec))
-      end
-    else
-      # assume no NaN or missing:
-      model.grandbalances[covar] = mean(model.meanbalances[!, covar]);
-    end
-  end
-
   return model
 end
 
-function _grandbalance!(model::AbstractCICModel, us)
-
-  for s in us
-    
-    mb = @view model.meanbalances[model.meanbalances.stratum .== s, :]
-
-    for covar in model.covariates
-      if model.timevary[covar]
-        model.grandbalances[s][covar] = zeros(Float64, length(model.mmin:model.mmax))
-      else
-        model.grandbalances[s][covar] = 0.0
-      end
+function __grandbalance!(
+  grandbalances, meanbalances, covariates, timevary, mmlen
+)
+  for covar in covariates
+    if timevary[covar]
+      gbc = disallowmissing(
+        _grandbalance(
+          meanbalances[!, covar],
+          mmlen
+        )
+      )
+      grandbalances[covar] = gbc
+    else
+      grandbalances[covar] = _grandbalance(
+        meanbalances[!, covar]
+      )
     end
-
-    for covar in model.covariates
-      if model.timevary[covar]
-        for l in eachindex(model.mmin:model.mmax)
-          meanvec = Vector{Union{Missing, Float64}}(
-            missing, nrow(mb)
-          );
-          for i in eachindex(1:nrow(mb))
-            v = mb[i, covar][l]
-            meanvec[i] = (!isnan(v) & !isinf(v)) ? v : missing
-          end
-          model.grandbalances[s][covar][l] = mean(skipmissing(meanvec))
-        end
-      else
-        # assume no NaN or missing:
-        model.grandbalances[s][covar] = mean(mb[!, covar]);
-      end
-    end
-
   end
-
   return model
+end
+
+function _grandbalance(covec, mmlen)
+  reduced = reduce(vcat, covec);
+  means = Vector{Union{Missing, Float64}}(undef, mmlen);
+  for l in eachindex(1:mmlen)
+    means[l] = mean(skipmissing([vec[l] for vec in reduced]))
+  end
+  return means
+end
+
+function _grandbalance(covec)
+  return mean(skipmissing(reduce(vcat, covec)))
 end
 
 """
