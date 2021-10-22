@@ -254,7 +254,9 @@ function row_covar_meanbalance!(
     
     Holding[i] = Vector{Union{Missing, Float64}}(undef, mmlen);
     for l in eachindex(ls)
-      Holding[i][l] = mean(skipmissing([vec[l] for vec in holding])) # assign to part of MB row, variable (for an f)
+      lvec = [vec[l] for vec in holding]; # place the values for match period l for all matches to a treated obs into a single vector.
+      # assign to part of MB row, variable (for an f)
+      Holding[i][l] = all(ismissing.(lvec)) ? missing : mean(skipmissing(lvec))
     end
   end
   return Holding
