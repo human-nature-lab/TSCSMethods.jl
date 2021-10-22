@@ -162,20 +162,20 @@ fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
 
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in cc.matches, e.g. in case a caliper has been applied.
 """
-function meanbalance!(ccr::AbstractCICModel)
-  ccr.meanbalances, groupedbalances = setup_meanbalance(ccr);
-  mmlen = length(ccr.mmin:ccr.mmax);
+function meanbalance!(model::AbstractCICModel)
+  model.meanbalances, groupedbalances = setup_meanbalance(model);
+  mmlen = length(model.mmin:model.mmax);
   _meanbalance!(
-    ccr.meanbalances, groupedbalances,
-    ccr.covariates, ccr.timevary, mmlen, ccr.fmin
+    model.meanbalances, groupedbalances,
+    model.covariates, model.timevary, mmlen, model.fmin
   )
-  return ccr
+  return model
 end
 
 ### setup meanbalances
-function setup_meanbalance(ccr::AbstractCICModel)
+function setup_meanbalance(model::AbstractCICModel)
   
-  MB = @chain ccr.matches[!, [:treattime, :treatunit, :matchunit, :f]] begin
+  MB = @chain model.matches[!, [:treattime, :treatunit, :matchunit, :f]] begin
   groupby([:treattime, :treatunit, :f])
     combine(
       # :f => Ref => :fs,
@@ -188,15 +188,15 @@ function setup_meanbalance(ccr::AbstractCICModel)
     )
   end;
   
-  for covar in ccr.covariates
-    if cc.timevary[covar]
+  for covar in model.covariates
+    if model.timevary[covar]
       MB[!, covar] = Vector{Vector{Vector{Union{Float64, Missing}}}}(undef, nrow(MB))
     else 
       MB[!, covar] = Vector{Vector{Union{Float64, Missing}}}(undef, nrow(MB))
     end
   end
   
-  GB = groupby(ccr.balances, [:treattime, :treatunit, :matchunit])
+  GB = groupby(model.balances, [:treattime, :treatunit, :matchunit])
 
   return MB, GB
 end
