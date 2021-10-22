@@ -158,7 +158,7 @@ get indices from f
 fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
 
 """
-    meanbalance(model!)
+    meanbalance!(model)
 
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
 """
