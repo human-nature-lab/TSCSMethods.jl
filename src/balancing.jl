@@ -7,31 +7,31 @@ outputs dict[t-l, covariate] where t-l is l days prior to the treatment
 
 (adjust this for f, in sliding window F-defined match period case, which is the case...)
 """
-function std_treated(cc::AbstractCICModel, dat::DataFrame)
+function std_treated(model::AbstractCICModel, dat::DataFrame)
 
-  trtobs = unique(dat[dat[!, cc.treatment] .== 1, [cc.t, cc.id]])
-  sort!(trtobs, [cc.t, cc.id])
+  trtobs = unique(dat[dat[!, model.treatment] .== 1, [model.t, model.id]])
+  sort!(trtobs, [model.t, model.id])
   idx = Int[];
   L = Int[];
 
   for i in 1:nrow(trtobs)
     to = trtobs[i, :]
 
-    c1 = dat[!, cc.id] .== to[2];
-    ct = (dat[!, cc.t] .>= (to[1] - 1 + cc.mmin)) .& (dat[!, cc.t] .<= to[1] + cc.fmax);
+    c1 = dat[!, model.id] .== to[2];
+    ct = (dat[!, model.t] .>= (to[1] - 1 + model.mmin)) .& (dat[!, model.t] .<= to[1] + model.fmax);
 
     append!(idx, findall((c1 .& ct)))
-    append!(L, dat[c1 .& ct, cc.t] .- to[1]) # L relative to tt, not the actual time
+    append!(L, dat[c1 .& ct, model.t] .- to[1]) # L relative to tt, not the actual time
   end
 
-  allvals = @view dat[idx, cc.covariates];
+  allvals = @view dat[idx, model.covariates];
 
   Lset = unique(L);
   Lstd = zeros(Float64, length(Lset));
   Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
   for l in Lset
     lvals = @view allvals[L .== l, :]
-    for covar in cc.covariates
+    for covar in model.covariates
       Lstd[(l, covar)] = inv(std(lvals[!, covar]; corrected = true))
     end
   end
@@ -39,7 +39,7 @@ function std_treated(cc::AbstractCICModel, dat::DataFrame)
 end
 
 # sgi = gi[r, sv]
-# Ls =  Lσ[cc.reference, sv]
+# Ls =  Lσ[model.reference, sv]
 function svcalc(iusv1, jusv1, Ls)
   return (iusv1 - jusv1) * Ls
 end
@@ -49,52 +49,52 @@ function tvcalc(iul, jul, Ls)
 end
 
 """
-    fullbalance!(cc::AbstractCICModel, dat::DataFrame)
+    fullbalance!(model::AbstractCICModel, dat::DataFrame)
 
 calculate the full set of standardized balance scores, for each treated observation - matched unit pair.
 
 cf. meanbalance for the averages by treated observation
 """
-function fullbalance!(cc::AbstractCICModel, dat::DataFrame)
+function fullbalance!(model::AbstractCICModel, dat::DataFrame)
 
-  varset = vcat([cc.t, cc.id], cc.covariates)
+  varset = vcat([model.t, model.id], model.covariates)
   
   sdat = dat[!, varset]
-  tmin = minimum(dat[!, cc.t]);
-  tmax = maximum(dat[!, cc.t]);
+  tmin = minimum(dat[!, model.t]);
+  tmax = maximum(dat[!, model.t]);
 
-  Lσ = std_treated(cc, dat);
+  Lσ = std_treated(model, dat);
 
-  cc.balances = unique(cc.matches[!, [:treattime, :treatunit, :matchunit]])
+  model.balances = unique(model.matches[!, [:treattime, :treatunit, :matchunit]])
   
-  Lrnge = length((cc.fmin + cc.mmin):(cc.fmax + cc.mmax))
+  Lrnge = length((model.fmin + model.mmin):(model.fmax + model.mmax))
   
   timevar = Vector{Symbol}();
   staticvar = Vector{Symbol}();
-  for covar in cc.covariates
-    if cc.timevary[covar]
+  for covar in model.covariates
+    if model.timevary[covar]
       push!(timevar, covar)
-      cc.balances[!, covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:nrow(cc.balances)]
+      model.balances[!, covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:nrow(model.balances)]
     else
       push!(staticvar, covar)
-      cc.balances[!, covar] = zeros(Float64, nrow(cc.balances));
+      model.balances[!, covar] = zeros(Float64, nrow(model.balances));
     end
   end
 
-  gdf = groupby(cc.balances, [:treattime, :treatunit]);
+  gdf = groupby(model.balances, [:treattime, :treatunit]);
 
   _balance!(
-    cc, sdat, Lσ,
+    model, sdat, Lσ,
     staticvar, timevar,
     tmin, tmax,
     gdf
   );
 
-  return cc
+  return model
 end
 
 function _balance!(
-  cc::AbstractCICModel, sdat::DataFrame, Lσ,
+  model::AbstractCICModel, sdat::DataFrame, Lσ,
   staticvar, timevar,
   tmin, tmax,
   gdf
@@ -105,31 +105,31 @@ function _balance!(
     iu = gi[1, :treatunit]
     tt = gi[1, :treattime]
 
-    ttl = (tt + cc.fmin + cc.mmin);
-    ttu = (tt + cc.fmax - 1);
-    sdf = @view sdat[(sdat[!, cc.t] .>= ttl) .& (sdat[!, cc.t] .<= ttu), :];
+    ttl = (tt + model.fmin + model.mmin);
+    ttu = (tt + model.fmax - 1);
+    sdf = @view sdat[(sdat[!, model.t] .>= ttl) .& (sdat[!, model.t] .<= ttu), :];
 
-    iudat = @view sdf[sdf[!, cc.id] .== iu, :];
+    iudat = @view sdf[sdf[!, model.id] .== iu, :];
 
     _row_balance!(
-      gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
+      gi, sdf, model, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
     )
   end
-  return cc
+  return model
 end
 
 function _row_balance!(
-  gi, sdf, cc, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
+  gi, sdf, model, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
 )
-  # @eachrow! cc.balances[parentindices(gi)[1], :] begin
-  # cgi = @view cc.balances[parentindices(gi)[1], :];
+  # @eachrow! model.balances[parentindices(gi)[1], :] begin
+  # cgi = @view model.balances[parentindices(gi)[1], :];
   for r in eachrow(gi)
-    judat = @view sdf[sdf[!, cc.id] .== r[:matchunit], :];
+    judat = @view sdf[sdf[!, model.id] .== r[:matchunit], :];
 
     # if unit series aren't all of same length, this would be an issue
     for sv in staticvar
-      r[sv] = svcalc(iudat[1, sv], judat[1, sv], Lσ[cc.reference, sv])
-      # cc.reference (tt - 1): a value that must exist, doesn't matter since it's static...
+      r[sv] = svcalc(iudat[1, sv], judat[1, sv], Lσ[model.reference, sv])
+      # model.reference (tt - 1): a value that must exist, doesn't matter since it's static...
     end
 
     lcount = 0
@@ -158,9 +158,9 @@ get indices from f
 fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
 
 """
-    meanbalance(cc!)
+    meanbalance(model!)
 
-Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in cc.matches, e.g. in case a caliper has been applied.
+Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
 """
 function meanbalance!(model::AbstractCICModel)
   model.meanbalances, groupedbalances = setup_meanbalance(model);
@@ -334,7 +334,7 @@ function __grandbalance!(
       )
     end
   end
-  return model
+  return grandbalances
 end
 
 function __grandbalance!(
@@ -355,7 +355,7 @@ function __grandbalance!(
       )
     end
   end
-  return model
+  return grandbalances
 end
 
 function _grandbalance(covec, mmlen)
@@ -381,29 +381,29 @@ Simply check whether the grand means are above the std. balance threshold. Retur
 If Stratareduce is true, then the strata balances will be agggregated to the covariate level, such that a violation in any caliper triggers a violation in the aggregated output.
 """
 function balancecheck(
-  cc::AbstractCICModel;
+  model::AbstractCICModel;
   threshold = 0.1,
   stratareduce = true
 )
 
-  if cc.stratifier == Symbol("")
+  if model.stratifier == Symbol("")
     chk = Dict{Symbol, Bool}();
-    for (k, v) in cc.grandbalances
+    for (k, v) in model.grandbalances
       _balancecheck!(chk, v, k, threshold)
     end
   else
     chk = Dict{Int, Dict{Symbol, Bool}}();
-    [chk[s] = Dict{Symbol, Bool}() for s in keys(cc.grandbalances)]
-    for (k, v) in cc.grandbalances
+    [chk[s] = Dict{Symbol, Bool}() for s in keys(model.grandbalances)]
+    for (k, v) in model.grandbalances
       for (ki, vi) in v
       _balancecheck!(chk[k], vi, ki, threshold)
       end
     end
   end
 
-  if stratareduce & (cc.stratifier != Symbol(""))
+  if stratareduce & (model.stratifier != Symbol(""))
     bc2 = Dict{Symbol, Bool}()
-    for covar in cc.covariates
+    for covar in model.covariates
       bc2[covar] = false
     end
     
@@ -429,28 +429,28 @@ function _balancecheck!(chki, v, k, threshold)
   return chki
 end
 
-function balance!(cc::cicmodel, dat::DataFrame)
+function balance!(model::cicmodel, dat::DataFrame)
 
-  fullbalance!(cc, dat);
-  meanbalance!(cc);
-  grandbalance!(cc);
+  fullbalance!(model, dat);
+  meanbalance!(model);
+  grandbalance!(model);
   
-  if cc.stratifier == Symbol("")
-    cc.treatednum = nrow(unique(cc.meanbalances[!, [:treattime, :treatunit]]));
+  if model.stratifier == Symbol("")
+    model.treatednum = nrow(unique(model.meanbalances[!, [:treattime, :treatunit]]));
   else
-    cc.treatednum = Dict{Int64, Int64}();
-    for s in unique(cc.meanbalances.stratum)
-      c1 = cc.meanbalances.stratum .== s
-      cc.treatednum[s] = nrow(unique(@views(cc.meanbalances[c1, [:treattime, :treatunit]])));
+    model.treatednum = Dict{Int64, Int64}();
+    for s in unique(model.meanbalances.stratum)
+      c1 = model.meanbalances.stratum .== s
+      model.treatednum[s] = nrow(unique(@views(model.meanbalances[c1, [:treattime, :treatunit]])));
     end
   end
 
-  return cc
+  return model
 end
 
 """
     autobalance(
-      cc;
+      model;
       refinementnum = 5,
       calmin = 0.08, step = 0.05, initial_bals = false
     )
@@ -458,7 +458,7 @@ end
 Automatically balance via a simple algorithm. Start with initial caliper of 1.0, and subtract `step` whenever the grand mean balance threshold (0.1) is not met.
 """
 function autobalance(
-  cc;
+  model;
   threshold = 0.1,
   min_treated_obs = 10,
   refinementnum = 5, calmin = 0.1, step = 0.05, initial_bals = false
@@ -467,12 +467,12 @@ function autobalance(
 
 if !initial_bals
   caliper = Dict{Symbol, Float64}();
-  for c in cc.covariates
+  for c in model.covariates
     caliper[c] = 1.0
   end
 end
 
-  cal = make_caliper(cc, caliper);
+  cal = make_caliper(model, caliper);
   calr = make_refined(cal; refinementnum = refinementnum);
 
   # check calr only
@@ -487,7 +487,7 @@ end
         caliper[covar] = caliper[covar] - step
       end
     end
-    cal = make_caliper(cc, caliper);
+    cal = make_caliper(model, caliper);
     calr = make_refined(cal; refinementnum = refinementnum);
     bc = balancecheck(calr; threshold = threshold)
     insight = inspectcaliper(calr);
