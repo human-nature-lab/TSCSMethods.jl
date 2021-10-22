@@ -256,8 +256,10 @@ function row_covar_meanbalance!(
     for l in eachindex(ls)
       # lvec = [vec[l] for vec in holding]; # place the values for match period l for all matches to a treated obs into a single vector.
       # assign to part of MB row, variable (for an f)
-      Holding[i][l] = try mean(skipmissing([vec[l] for vec in holding])) catch; missing end
+      # Holding[i][l] = try mean(skipmissing([vec[l] for vec in holding])) catch; missing end
       # Holding[i][l] = all(ismissing.(lvec)) ? missing : mean(skipmissing(lvec))
+      lvec = skipmissing([vec[l] for vec in holding]);
+      Holding[i][l] = !isempty(lvec) ? mean(lvec) : missing
     end
   end
   return Holding
