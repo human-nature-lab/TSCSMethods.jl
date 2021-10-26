@@ -143,10 +143,10 @@ function bootstrap(W, uid; iter = 500)
   # ADD TREAT EVE RESTRICTION MINIMUM
 
   c1 = "stratum" ∈ names(W);
-  if c1
-    wgroup = [:stratum, :f];
+  wgroup = if c1
+    [:stratum, :f];
   else
-    wgroup = [:f];
+    [:f];
   end
 
   uf = sort(unique(W[!, wgroup]), wgroup);
@@ -244,7 +244,7 @@ end
 """
     _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter)
 
-Inner function to bootstrap(), which actually executes the bootstrapping. N.B. that the seed should be set globally, prior to any estimation.
+Inner function to bootstrap(), which actually executes the bootstrapping. N.B. that the seed should be set globally.
 """
 function _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter)
   @inbounds Threads.@threads for i in 1:iter

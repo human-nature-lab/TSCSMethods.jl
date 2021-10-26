@@ -120,6 +120,8 @@ function variablestrat!(
   cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
   cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
 
+  c1 = dat[:, cc.treatment] .== 1;
+
   missingpresent = false;
 
   # if separate zero
@@ -130,7 +132,7 @@ function variablestrat!(
   end
 
   if !timevary
-    udf = unique(dat, [:fips, var], view = true);
+    udf = unique(@view(dat[c1, :]), [:fips, var], view = true);
     udict = Dict(udf[!, :fips] .=> udf[!, var]);
     
     xvec = udf[!, var];
@@ -158,7 +160,6 @@ function variablestrat!(
     end
     
   elseif timevary # do at time of treatment
-    c1 = dat[:, cc.treatment] .== 1;
     
     X = sort(quantile(@views(dat[c1, var])));
     Xlen = length(X);
