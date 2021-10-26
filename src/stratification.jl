@@ -30,7 +30,9 @@ function treatednums!(cc::cicmodel)
   for s in unique(cc.meanbalances.stratum)
     
     cc.treatednum[s] = nrow(
-      unique(@view cc.meanbalances[!, [:treattime, :treatunit]][cc.meanbalances.stratum .== s, :])
+      unique(
+        @view cc.meanbalances[!, [:treattime, :treatunit]][cc.meanbalances.stratum .== s, :]
+      )
     )
   end
   return cc
