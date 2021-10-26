@@ -205,33 +205,39 @@ end
 function _meanbalance!(
   meanbalances, groupedbalances, covariates, timevary, mmlen, fmin
 )
-  for r in eachrow(meanbalances)
-    # r = eachrow(MB)[1];
-    fs = r[:fs];
-    muset = r[:matchunitsets];
-
-    for covar in covariates
-      # this is a [row, covar] for MB:
-      #   the means across fs for a covariate (for a treated observation)
-      if timevary[covar]
-        r[covar] = Vector{Vector{Union{Float64, Missing}}}(undef, length(fs));
-        row_covar_meanbalance!(
-          r[covar], r[:treattime], r[:treatunit],
-          fs, muset, groupedbalances, mmlen, fmin, covar
-        );
-      else
-        r[covar] = Vector{Union{Float64, Missing}}(undef, length(fs));
-        row_covar_meanbalance!(
-          r[covar], r[:treattime], r[:treatunit],
-          fs, muset, groupedbalances, covar
-        );
-      end
-    end
+  # for r in eachrow(meanbalances)
+  Threads.@threads for r in eachrow(meanbalances)
+    fslen = length(r[:fs]);
+    _covar_meanbalance!(
+      r, fslen, groupedbalances, covariates, timevary, mmlen, fmin
+    )
   end
   return meanbalances
 end
 
 ### inner functions
+function _covar_meanbalance!(
+  r, fslen, groupedbalances, covariates, timevary, mmlen, fmin
+)
+  for covar in covariates
+    # this is a [row, covar] for MB:
+    #   the means across fs for a covariate (for a treated observation)
+    if timevary[covar]
+      r[covar] = Vector{Vector{Union{Float64, Missing}}}(undef, fslen);
+      row_covar_meanbalance!(
+        r[covar], r[:treattime], r[:treatunit],
+        r[:fs], r[:matchunitsets], groupedbalances, mmlen, fmin, covar
+      );
+    else
+      r[covar] = Vector{Union{Float64, Missing}}(undef, fslen);
+      row_covar_meanbalance!(
+        r[covar], r[:treattime], r[:treatunit],
+        r[:fs], r[:matchunitsets], groupedbalances, covar
+      );
+    end
+  end
+end
+
 function row_covar_meanbalance!(
   Holding::Vector{Vector{Union{Missing, Float64}}},
   treattime, treatunit,
