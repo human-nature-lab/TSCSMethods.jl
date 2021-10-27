@@ -140,7 +140,8 @@ function countmemb(itr, len::Int64)
 end
 
 function bootstrap(W, uid; iter = 500)
-  # ADD TREAT EVE RESTRICTION MINIMUM
+  # ADD TREAT EVE RESTRICTION MINIMUM?
+  # >= one unit suffices
 
   c1 = "stratum" ∈ names(W);
   wgroup = if c1
@@ -148,7 +149,7 @@ function bootstrap(W, uid; iter = 500)
   else
     [:f];
   end
-
+  
   uf = sort(unique(W[!, wgroup]), wgroup);
   len = nrow(uf);
 
@@ -181,42 +182,30 @@ function bootstrap(W, uid; iter = 500)
 
   luid = length(uid);
   if c1
-    cgroup = [:stratum, :unit]
+    cgroup = [:stratum, :f, :unit]
     us = unique(uf.stratum);
     uslen = length(us);
   else
-    cgroup = :unit
+    cgroup = [:f, :unit]
     uslen = 1
   end
   
-  checkset = unique(W[W.treatev, cgroup]);
-
-  _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter);
+  # new checkset
+  checkunitsets = begin
+    checkset = @chain W[W.treatev, cgroup] begin
+      groupby(cgroup[1:end-1])
+      combine(
+        :unit => Ref ∘ unique => :units,
+      )
+    end
+    # unique since we don't need to check for unitsets that are redundant
+    # for each row, at least one unit (of that row) must exist in the sample
+    unique(checkset.units)
+  end
+  
+  _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter);
 
   return boots
-end
-
-function _check!(check, samp, checkset)
-  for s in samp
-    ff = findfirst(checkset[!, :unit] .== s);
-    if !isnothing(ff)
-      check[checkset[ff, :stratum]] = true
-    end
-    if all(check)
-      return true
-    end
-  end
-  return all(check)
-end
-
-function _check(samp, checkset)
-  for s in samp
-    ff = findfirst(checkset .== s);
-    if !isnothing(ff)
-      return true
-    end
-  end
-  return false
 end
 
 """
@@ -224,21 +213,29 @@ end
 
 Sample the units, and ensure that there is a treated unit in the resample. If the data is stratified, ensure that there is at least one treated unit in each stratum.
 """
-function sample_check(uid, luid, checkset, uslen)
+function sample_check(uid, luid, unitsets)
   samp = sample(uid, luid);
-  
-  if uslen > 1
-    check = [false for i in 1:uslen];
-    
-    while !(_check!(check, samp, checkset))
-      samp = sample(uid, luid);
-    end
-  else 
-    while !(_check(samp, checkset))
-      samp = sample(uid, luid);
+
+  while !(_check(unitsets, samp))
+    samp = sample(uid, luid);
+  end
+
+  return samp
+end
+
+function _check(unitsets, samp)
+  for units in unitsets
+    for unit in units
+      if unit ∈ samp
+        break
+      else
+        # if last entry of a row does not yield true
+        # (and haven't already skipped out to next row), then exit
+        return false
+      end
     end
   end
-  return samp
+  return true # all rows have a treated unit present
 end
 
 """
@@ -246,10 +243,10 @@ end
 
 Inner function to bootstrap(), which actually executes the bootstrapping. N.B. that the seed should be set globally.
 """
-function _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter)
+function _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter)
   @inbounds Threads.@threads for i in 1:iter
     reuid = countmemb(
-      sample_check(uid, luid, checkset, uslen),
+      sample_check(uid, luid, checkunitsets),
       length(uid)
     );
     for c in eachindex(wout) # fs
@@ -259,6 +256,11 @@ function _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter)
       for r in 1:length(wo)
         boots[c, i] += get(reuid, ufo[r], 0) * wo[r] # adding up to get a single estimate for an f
         n += get(reuid, ufo[r], 0) * to[r]
+      end
+      if n == 0
+        println("lack of treated unit failure at c = ", c)
+        boots[c, i] = NaN
+        break
       end
       boots[c, i] = boots[c, i] / n
     end
