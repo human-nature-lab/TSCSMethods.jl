@@ -222,3 +222,75 @@ function label_variablestrat(
   end
   return labels
 end
+
+"""
+    combostrat!(cc, dat, vars::Vector{Symbol})
+
+Stratify based on the combinations of one or more variables. Strata are formed directly from the variable values.
+"""
+function combostrat!(cc, dat, vars::Vector{Symbol})
+
+  ### example vars
+  # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
+  # dat[!, :highinc] = dat[!, vn.mil] .>= tscsmethods.mean(dat[!, vn.mil]);
+
+  # vars = [:hightrump, :highinc]
+  ###
+
+  c1 = dat[:, cc.treatment] .== 1;
+  udf = unique(@view(dat[c1, :]), [cc.t, cc.id, vars...], view = true);
+
+  combos = Iterators.product([unique(dat[!, var]) for var in vars]...);
+
+  stratmap = Dict(
+    reshape(collect(combos), length(combos)) .=> 1:length(combos)
+  );
+
+  udict = Dict{Tuple{Int, Int}, Int}();
+  for r in eachrow(udf)
+    udict[(r[cc.t], r[cc.id])] = stratmap[(r[vars]...)]
+  end
+
+  varn = ""
+  for (i, var) in enumerate(vars)
+    if i < length(vars)
+      varn = varn * string(var) * " x "
+    else
+      varn = varn * string(var)
+    end
+  end
+
+  cc.stratifier = Symbol(varn);
+
+  cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
+  cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
+
+  # matches
+  @eachrow! cc.matches begin
+    :stratum = udict[($(cc.t), $(cc.id))]
+  end
+
+  # meanbalances
+  @eachrow! cc.meanbalances begin
+    :stratum = udict[($(cc.t), $(cc.id))]
+  end
+
+  stratlabels = Dict{Int, String}()
+  for (k, v) in stratmap
+    stratlabels[v] = combostratlab(vars, k)
+  end
+
+  return cc, stratlabels
+end
+
+function combostratlab(vars, k)
+  init = ""
+  for i in eachindex(vars)
+    if i < length(vars)
+      init = init * string(vars[i]) * " = " * string(k[i]) * ", "
+    else
+      init = init * string(vars[i]) * " = " * string(k[i])
+    end
+  end
+  return init
+end

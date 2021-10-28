@@ -20,7 +20,7 @@ module tscsmethods
     balance!, balancecheck,
     make_refined, make_caliper,
     estimate!,
-    stratify!, variablestrat!, customstrat!,
+    stratify!, variablestrat!, combostrat!, customstrat!,
     inspectcaliper,
     autobalance,
     # plotting
