@@ -238,7 +238,7 @@ function combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
   c1 = dat[:, cc.treatment] .== 1;
   udf = unique(@view(dat[c1, :]), [cc.t, cc.id, vars...], view = true);
   
-  combos = Iterators.product([unique(dat[!, var]) for var in vars]...);
+  combos = Iterators.product([unique(udf[!, var]) for var in vars]...);
   
   stratmap = Dict(
     reshape(collect(combos), length(combos)) .=> 1:length(combos)
@@ -273,16 +273,19 @@ function combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
     :stratum = udict[(:treattime, :treatunit)]
   end
   
-  stratlabels = Dict{Int, String}()
+  stratathatexist = unique(cc.meanbalances.stratum);
+
+  stratlabels = Dict{Int, String}();
   for (k, v) in stratmap
-    stratlabels[v] = combostratlab(vars, k, varslabs)
+    if stratmap[k] ∈ stratathatexist
+      stratlabels[v] = combostratlab(vars, k, varslabs)
+    end
   end
   
   return cc, stratlabels
 end
 
 function combostratlab(vars, k, varslabs)
-  # always returns tuple for varslabs
   init = ""
 
   for i in eachindex(vars)
