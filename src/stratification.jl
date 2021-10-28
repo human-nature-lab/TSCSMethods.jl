@@ -223,11 +223,11 @@ function label_variablestrat(
 end
 
 """
-    combostrat!(cc, dat, vars::Vector{Symbol})
+    combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
 
 Stratify based on the combinations of one or more variables. Strata are formed directly from the variable values.
 """
-function combostrat!(cc, dat, vars::Vector{Symbol})
+function combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
 
   ### example vars
   # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
@@ -275,10 +275,32 @@ function combostrat!(cc, dat, vars::Vector{Symbol})
   
   stratlabels = Dict{Int, String}()
   for (k, v) in stratmap
-    stratlabels[v] = combostratlab(vars, k)
+    stratlabels[v] = combostratlab(vars, k, varslabs)
   end
   
   return cc, stratlabels
+end
+
+function combostratlab(vars, k, varslabs)
+  # always returns tuple for varslabs
+  init = ""
+
+  for i in eachindex(vars)
+    varlab = get(varslabs, vars[i], missing)
+    vi = string(vars[i])
+    if !ismissing(varlab)
+      ki = string(get(varlab, k[i], missing))
+    else
+      ki = string(k[i])
+    end
+    
+    if i < length(vars)
+      init = init * vi * " = " * ki * ", "
+    else
+      init = init * vi * " = " * ki
+    end
+  end
+  return init
 end
 
 function combostratlab(vars, k)
