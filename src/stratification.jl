@@ -132,8 +132,8 @@ function variablestrat!(
   end
 
   if !timevary
-    udf = unique(@view(dat[c1, :]), [:fips, var], view = true);
-    udict = Dict(udf[!, :fips] .=> udf[!, var]);
+    udf = unique(@view(dat[c1, :]), [cc.id, var], view = true);
+    udict = Dict(udf[!, cc.id] .=> udf[!, var]);
     
     xvec = udf[!, var];
     missingpresent = any(ismissing.(udf[!, var])) # update value
@@ -151,12 +151,11 @@ function variablestrat!(
       :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
     end
 
-    # meanbalances
     @eachrow! cc.meanbalances begin
-    # includes zerosep case by loop design (q = 0)
-    dictval = udict[:treatunit]
-    # new stratum if missing
-    :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
+      # includes zerosep case by loop design (q = 0)
+      dictval = udict[:treatunit]
+      # new stratum if missing
+      :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
     end
     
   elseif timevary # do at time of treatment
@@ -164,12 +163,12 @@ function variablestrat!(
     X = sort(quantile(@views(dat[c1, var])));
     Xlen = length(X);
 
-    udf = unique(@view(dat[c1, :]), [:fips, var], view = true);
+    udf = unique(@view(dat[c1, :]), [cc.id, var], view = true);
 
     # treatment events
     udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, var])}();
     @eachrow udf begin
-      udict[(:running, :fips)] = $var
+      udict[($(cc.t), $(cc.id))] = $var
     end
     
     if zerosep
@@ -236,21 +235,20 @@ function combostrat!(cc, dat, vars::Vector{Symbol})
 
   # vars = [:hightrump, :highinc]
   ###
-
   c1 = dat[:, cc.treatment] .== 1;
   udf = unique(@view(dat[c1, :]), [cc.t, cc.id, vars...], view = true);
-
+  
   combos = Iterators.product([unique(dat[!, var]) for var in vars]...);
-
+  
   stratmap = Dict(
     reshape(collect(combos), length(combos)) .=> 1:length(combos)
   );
-
+  
   udict = Dict{Tuple{Int, Int}, Int}();
   for r in eachrow(udf)
     udict[(r[cc.t], r[cc.id])] = stratmap[(r[vars]...)]
   end
-
+  
   varn = ""
   for (i, var) in enumerate(vars)
     if i < length(vars)
@@ -259,27 +257,27 @@ function combostrat!(cc, dat, vars::Vector{Symbol})
       varn = varn * string(var)
     end
   end
-
+  
   cc.stratifier = Symbol(varn);
-
+  
   cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
   cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
-
+  
   # matches
   @eachrow! cc.matches begin
-    :stratum = udict[($(cc.t), $(cc.id))]
+    :stratum = udict[(:treattime, :treatunit)]
   end
-
+  
   # meanbalances
   @eachrow! cc.meanbalances begin
-    :stratum = udict[($(cc.t), $(cc.id))]
+    :stratum = udict[(:treattime, :treatunit)]
   end
-
+  
   stratlabels = Dict{Int, String}()
   for (k, v) in stratmap
     stratlabels[v] = combostratlab(vars, k)
   end
-
+  
   return cc, stratlabels
 end
 
