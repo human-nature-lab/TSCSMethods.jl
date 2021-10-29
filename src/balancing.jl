@@ -303,10 +303,10 @@ function grandbalance!(model::AbstractCICModel)
   mmlen = length(model.mmin:model.mmax)
 
   cs1 = model.stratifier != Symbol("")
-  cs2 = stratum ∈ names(model.meanbalances)
+  cs2 = "stratum" ∈ names(model.meanbalances)
 
   if (cs1 & !cs2)
-    println("stratum not defined in meanbalances. so, calculating nonstratified grandbalances.")
+    println("N.B. stratum not defined in meanbalances. so, calculating nonstratified grandbalances.")
   end
 
   if (cs1 & cs2)
