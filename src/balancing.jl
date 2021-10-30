@@ -66,6 +66,12 @@ function fullbalance!(model::AbstractCICModel, dat::DataFrame)
   Lσ = std_treated(model, dat);
 
   model.balances = unique(model.matches[!, [:treattime, :treatunit, :matchunit]])
+
+  model.balances = @chain model.matches begin
+    unique([:treattime, :treatunit, :matchunit])
+    groupby([:treattime, :treatunit])
+    combine(:matchunit => Ref => :matchunits)
+  end
   
   Lrnge = length((model.fmin + model.mmin):(model.fmax + model.mmax))
   
@@ -74,20 +80,31 @@ function fullbalance!(model::AbstractCICModel, dat::DataFrame)
   for covar in model.covariates
     if model.timevary[covar]
       push!(timevar, covar)
-      model.balances[!, covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:nrow(model.balances)]
+
+      model.balances[!, covar] = Vector{
+        Vector{Vector{Union{Missing, Float64}}}
+      }(undef, nrow(model.balances));
+      for i in eachindex(model.balances[!, :treatunit])
+        model.balances[i, covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:length(model.balances[i, :matchunits])]
+      end
+
+      # model.balances[!, covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:nrow(model.balances)]
     else
       push!(staticvar, covar)
-      model.balances[!, covar] = zeros(Float64, nrow(model.balances));
+      model.balances[!, covar] = Vector{Vector{Float64}}(undef, nrow(model.balances));
+      for i in eachindex(model.balances[!, :treatunit])
+        model.balances[i, covar] = Vector{Float64}(undef, length(model.balances[i, :matchunits]))
+      end
     end
   end
 
-  gdf = groupby(model.balances, [:treattime, :treatunit]);
+  # don't need to group anymore
+  # gdf = groupby(model.balances, [:treattime, :treatunit]);
 
   _balance!(
     model, sdat, Lσ,
     staticvar, timevar,
-    tmin, tmax,
-    gdf
+    tmin, tmax
   );
 
   return model
@@ -96,39 +113,39 @@ end
 function _balance!(
   model::AbstractCICModel, sdat::DataFrame, Lσ,
   staticvar, timevar,
-  tmin, tmax,
-  gdf
+  tmin, tmax
 )
   
-  Threads.@threads for gi in gdf
+  # Threads.@threads for gi in gdf
+  Threads.@threads for g in eachrow(model.balances)
     
-    iu = gi[1, :treatunit]
-    tt = gi[1, :treattime]
+    iu = g[:treatunit]
+    tt = g[:treattime]
 
     ttl = (tt + model.fmin + model.mmin);
     ttu = (tt + model.fmax - 1);
+    
     sdf = @view sdat[(sdat[!, model.t] .>= ttl) .& (sdat[!, model.t] .<= ttu), :];
 
     iudat = @view sdf[sdf[!, model.id] .== iu, :];
 
     _row_balance!(
-      gi, sdf, model, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
+      g, sdf, model, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
     )
   end
   return model
 end
 
 function _row_balance!(
-  gi, sdf, model, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
+  g, sdf, model, staticvar, timevar, iudat, tt, ttl, ttu, tmin, tmax, Lσ
 )
-  # @eachrow! model.balances[parentindices(gi)[1], :] begin
-  # cgi = @view model.balances[parentindices(gi)[1], :];
-  for r in eachrow(gi)
-    judat = @view sdf[sdf[!, model.id] .== r[:matchunit], :];
+  
+  for (m, mu) in enumerate(g[:matchunits])
+    judat = @view sdf[sdf[!, model.id] .== mu, :];
 
     # if unit series aren't all of same length, this would be an issue
     for sv in staticvar
-      r[sv] = svcalc(iudat[1, sv], judat[1, sv], Lσ[model.reference, sv])
+      g[sv][m] = svcalc(iudat[1, sv], judat[1, sv], Lσ[model.reference, sv])
       # model.reference (tt - 1): a value that must exist, doesn't matter since it's static...
     end
 
@@ -136,18 +153,16 @@ function _row_balance!(
     for l ∈ ttl:ttu
       if (l >= tmin) & (l <= tmax) # should be for iu, ju?
         lcount += 1
-        # iul = iudat[lcount, :]
-        # jul = judat[lcount, :]
 
         for tv in timevar
-          r[tv][l - ttl + 1] = tvcalc(
+          g[tv][m][l - ttl + 1] = tvcalc(
               iudat[lcount, tv], judat[lcount, tv], Lσ[l - tt, tv]
             )
         end
       end
     end
   end
-  return gi
+  return g
 end
 
 """
@@ -163,11 +178,11 @@ fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
 """
 function meanbalance!(model::AbstractCICModel)
-  model.meanbalances, groupedbalances = setup_meanbalance(model);
+  model.meanbalances, groupedbalances, idxmap = setup_meanbalance(model);
   mmlen = length(model.mmin:model.mmax);
   _meanbalance!(
     model.meanbalances, groupedbalances,
-    model.covariates, model.timevary, mmlen, model.fmin
+    model.covariates, model.timevary, mmlen, model.fmin, idxmap
   )
   return model
 end
@@ -196,28 +211,35 @@ function setup_meanbalance(model::AbstractCICModel)
     end
   end
   
-  GB = groupby(model.balances, [:treattime, :treatunit, :matchunit])
+  groupedbalances = groupby(model.balances, [:treattime, :treatunit]);
 
-  return MB, GB
+  idxmap = Dict{Tuple{Int, Int}, Dict}();
+  for gb in groupedbalances
+    idxmap[(gb[1, :treattime], gb[1, :treatunit])] = Dict(gb[1, :matchunits] .=> 1:length(gb[1, :matchunits]))
+  end
+
+  return MB, groupedbalances, idxmap
 end
+
+###
 
 ### meanbalances loop
 function _meanbalance!(
-  meanbalances, groupedbalances, covariates, timevary, mmlen, fmin
+    meanbalances, groupedbalances, covariates, timevary, mmlen, fmin, idxmap
 )
   # for r in eachrow(meanbalances)
   Threads.@threads for r in eachrow(meanbalances)
     fslen = length(r[:fs]);
     _covar_meanbalance!(
-      r, fslen, groupedbalances, covariates, timevary, mmlen, fmin
+      r, fslen, groupedbalances, covariates, timevary, mmlen, fmin, idxmap
     )
   end
   return meanbalances
 end
-
+  
 ### inner functions
 function _covar_meanbalance!(
-  r, fslen, groupedbalances, covariates, timevary, mmlen, fmin
+r, fslen, groupedbalances, covariates, timevary, mmlen, fmin, idxmap
 )
   for covar in covariates
     # this is a [row, covar] for MB:
@@ -226,13 +248,15 @@ function _covar_meanbalance!(
       r[covar] = Vector{Vector{Union{Float64, Missing}}}(undef, fslen);
       row_covar_meanbalance!(
         r[covar], r[:treattime], r[:treatunit],
-        r[:fs], r[:matchunitsets], groupedbalances, mmlen, fmin, covar
+        r[:fs], r[:matchunitsets], groupedbalances, mmlen, fmin, covar,
+        idxmap
       );
     else
       r[covar] = Vector{Union{Float64, Missing}}(undef, fslen);
       row_covar_meanbalance!(
-        r[covar], r[:treattime], r[:treatunit],
-        r[:fs], r[:matchunitsets], groupedbalances, covar
+          r[covar], r[:treattime], r[:treatunit],
+          r[:fs], r[:matchunitsets], groupedbalances, covar,
+          idxmap
       );
     end
   end
@@ -241,7 +265,8 @@ end
 function row_covar_meanbalance!(
   Holding::Vector{Vector{Union{Missing, Float64}}},
   treattime, treatunit,
-  fs, muset, GB, mmlen, fmin, covar
+  fs, muset, groupedbalances, mmlen, fmin, covar,
+  idxmap
 )
   for (i, f) in enumerate(fs)
 
@@ -251,11 +276,15 @@ function row_covar_meanbalance!(
     holding = Vector{Vector{Union{Float64, Missing}}}(undef, length(mus));
     for m in eachindex(mus) # this is the site of averaging
       g = get(
-        GB,
-        (treattime = treattime, treatunit = treatunit, matchunit = mus[m]),
-        nothing
+          groupedbalances,
+          (treattime = treattime, treatunit = treatunit),
+          nothing
       );
-      holding[m] = g[1, covar][ls] # for a single match
+
+      # idx = findfirst(g[1, :matchunits] .== mus[m]) # SEARCH
+
+      # for a single match
+      holding[m] = g[1, covar][idxmap[(treattime, treatunit)][mus[m]]][ls] 
     end
     
     Holding[i] = Vector{Union{Missing, Float64}}(undef, mmlen);
@@ -270,25 +299,26 @@ function row_covar_meanbalance!(
   end
   return Holding
 end
-  
+
 function row_covar_meanbalance!(
-  Holding, treattime, treatunit, fs, muset, GB, covar
+  Holding, treattime, treatunit, fs, muset, GB, covar, idxmap
 )
-  for i in eachindex(fs)
+for i in eachindex(fs)
 
-    mus = muset[i];
-    
-    holding = Vector{Union{Float64, Missing}}(undef, length(mus));
-    for m in eachindex(mus) # this is the site of averaging
-      g = get(
-        GB,
-        (treattime = treattime, treatunit = treatunit, matchunit = mus[m]),
-        nothing
-      );
-      holding[m] = g[1, covar] # for a single match
-    end
+  mus = muset[i];
+  
+  holding = Vector{Union{Float64, Missing}}(undef, length(mus));
+  for m in eachindex(mus) # this is the site of averaging
+  g = get(
+      GB,
+      (treattime = treattime, treatunit = treatunit),
+      nothing
+  );
 
-    Holding[i] = mean(skipmissing(holding))
+  holding[m] = g[1, covar][idxmap[(treattime, treatunit)][mus[m]]] # for a single match
+  end
+
+  Holding[i] = mean(skipmissing(holding))
   end
   return Holding
 end
@@ -453,16 +483,28 @@ function balance!(model::cicmodel, dat::DataFrame)
   meanbalance!(model);
   grandbalance!(model);
   
-  if model.stratifier == Symbol("")
-    model.treatednum = nrow(unique(model.meanbalances[!, [:treattime, :treatunit]]));
-  else
+  balancenum!(model)
+
+  return model
+end
+
+function balancenum!(model)
+  cs1 = model.stratifier != Symbol("")
+  cs2 = "stratum" ∈ names(model.meanbalances)
+
+  if (cs1 & !cs2)
+    println("N.B. stratum not defined in meanbalances. so, calculating nonstratified treated nums.")
+  end
+  
+  if (cs1 & cs2)
     model.treatednum = Dict{Int64, Int64}();
     for s in unique(model.meanbalances.stratum)
       c1 = model.meanbalances.stratum .== s
       model.treatednum[s] = nrow(unique(@views(model.meanbalances[c1, [:treattime, :treatunit]])));
     end
+  else model.stratifier == Symbol("")
+    model.treatednum = nrow(unique(model.meanbalances[!, [:treattime, :treatunit]]));
   end
-
   return model
 end
 
