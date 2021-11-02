@@ -3,13 +3,16 @@ model object
 * the data is kept separately
 =#
 
+MatchDistances = Vector{Union{Vector{Union{Vector{Union{Float64, Missing}}, Missing}}, Missing}}; # move elsewhere?
+MatchUnits = Vector{Vector{Vector{Int}}};
+
 StratDict = Dict{Int64, Dict{Symbol, Float64}};
 GrandDictNoStrat = Dict{Symbol, Union{Vector{Float64}, Float64}};
 GrandDictStrat = Dict{Int64, Dict{Symbol, Union{Float64, Vector{Float64}}}};
 
 abstract type AbstractCICModel end
 
-@with_kw mutable struct cicmodel <: AbstractCICModel
+@with_kw struct CIC <: AbstractCICModel
   title::String = ""
   id::Symbol
   t::Symbol
@@ -17,13 +20,14 @@ abstract type AbstractCICModel end
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
-  fmin::Int64
-  fmax::Int64
   stratifier::Symbol = Symbol()
-  reference::Int64 = -1
-  mmin::Int64
-  mmax::Int64
-  matches::DataFrame = DataFrame()
+  reference::Int = -1
+  F::UnitRange{Int}
+  L::UnitRange{Int}
+  observations::Vector{Tuple{Int, Int}}
+  ids::Vector{Int}
+  matchdistances::Vector{MatchDistances} = Vector{MatchDistances}()
+  matchunits::MatchUnits = MatchUnits()
   balances::DataFrame = DataFrame()
   meanbalances::DataFrame = DataFrame()
   grandbalances::Union{GrandDictNoStrat, GrandDictStrat} = GrandDictNoStrat()
@@ -33,7 +37,7 @@ abstract type AbstractCICModel end
   estimator::String = "ATT"
 end
 
-@with_kw mutable struct calipercicmodel <: AbstractCICModel
+@with_kw struct CaliperCIC <: AbstractCICModel
   title::String = "caliper"
   id::Symbol
   t::Symbol
@@ -41,13 +45,13 @@ end
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
-  fmin::Int64
-  fmax::Int64
   stratifier::Symbol = Symbol()
   reference::Int64 = -1
-  mmin::Int64
-  mmax::Int64
-  matches::SubDataFrame # = DataFrame()
+  F::UnitRange{Int}
+  L::UnitRange{Int}
+  observations::Vector{Tuple{Int, Int}}
+  ids::Vector{Int}
+  matchunits::MatchUnits
   balances::SubDataFrame # = DataFrame()
   meanbalances::DataFrame = DataFrame()
   grandbalances::Union{GrandDictNoStrat, GrandDictStrat} = GrandDictNoStrat()
@@ -61,7 +65,7 @@ end
 end
 
 
-@with_kw mutable struct refinedcicmodel <: AbstractCICModel
+@with_kw struct RefinedCIC <: AbstractCICModel
   title::String = "refined"
   id::Symbol
   t::Symbol
@@ -69,13 +73,13 @@ end
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
-  fmin::Int64
-  fmax::Int64
   stratifier::Symbol = Symbol()
   reference::Int64 = -1
-  mmin::Int64
-  mmax::Int64
-  matches::SubDataFrame
+  F::UnitRange{Int}
+  L::UnitRange{Int}
+  observations::Vector{Tuple{Int, Int}}
+  ids::Vector{Int}
+  matchunits::MatchUnits
   balances::SubDataFrame
   meanbalances::DataFrame = DataFrame()
   grandbalances::Union{GrandDictNoStrat, GrandDictStrat} = GrandDictNoStrat()
