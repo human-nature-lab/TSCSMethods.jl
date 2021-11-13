@@ -397,11 +397,14 @@ Perform ATT estimation, with bootstrapped CIs.
 function estimate!(
   model::AbstractCICModel,
   dat::DataFrame;
-  iter::Int = 500,
+  iterations::Int = nothing,
   qtiles::Union{Float64, Vector{Float64}} = [0.025, 0.5, 0.975]
 )
 
-  @unpack observations, ids, results = model;
+  if !isnothing(iterations)
+    @reset model.iterations = iterations;
+
+  @unpack observations, ids, results, iterations = model;
   
   c1 = (length(observations) == 0);
   c2 = sum([isassigned(observations, i) for i in 1:length(observations)]) == 0
@@ -411,7 +414,7 @@ function estimate!(
 
   W = observationweights(model, dat);
   results = att!(results, W);
-  boots = bootstrap(W, ids; iter = iter);
+  boots = bootstrap(W, ids; iter = iterations);
   bootinfo!(results, boots; qtiles = qtiles)
   
   return model

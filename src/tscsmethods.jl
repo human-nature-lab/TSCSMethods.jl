@@ -20,7 +20,7 @@ module tscsmethods
     CIC, CICStratified, CaliperCIC, CaliperCICStratified,
     RefinedCIC, RefinedCaliperCIC, RefinedCaliperCICStratified,
     # mechanics
-    match!
+    match!,
     balance!, checkbalances, autobalance,
     estimate!,
     stratify, variablestrat, combostrat, customstrat,
