@@ -12,47 +12,59 @@ and append output
 
 Apply a stratification function, its arguments, to apply the stratification, calculate the stratified grandbalances, the treated observations in each group, and return the updated model with plot labels.
 """
-function stratify!(stratfunc::Function, args...; kwargs...)
+function stratify(
+  stratfunc::Function, model::CIC, args...; kwargs...
+)
 
-  cc, labels = stratfunc(args...; kwargs...)
+  strata, stratlabels, stratifier = stratfunc(model, args...; kwargs...)
+
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, balances, meanbalances, iterations, estimator = model;
+
+  stratmodel = CICStratified(
+    title = title,
+    id = id,
+    t = t,
+    outcome = outcome,
+    treatment = treatment,
+    covariates = covariates,
+    timevary = timevary,
+    stratifier = stratifier,
+    strata = strata,
+    reference = reference,
+    F = F, L = L,
+    observations = observations,
+    ids = ids,
+    matches = matches,
+    balances = balances,
+    meanbalances = meanbalances,
+    grandbalances = GrandDictStrat(),
+    iterations = iterations,
+    results = DataFrame(),
+    treatednum = Dict{Int64, Int64}(), ##
+    estimator = estimator,
+    labels = stratlabels
+  );
   
-  grandbalance!(cc)
-  treatednums!(cc)
+  if nrow(meanbalances) == 0
+    error("calculate meanbalances first")
+  end
 
-  return cc, labels
+  grandbalance!(stratmodel);
+  treatednums!(stratmodel);
+
+  return stratmodel
 end
 
 """
 assign treatment numbers in each category
 """
-function treatednums!(cc::cicmodel)
-  cc.treatednum = Dict{Int64, Int64}();
-  for s in unique(cc.meanbalances.stratum)
-    
-    cc.treatednum[s] = nrow(
-      unique(
-        @view cc.meanbalances[!, [:treattime, :treatunit]][cc.meanbalances.stratum .== s, :]
-      )
-    )
+function treatednums!(model)
+  @unpack strata, treatednum = model;
+  for s in unique(strata)
+    treatednum[s] = sum(strata .== s)
   end
-  return cc
+  return model
 end
-
-"""
-assign treatment numbers left in each category for caliper model
-"""
-function treatedlefts!(cc::AbstractCICModel)
-  cc.treatedleft = Dict{Int64, Int64}();
-  for s in unique(cc.meanbalances.stratum)
-    
-    cc.treatedleft[s] = nrow(
-      unique(@view cc.meanbalances[!, [:treattime, :treatunit]][cc.meanbalances.stratum .== s, :])
-    )
-  end
-  return cc
-end
-
-# generic stratification functions
 
 """
     customstrat!(
@@ -62,37 +74,18 @@ end
 
 Stratify based on the values of some input dictionary, specifying strata for each (t, id) or each (id) for a stratification that varies only by unit.
 """
-function customstrat!(
-  cc, stratifier,
-  stratdict::Union{Dict{Tuple{Int64, Int64}, Int64}, Dict{Int64, Int64}}
+function customstrat(
+  model, stratifier,
+  stratdict::Dict{Tuple{Int64, Int64}, Int64}
 )
 
-  if typeof(stratdict) == Dict{Tuple{Int64, Int64}, Int64}
-    cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
-    @eachrow! cc.matches begin
-      :stratum = stratdict[(:treattime, :treatunit)]
-    end
+  @unpack observations = model;
 
-    cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
-    @eachrow! cc.meanbalances begin
-    :stratum = stratdict[(:treattime, :treatunit)]
-    end
-  else
-    @eachrow! cc.matches begin
-      # includes zerosep case by loop design (q = 0)
-      :stratum = stratdict[:treatunit]
-    end
-
-    # meanbalances
-    @eachrow! cc.meanbalances begin
-      # includes zerosep case by loop design (q = 0)
-      :stratum = stratdict[:treatunit]
-    end
+  for (i, ob) in enumerate(observations)
+    strata[i] = get(stratdict, ob, 0)
   end
 
-  cc.stratifier = stratifier
-
-  return cc, nothing # labels should come from elsewhere
+  return strata, Dict{Int, String}(), stratifier # labels should come from elsewhere
 end
 
 function assignq(val, X, lenX)
@@ -110,33 +103,32 @@ Generic function to stratify on a covariate present in the dataframe.
 
 Assumes that matching, balancing, and meanbalancing has ocurred.
 """
-function variablestrat!(
-  cc, dat, var;
-  qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false, timevary = nothing
+function variablestrat(
+  model::CIC, stratifier, dat;
+  qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false
 )
 
-  cc.stratifier = var;
+  @unpack title, id, t, outcome, treatment, timevary, observations = model;
 
-  cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
-  cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
+  strata = Vector{Int}(undef, length(observations));
 
-  c1 = dat[:, cc.treatment] .== 1;
+  c1 = dat[:, treatment] .== 1;
 
   missingpresent = false;
 
   # if separate zero
   zs = 0;
 
-  if isnothing(timevary)
-    timevary = get(cc.timevary, var, false)
-  end
-
-  if !timevary
-    udf = unique(@view(dat[c1, :]), [cc.id, var], view = true);
-    udict = Dict(udf[!, cc.id] .=> udf[!, var]);
+  if !timevary[stratifier]
+    udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
+        
+    udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, stratifier])}();
+    @eachrow udf begin
+      udict[($(t), $(id))] = $stratifier
+    end
     
-    xvec = udf[!, var];
-    missingpresent = any(ismissing.(udf[!, var])) # update value
+    xvec = udf[!, stratifier];
+    missingpresent = any(ismissing.(udf[!, stratifier])) # update value
     # if there are missing values in the data, just skip them
     if missingpresent
       xvec = disallowmissing(xvec[.!ismissing.(xvec)]);
@@ -144,31 +136,22 @@ function variablestrat!(
     X = sort(quantile(xvec, qtes));
     Xlen = length(X);
 
-    @eachrow! cc.matches begin
-      # includes zerosep case by loop design (q = 0)
-      dictval = udict[:treatunit]
-      # new stratum if missing
-      :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
-    end
-
-    @eachrow! cc.meanbalances begin
-      # includes zerosep case by loop design (q = 0)
-      dictval = udict[:treatunit]
-      # new stratum if missing
-      :stratum = !ismissing(dictval) ? assignq(dictval, X, Xlen) : Xlen
+    for (i, ob) in enumerate(observations)
+      obval = get(udict, ob, 0)
+      strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
     end
     
-  elseif timevary # do at time of treatment
+  elseif timevary[stratifier] # do at time of treatment
     
     X = sort(quantile(@views(dat[c1, var])));
     Xlen = length(X);
 
-    udf = unique(@view(dat[c1, :]), [cc.id, var], view = true);
+    udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
 
     # treatment events
-    udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, var])}();
+    udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, stratifier])}();
     @eachrow udf begin
-      udict[($(cc.t), $(cc.id))] = $var
+      udict[($(t), $(id))] = $stratifier
     end
     
     if zerosep
@@ -177,17 +160,11 @@ function variablestrat!(
       zs = 1;
     end
 
-    # matches
-    @eachrow! cc.matches begin
-      # includes zerosep case by loop design (q = 0)
-      :stratum = assignq(udict[(:treattime, :treatunit)], X, Xlen) + zs
+    for (i, ob) in enumerate(observations)
+      obval = get(udict, ob, 0)
+      strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
     end
-
-    # meanbalances
-    @eachrow! cc.meanbalances begin
-      # includes zerosep case by loop design (q = 0)
-      :stratum = assignq(udict[(:treattime, :treatunit)], X, Xlen) + zs
-    end
+    
   end
 
   stratlabels = label_variablestrat(
@@ -196,7 +173,7 @@ function variablestrat!(
     zerosep = zerosep
   )
 
-  return cc, stratlabels
+  return strata, stratlabels, stratifier
 end
 
 function label_variablestrat(
@@ -222,12 +199,25 @@ function label_variablestrat(
   return labels
 end
 
+function combostratname(vars)
+  varn = ""
+  for (i, var) in enumerate(vars)
+    if i < length(vars)
+      varn = varn * string(var) * " x "
+    else
+      varn = varn * string(var)
+    end
+  end
+  
+  return Symbol(varn)
+end
+
 """
     combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
 
 Stratify based on the combinations of one or more variables. Strata are formed directly from the variable values.
 """
-function combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
+function combostrat(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
 
   ### example vars
   # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
@@ -249,28 +239,9 @@ function combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
     udict[(r[cc.t], r[cc.id])] = stratmap[(r[vars]...)]
   end
   
-  varn = ""
-  for (i, var) in enumerate(vars)
-    if i < length(vars)
-      varn = varn * string(var) * " x "
-    else
-      varn = varn * string(var)
-    end
-  end
-  
-  cc.stratifier = Symbol(varn);
-  
-  cc.matches[!, :stratum] = Vector{Int}(undef, nrow(cc.matches));
-  cc.meanbalances[!, :stratum] = Vector{Int}(undef, nrow(cc.meanbalances));
-  
-  # matches
-  @eachrow! cc.matches begin
-    :stratum = udict[(:treattime, :treatunit)]
-  end
-  
-  # meanbalances
-  @eachrow! cc.meanbalances begin
-    :stratum = udict[(:treattime, :treatunit)]
+  for (i, ob) in enumerate(observations)
+    obval = get(udict, ob, 0)
+    strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
   end
   
   stratathatexist = unique(cc.meanbalances.stratum);
@@ -282,7 +253,7 @@ function combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
     end
   end
   
-  return cc, stratlabels
+  return strata, stratlabels. combostratname(vars)
 end
 
 function combostratlab(vars, k, varslabs)

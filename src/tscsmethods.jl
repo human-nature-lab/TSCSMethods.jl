@@ -9,25 +9,27 @@ module tscsmethods
   include("balancing.jl")
   include("estimation.jl")
   include("stratification.jl")
+  include("refine.jl")
+  include("autobalancing.jl")
   include("model.jl")
   include("plotting.jl")
 
   export
     # types
-    AbstractCICModel, cicmodel, calipercicmodel, refinedcicmodel,
+    AbstractCICModel, AbstractCICModelStratified,
+    CIC, CICStratified, CaliperCIC, CaliperCICStratified,
+    RefinedCIC, RefinedCaliperCIC, RefinedCaliperCICStratified,
     # mechanics
-    match!,
-    balance!, balancecheck,
-    make_refined, make_caliper,
+    match!
+    balance!, checkbalances, autobalance,
     estimate!,
-    stratify!, variablestrat!, combostrat!, customstrat!,
-    inspectcaliper,
-    autobalance,
+    stratify, variablestrat, combostrat, customstrat,
+    makemodel,
+    caliper, refine,
     # plotting
     plot_cb, plot_cbs,
     model_pl, plot_modelset,
     # saving
     name_model,
-    save_modelset,
-    load_modelset
+    modelrecord
 end

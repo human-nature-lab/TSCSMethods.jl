@@ -8,55 +8,151 @@ function outcomedict(dat, t, id, outcome)
 return outdict
 end
 
-function Mprep(matches, reference; mgroup = [:f, :t, :unit])
+# obs = matches[1]
 
-  c1 = :stratum ∈ mgroup
+# hcat(obs.mus[obs.mus], obs.fs[obs.mus])
+# sum(obs.fs[obs.mus]) # treatnums
 
-  if c1
-    mgroup2 = [:stratum, :treattime, :treatunit, :matchunit, :f];
-    mgroup3 = [:stratum, :treattime, :treatunit, :f];
-  else
-    mgroup2 = [:treattime, :treatunit, :matchunit, :f];
-    mgroup3 = [:treattime, :treatunit, :f];
+# fsout = convert(
+#   Vector{Vector{Float64}}, similar(matches[1].fs[matches[1].mus])
+# );
+# # w for matches
+# for i in 1:length(matches[1].mus[matches[1].mus])
+#   fsout[i] = obs.fs[obs.mus][i] .* 1 ./ sum(obs.fs[obs.mus])
+# end
+
+function Mloop!(M, Mt, observations, matches)
+  for i in eachindex(observations)
+    # matches
+    append!(
+      M,
+      DataFrame(
+        treatob = fill(observations[i], sum(matches[i].mus)),
+        id = ids[matches[i].mus],
+        fbs = matches[i].fs[matches[i].mus]
+      )
+    );
+    
+    # treated obs.
+    append!(
+      Mt,
+      DataFrame(
+        treatob = observations[i],
+        id = observations[i][2],
+        fbs = [sum(matches[i].fs[matches[i].mus]) .> 0] # check whether every f is included
+      )
+    );
+  end  
+  return M, Mt
+end
+
+function Mprocess(Mt, F, Fmin)
+  Mt[!, :f] = Vector{Vector{Int}}(undef, nrow(Mt));
+  @inbounds Threads.@threads for i in 1:nrow(Mt)
+    Mt.f[i] = Mt.fbs[i] .* collect(eachindex(F)) # index since F may be 0
   end
-  
-  M = matches[:, mgroup2];
-  
-  Mt = begin
-    Mt = unique(M[!, mgroup3]);
-    Mt[!, :matchunit] .= Mt[!, :treatunit];
-    Mt[!, :w2] .= 1
-    Mt[!, :t2] = Mt[!, :treattime] + Mt[!, :f]
-    Mt[!, :w1] .= -Mt.w2
-    Mt[!, :t1] = Mt[!, :treattime] .+ reference
-    Mt;
+
+  select!(Mt, Not(:fbs));
+  Mt = flatten(Mt, :f);
+
+  Mt = Mt[Mt.f .!= 0, :]
+
+  Mt[!, :f] = Mt[!, :f] .+ (Fmin - 1);
+  return Mt
+end
+
+function Mprep(model)
+
+  if typeof(model) <: AbstractCICModelStratified
+    c1 = true
+    mgroup = [:stratum, :f, :t, :unit]
+  else
+    c1 = false
+    mgroup = [:f, :t, :unit]
+  end
+
+  # construct two dataframes
+  # - matches
+  # - treated units
+  # in each case we have the unique set, at each f
+
+  @unpack observations, matches, ids, F, reference = model;
+  Fmin = minimum(F);
+
+  M = DataFrame(
+    treatob = Tuple{Int, Int}[],
+    id = Int[],
+    fbs = Vector{Bool}[]
+  );
+
+  Mt = similar(M, 0);
+
+  Mloop!(M, Mt, observations, matches);
+
+  Mt = Mprocess(Mt, F, Fmin);
+  M = Mprocess(M, F, Fmin);
+
+  Mt[!, :t2] = Vector{Int}(undef, nrow(Mt));
+  Mt[!, :t1] = Vector{Int}(undef, nrow(Mt));
+  Mt[!, :w2] = Vector{Float64}(undef, nrow(Mt));
+  Mt[!, :w1] = Vector{Float64}(undef, nrow(Mt));
+  @eachrow! Mt begin
+    :t1 = :treatob[1] + :f;
+    :t2 = :treatob[1] + reference;
+    :w2 = 1.0;
+    :w1 = -1.0;
   end;
 
   M = @chain M begin
-    groupby(mgroup3)
+    groupby([:treatob, :f]) # get stratum for free
     transform(nrow => :w2)
-    @transform(w2 = -1 ./ :w2, t2 = :treattime + :f)
-    @transform(w1 = -:w2, t1 = :treattime .+ reference)
+  end
+
+  M[!, :t2] = Vector{Int}(undef, nrow(M));
+  M[!, :t1] = Vector{Int}(undef, nrow(M));
+  M[!, :w1] = Vector{Float64}(undef, nrow(M));
+  M[!, :w2] = convert(Vector{Float64}, M[!, :w2]);
+  @eachrow! M begin
+    :t1 = :treatob[1] + :f;
+    :t2 = :treatob[1] + reference;
+    :w2 = -1.0 / :w2;
+    :w1 = -:w2;
   end
   
   append!(M, Mt)
 
   # at (i,t) level
+  # if c1
+  #   M = DataFrame(
+  #     stratum = vcat(M[!, :stratum], M[!, :stratum]),
+  #     f = vcat(M[!, :f], M[!, :f]),
+  #     unit = vcat(M[!, :matchunit], M[!, :matchunit]),
+  #     t = vcat(M[!, :t1], M[!, :t2]),
+  #     w = vcat(M[!, :w1], M[!, :w2])
+  #   );
+  # else
+  #   M = DataFrame(
+  #     f = vcat(M[!, :f], M[!, :f]),
+  #     unit = vcat(M[!, :id], M[!, :id]),
+  #     t = vcat(M[!, :t1], M[!, :t2]),
+  #     w = vcat(M[!, :w1], M[!, :w2])
+  #   );
+  # end
+
+  M = DataFrame(
+    f = vcat(M[!, :f], M[!, :f]),
+    unit = vcat(M[!, :id], M[!, :id]),
+    t = vcat(M[!, :t1], M[!, :t2]),
+    w = vcat(M[!, :w1], M[!, :w2])
+  );
+
+  ## add strata here
   if c1
-    M = DataFrame(
-      stratum = vcat(M[!, :stratum], M[!, :stratum]),
-      f = vcat(M[!, :f], M[!, :f]),
-      unit = vcat(M[!, :matchunit], M[!, :matchunit]),
-      t = vcat(M[!, :t1], M[!, :t2]),
-      w = vcat(M[!, :w1], M[!, :w2])
-    );
-  else
-    M = DataFrame(
-      f = vcat(M[!, :f], M[!, :f]),
-      unit = vcat(M[!, :matchunit], M[!, :matchunit]),
-      t = vcat(M[!, :t1], M[!, :t2]),
-      w = vcat(M[!, :w1], M[!, :w2])
-    );
+    stratamap = Dict(observations .=> model.strata)
+    M[!, :stratum] = Vector{Int}(undef, nrow(M))
+    @eachrow! M begin
+      :stratum = stratmap[:treatob]
+    end
   end
 
   M = @chain M begin
@@ -69,44 +165,46 @@ function Mprep(matches, reference; mgroup = [:f, :t, :unit])
 end
 
 # treated observation weights
-function observationweights(ccr, dat)
+function observationweights(model, dat)
 
-  if ccr.stratifier == Symbol("")
-    M = Mprep(ccr.matches, ccr.reference);
-  else
-    M = Mprep(ccr.matches, ccr.reference; mgroup = [:stratum, :f, :t, :unit]);
+  @unpack id, t, outcome = model;
+
+  M = Mprep(model);
+
+  outdict = outcomedict(dat, t, id, outcome);
+  
+  trtdict = Dict{Int64, Bool}();
+  for obs in observations
+    trtdict[obs[2]] = true
   end
-
-  outdict = outcomedict(dat, ccr.t, ccr.id, ccr.outcome);
+  
+  M[!, :treatev] .= false
+  
+  @eachrow! M begin
+    if :wstar == 1
+      :treatev = get(trtdict, :unit, false)
+    end
+  end
 
   M = @eachrow M begin
     :wstar = :wstar * outdict[(:t, :unit)]
   end
 
-  trtdict = begin
-    trtdict = Dict{Tuple{Int64, Int64}, Bool}();
-    tobs = ccr.matches[!, [:treattime, :treatunit]];
-    unique(tobs, [:treattime, :treatunit])
-    @eachrow tobs begin
-      trtdict[(:treattime, :treatunit)] = true
-    end
-    trtdict
-  end;
   
-  M[!, :treatev] .= false
-  @eachrow! M begin
-    :treatev = get(trtdict, (:t - ccr.reference, :unit), false)
-  end
+  # M[!, :treatev] .= false
+  # @eachrow! M begin
+  #   :treatev = get(trtdict, (:t - ccr.reference, :unit), false)
+  # end
 
   return M
 end
 
 """
-    att(M, outdict, trtdict)
+    att!(results, M)
 
 calculate the ATT.
 """
-function att(M)
+function att!(results, M)
 
   if "stratum" ∈ names(M)
     mgroup = [:stratum, :f]
@@ -124,7 +222,9 @@ function att(M)
     @transform(att = :att ./ :treatnum) # same order
   end
 
-  return atts
+  append!(results, atts)
+
+  return results
 end
 
 """
@@ -295,21 +395,24 @@ end
 Perform ATT estimation, with bootstrapped CIs.
 """
 function estimate!(
-  ccr::AbstractCICModel,
+  model::AbstractCICModel,
   dat::DataFrame;
   iter::Int = 500,
   qtiles::Union{Float64, Vector{Float64}} = [0.025, 0.5, 0.975]
 )
 
-  if nrow(ccr.matches) == 0
+  @unpack observations, ids, results = model;
+  
+  c1 = (length(observations) == 0);
+  c2 = sum([isassigned(observations, i) for i in 1:length(observations)]) == 0
+  if c1 | c2
     return "There are no matches."
   end
 
-  uid = unique(dat[!, ccr.id])
-  W = observationweights(ccr, dat);
-  ccr.results = att(W);
-  boots = bootstrap(W, uid; iter = iter);
-  bootinfo!(ccr.results, boots; qtiles = qtiles)
+  W = observationweights(model, dat);
+  results = att!(results, W);
+  boots = bootstrap(W, ids; iter = iter);
+  bootinfo!(results, boots; qtiles = qtiles)
   
-  return ccr.results
+  return model
 end

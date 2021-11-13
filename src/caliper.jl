@@ -1,197 +1,167 @@
 # caliper.jl
 
-"""
-    applycaliper(cc::AbstractCICModel, covcaliper)
+# construction and execution
 
-Find the matches that do not pass the caliper.
-"""
-function applycaliper(cc::AbstractCICModel, covcaliper)
+function caliper(model::CIC, acaliper, dat; dobalance = true)
 
-  chk = Matrix{Bool}(undef, nrow(cc.matches), length(cc.covariates));
-  for (c, covar) in enumerate(cc.covariates)
-      chk[:, c] = cc.matches[!, covar] .<= covcaliper[covar]
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;
+
+  tobscr = calipermatches(model, acaliper);
+
+  # only include observations that have matches post-caliper
+  obsleft = [isassigned(tobscr, i) for i in 1:length(tobscr)];
+
+  modelcal = CaliperCIC(
+    title = title,
+    id = id,
+    t = t,
+    outcome = outcome,
+    treatment = treatment,
+    covariates = covariates,
+    timevary = timevary,
+    reference = reference,
+    F = F, L = L,
+    observations = observations[obsleft],
+    ids = ids,
+    matches = tobscr[obsleft],
+    meanbalances = DataFrame(),
+    grandbalances = GrandDictNoStrat(),
+    iterations = iterations,
+    results = DataFrame(),
+    treatednum = length(tobscr),
+    treatedleft = length(obsleft[obsleft]),
+    estimator = estimator,
+    caliper = acaliper,
+    fullmod = Ref(model)
+  );
+
+  if dobalance
+    meanbalance!(modelcal, dat);
+    grandbalance!(modelcal);
   end
 
-  return [all(r) for r in eachrow(chk)]
+  return modelcal
 end
 
-function rank!(cc::AbstractCICModel)
-  cc.matches = @chain cal.matches begin
-    @orderby(:treattime, :treatunit, :f, :mdist)
-    groupby([:treattime, :f, :treatunit])
-    transform( 
-      :matchunit => eachindex => :rank,
-      nrow => :numpossible_cal # name should depend on whether it is caliper type thing or not
-    )
+function caliper(model::CICStratified, acaliper, dat; dobalance = true)
+
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;
+
+  @unpack stratifier, strata = model
+
+  tobscr = calipermatches(model, acaliper);
+
+  # only include observations that have matches post-caliper
+  obsleft = [isassigned(tobscr, i) for i in 1:length(tobscr)];
+
+  modelcal = CaliperCICStratified(
+    title = title,
+    id = id,
+    t = t,
+    outcome = outcome,
+    treatment = treatment,
+    covariates = covariates,
+    timevary = timevary,
+    stratifier = stratifier,
+    strata = strata[obsleft],
+    reference = reference,
+    F = F, L = L,
+    observations = observations[obsleft],
+    ids = ids,
+    matches = tobscr[obsleft],
+    meanbalances = DataFrame(),
+    grandbalances = GrandDictStrat(),
+    iterations = iterations,
+    results = DataFrame(),
+    treatednum = length(tobscr),
+    treatedleft = length(obsleft[obsleft]),
+    estimator = estimator,
+    caliper = acaliper,
+    fullmod = Ref(model)
+  );
+
+  if dobalance
+    meanbalance!(modelcal, dat);
+    grandbalance!(modelcal);
   end
-  return cc
+
+  return modelcal
 end
 
-"""
-    inspectcaliper(cal::AbstractCICModel)
+# mechanics
 
-Return a DataFrame containing the unique set of treated observations (left after the caliper), the unique set of f values included, the number of matches, and the match units for each match, and the fs left for each treated observation.
-"""
-function inspectcaliper(cal::AbstractCICModel)
-  
-  cset1 = [:treattime, :treatunit, :matchunit, :f];
-  cset2 = [:treattime, :treatunit];
-  if cal.stratifier != Symbol("")
-    push!(cset1, :stratum)
-    push!(cset2, :stratum)
+function calipervars(caliper, covariates)
+  calipers = fill(Inf, length(covariates)+1);
+  for (c, covar) in enumerate(vcat(:Mahalanobis, covariates))
+    calipers[c] = get(caliper, covar, Inf);
   end
-
-  calinsight = @chain cal.matches[!, cset1] begin
-    groupby(cset2)
-    combine(
-      :f => Ref∘unique => :fs,
-      :matchunit => Ref∘unique => :matches
-    )
-    @orderby(:treattime, :treatunit)
-    select(
-      :treattime, :treatunit,
-      :matches => ByRow(length) => :matchnum,
-      :fs => ByRow(length) => :fnum,
-      :matches, :fs
-    )
-  end
-  return calinsight
+  return calipers
 end
 
-#= balance caliper
+function calipermatches(model, acaliper)
+  @unpack observations, matches, covariates, F = model;
 
-#=
-figure out which matches to drop based on balance score
-1. check over the whole fmin + mmin to fmax + mmax range
-2. record position in length 80 vector that must be dropped
-based on the position, we know which f(s) to remove from matches
+  calipers = calipervars(acaliper, covariates);
 
-this is very strict, stating that no match may have a std. difference above cutoff at any point
-=# 
+  tobscr = Vector{TobC}(undef, length(observations));
+  _caliper!(tobscr, matches, calipers, length(F))
 
-# generalize cutoff to a dict for each covariates
-function flag_balances(
-  cc::cicmodel,
-  cutoff::Float64 = 1/4
-)
+  return tobscr
+end
 
-  dropwhere = Dict{Tuple{Int64, Int64, Int64}, Vector{Int64}}()
+function _caliper!(tobscr, matches, calipers, flen)
+  Threads.@threads for i in eachindex(matches)
+    tob = @views matches[i]
+    @unpack mus, fs, mudistances, ranks = tob;
+    tobcr = TobC(
+      deepcopy(mus),
+      deepcopy(fs),
+      Dict{Int, Vector{Int}}()
+    ); # probably memory intensive
+    calipertobs!(tobcr, mus, fs, mudistances, calipers);
+    if !(sum(tobcr.mus) == 0)
+      tobscr[i] = tobcr;
+      tobcr.mus
+      
+      for φ in 1:flen
+        # tobcr.mus[mus][tobcr.mus[mus]]
+        # this should convert the indices
+        # tobcr.mus[mus] sends tobcr (calipered) to coords in space of original
+        # model true mus. Then, we get only the true ones in that space
+        # to get the ranks that are left
+        tobcr.ranks[φ] = tob.ranks[φ][tobcr.mus[mus]] # mu[mu] order
+        # sorting is preserved, with rejects removed
+      end
+    end
+  end
+  return tobscr
+end
 
-  begin
-    for i in 1:nrow(cc.balances)
-      x = Vector{Int64}()
-      for covar in cc.covariates
-        if !cc.timevary[covar]
-          if (abs(@views cc.balances[i, covar]) > cutoff)
-          
-            dropwhere[
-                cc.balances[i, :treattime],
-                cc.balances[i, :treatunit],
-                cc.balances[i, :matchunit],
-              ] = collect(1:80)
-            continue
+function calipertobs!(tobcr, mus, fs, mudistances, calipers)
+  cnt = 0
+  for (m, mu) in enumerate(mus)
+    if mu
+      fsmu = @views fs[m]
+      cnt += 1
+      cntfs = 0
+      for (φ, fb) in enumerate(fsmu)
+        if fb
+          cntfs += 1
+          dists = mudistances[cnt][cntfs] # an f for an mu
+          for c in 1:length(calipers)
+            if abs(dists[c]) > calipers[c]
+              # change correct fs in tobCR to false
+              tobcr.fs[m][φ] = false
+              break
+            end
           end
-        else
-          append!(x, findall(
-            skipmissing(
-              (abs.(@views cc.balances[i, covar]) .> cutoff)
-            )
-          ));
         end
-        if length(x) > 0
-          dropwhere[
-              cc.balances[i, :treattime],
-              cc.balances[i, :treatunit],
-              cc.balances[i, :matchunit],
-            ] = x
-        end
+      end
+      if !any(tobcr.fs[m])
+        # if no fs are true, knock the whole match unit out
+        tobcr.mus[m] = false
       end
     end
   end
-  return dropwhere
+  return tobcr
 end
-
-function flag_balances(cc::cicmodel)
-
-  dropwhere = Dict{Tuple{Int64, Int64, Int64}, Union{Vector{Int64}, Bool}}()
-
-  begin
-    for i in 1:nrow(cc.balances)
-      x = Vector{Int64}()
-      for covar in cc.covariates
-        if !cc.timevary[covar]
-          if (abs(@views cc.balances[i, covar]) > cc.caliper[covar])
-          
-            dropwhere[
-                cc.balances[i, :treattime],
-                cc.balances[i, :treatunit],
-                cc.balances[i, :matchunit],
-              ] = true
-            continue
-          end
-        else
-          append!(x, findall(
-            skipmissing(
-              (abs.(@views cc.balances[i, covar]) .> cc.caliper[covar])
-            )
-          ));
-        end
-        if length(x) > 0
-          dropwhere[
-              cc.balances[i, :treattime],
-              cc.balances[i, :treatunit],
-              cc.balances[i, :matchunit],
-            ] = x
-        end
-      end
-    end
-  end
-  return dropwhere
-end
-
-"""
-use dropwhere to flag matches
-inputs dropwhere, from flag balances
-
-adds :exclude col. to matches
-"""
-function flag_matches!(cc::cicmodel, dropwhere)
-  lmm = length(cc.mmin + cc.fmin:cc.mmax + cc.fmax)
-  @eachrow! cc.matches begin
-    @newcol :exclude::Vector{Bool}
-    post = get(dropwhere, (:treattime, :treatunit, :matchunit), Vector{Int64}())
-    if length(post) == lmm
-      :exclude = true
-    elseif length(post) > 0
-      if any((post .> (cc.mmin + :f)) .& (post .< (cc.mmax + :f))) # any point in matching over thresh excludes that match
-        :exclude = true
-      end
-    else :exclude = false
-    end
-  end
-  return cc
-end
-
-"""
-apply match-level caliper to standardized balance scores
-
-"""
-function balance_caliper!(cc::cicmodel)
-
-  dropwhere = flag_balances(cc)
-  flag_matches!(cc, dropwhere)
-
-  cc.matches = cc.matches[.!cc.matches[!, :exclude], :];
-
-  # keep the balances as they are average balance calculation will exclude
-  # cc.balances = leftjoin(
-  #   unique(cc.matches[!, [:treattime, :treatunit, :matchunit]]),
-  #   cc.balances,
-  #   on = [:treattime, :treatunit, :matchunit]
-  # );
-
-  rank!(cc)
-
-  return cc
-end
-=#

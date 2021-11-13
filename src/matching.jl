@@ -1,35 +1,34 @@
 # matching.jl
 
-"""
-give fs for a position
-"""
-function exbound(pos, mrnge, frnge)
-  fs = Vector{Int64}();
-  lm = length(mrnge)
-  for s in 1:length(frnge)
-    if ((pos >= s) & (pos < (s + lm))) # inside bounds? exclude
-      append!(fs, s + fmin - 1)
+function observe(datt, datid, dattrt)
+  obslen = sum(dattrt)
+  v = Vector{Tuple{Int, Int}}(undef, obslen);
+  cnt = 0
+  for (τ, unit, z) in zip(datt, datid, dattrt)
+    if z > 0
+      cnt += 1
+      v[cnt] = (τ, unit)
     end
   end
-  return fs
+
+  return sort(v), unique(datid)
 end
 
-function rankvect(A)
-  vect = zeros(Int64, length(A))
-  sp = sortperm(A)
-  rnk = 1:length(A)
-  begin
-    for r in rnk
-      vect[rnk[sp][r]] = r
-    end
-  end
-  return vect
+function make_matches(obslen, idlen)
+  matches = Vector{Tob}(undef, obslen);
+  _make_matches!(matches, obslen, idlen);
+  return matches
 end
 
-"""
-x is most rapid, then y, then z
-"""
-subi(y, x, z, Y, X) = (z - 1) * X * Y + X * (y - 1) + x
+function _make_matches!(matches, obslen, idlen)
+  for i in 1:obslen
+    matches[i] = Tob(
+      mus = fill(false, idlen),
+      fs = Vector{Vector{Bool}}(undef, idlen),
+      ranks = Dict{Int, Vector{Int}}()
+    );
+  end;
+end
 
 """
 inverted covariance matrix for mahalanobis distance (all units at t)
@@ -37,7 +36,7 @@ inverted covariance matrix for mahalanobis distance (all units at t)
 inverted sqrt(vars) for balance score calculations (treated units at t)
 """
 function calculate_sample_Σs!(
-  ut, Σinvdict, σdict, dt, c_treatment, cmat,
+  ut, Σinvdict, dt, cmat,
   variancesonly::Bool
 )
   
@@ -50,18 +49,18 @@ function calculate_sample_Σs!(
       Σ[Not(diagind(Σ))] .= 0
     end
 
-    c2 = c_t .& c_treatment;
-    if (sum(c2) > 1)
-      Σ_treated = cov(cmat[c2, :])
-      σdict[uti] = 1 ./ sqrt.(diag(Σ_treated)) # for balance score
-    end
+    # c2 = c_t .& c_treatment;
+    # if (sum(c2) > 1)
+    #   Σ_treated = cov(cmat[c2, :])
+    #   σdict[uti] = 1 ./ sqrt.(diag(Σ_treated)) # for balance score
+    # end
     Σinvdict[uti] = pinv(Σ)
   end
-  return Σinvdict, σdict
+  return Σinvdict
 end
 
 function samplecovar(
-  dat, uid, covariates, t, id, treatment;
+  dat, covariates, t, id, treatment;
   variancesonly = true
 )
 
@@ -70,318 +69,465 @@ function samplecovar(
   ut = unique(sdat[:, t])
   cmat = Matrix(sdat[!, covariates])
 
-  c_treatment = sdat[!, id] .∈ Ref(uid)
+  # c_treatment = sdat[!, id] .∈ Ref(uid)
 
   Σinvdict = Dict{Int64, Matrix{Float64}}();
-  σdict = Dict{Int64, Vector{Float64}}();
+  # σdict = Dict{Int64, Vector{Float64}}();
 
   calculate_sample_Σs!(
-    ut, Σinvdict, σdict, sdat[!, t], c_treatment, cmat,
+    ut, Σinvdict, sdat[!, t], cmat,
     variancesonly
   )
-  return Σinvdict, σdict
+  return Σinvdict
 end
 
-function distance_sums!(
-  tmin, Σinvdict, covariates, c1tusdf, c1ousdf, LF, Lrnge, caldists, mdist, lcnt
+function make_groupindices(tvec, treatvec, idvec, uid, fmin, fmax, mmin, cdat)
+  STypeMat = SubArray{Float64, 2, Matrix{Float64}, Tuple{Vector{Int64}, Base.Slice{Base.OneTo{Int64}}}, false};
+  STypeVec = SubArray{Int64, 1, Vector{Int64}, Tuple{Vector{Int64}}, false}
+
+  tts = sort(unique(tvec[treatvec .== 1]));
+  
+  tidx = Dict{Tuple{Int, Int}, STypeMat}();
+  ridx = Dict{Tuple{Int, Int}, STypeVec}();
+  tridx = Dict{Tuple{Int, Int}, STypeVec}();
+
+  sizehint!(tidx, length(Iterators.product(tts, uid)));
+  sizehint!(ridx, length(Iterators.product(tts, uid)));
+  sizehint!(tridx, length(Iterators.product(tts, uid)));
+
+  _makegroupindices(
+  tidx, ridx, tridx, tts, uid, fmin, fmax, mmin, tvec, idvec, treatvec, cdat
 )
   
-  for l = eachindex(Lrnge) # mmin:mmax
-    ltime = LF[l]
-    if ltime >= tmin
-      lcnt[1] += 1
-
-      il = Vector{Float64}(undef, length(covariates))
-      jl = similar(il)
-      
-      fillrow!(
-        il, jl, covariates, c1tusdf, c1ousdf, lcnt
-      )
-
-      mdist[1] += mahalanobis(il, jl, Σinvdict[LF[l]])
-      distance_sums_inner!(caldists, covariates, il, jl, Σinvdict, LF, l)
-      
-    end
-  end
-  return lcnt, mdist, caldists
+  return tidx, ridx, tridx
 end
 
-function fillrow!(il, jl, covariates, c1tusdf, c1ousdf, lcnt)
-  for (cnum, covar) = enumerate(covariates)
-    il[cnum] = c1tusdf[lcnt[1], covar] # row for iu at l
-    jl[cnum] = c1ousdf[lcnt[1], covar] # row for ju at l
-
-  end
-return il,jl
-end
-
-function distance_sums_inner!(caldists, covariates, il, jl, Σinvdict, LF, l)
-    for cnum = eachindex(covariates)
-        caldists[cnum] += weuclidean(
-          il[cnum], jl[cnum],
-          Σinvdict[LF[l]][cnum,cnum]
-        )
-    end
-    return caldists
-end
-
-function matching_barrier_2!(
-  possibles,
-  tusdf, ousdf,
-  iu, ju, it,
-  luid, lff, lmm, tmin,
-  LF,
-  mmin,
-  fmin, fmax, Lrnge,
-  Σinvdict,
-  covariates,
-  treatment,
-  t,
-  distances,
-  i, j
+function _makegroupindices(
+  tidx, ridx, tridx, tts, uid, fmin, fmax, mmin, tvec, idvec, treatvec, cdat
 )
-  # then we simply index LF
-  for k = eachindex(fmin:fmax)
-    ijk = subi(j, k, i, luid, lff);
+  for (tt, unit) in Iterators.product(tts, uid)
+    rws = (tvec .< tt + fmax) .& (tvec .>= tt + fmin + mmin)
+    idrws = idvec .== unit
+    tidx[(tt, unit)] = @views cdat[rws .& idrws, :];
+    ridx[(tt, unit)] = @views tvec[rws .& idrws];
+    tridx[(tt, unit)] = @views treatvec[rws .& idrws];
+  end
+  return tidx, ridx, tridx
+end
 
-    f = (k - 1) + fmin;
+"""
+      getfset!(ftrue, fmin, fmax, pollution, gt, tt)
 
-    possibles[ijk, :treattime] = it;
-    possibles[ijk, :treatunit] = iu;
-    possibles[ijk, :matchunit] = ju;
-    possibles[ijk, :f] = f;
+All fs are allowable if the matchunit is treated no closer than 31 days (before or after) the treatment.
+  => mu treatment at 31th day after treatment means first outcome
+      window day is after tu's fmax
+  => 41st day after mu treatment is beyond its outcome window
+      so it is fully elgible to be a match to a unit with an fmin
+      on that day. Then the treatment can happen 10 (fmin), days # #    before.
+"""
+function getfset!(ftrue, fmin, fmax, pollution, gt, tt);
 
-    # get the pre-treatment period outcome value
-    # minimum will be at least the treatment date in data
-    # need to exclude if it-1 DNE
-
-    #= if the pre-treatment datapoint does not exist, skip to next k
-    (should really just skip to next ju, but here to store info before skipping, this should be a rare case)
-
-    could also store the pre-treatment average here, instead of t - 1
-
-    quicker w/o search, assumes no missing entries, same start date for all units
-    =#
-
-    tstrt = max((it + fmin) + mmin, tmin) # begin of data or earliest L
-    # this is the first time point in sdf
-    # assumes same start date for all units
-    trtdx = it - tstrt + 1 # first index is 1
-
-    if trtdx < 2 # treatment must be present, and day before treatment
-      # possibles[ijk, :poss] = false; # default already
-      continue
-    end
-
-    Lf = LF[k : ((k - 1) + lmm)];
-    c1j = ousdf[!, t] .∈ Ref(Lf);
-    # c2a = sum(c1j) >= min_match_len # minimum match period length
-    c2 = !any(e -> e == 1, ousdf[c1j, treatment]);
-    
-    if c2
-      possibles[ijk, :possible] = true;
-
-      # do distance calculations
-      if distances
-
-        c1ousdf = @view ousdf[c1j, covariates];
-        c1i = tusdf[!, t] .∈ Ref(Lf);
-        c1tusdf = @view tusdf[c1i, covariates];
-        
-        mdist = [0.0]
-        caldists = zeros(Float64, length(covariates));
-        lcnt = [0]
-        
-        distance_sums!(
-          tmin, Σinvdict,
-          covariates, c1tusdf, c1ousdf, LF, Lrnge, caldists, mdist, lcnt
-        )
-        fillcaldists!(possibles, covariates, caldists, lcnt[1], ijk);
-        
-        possibles[ijk, :mdist] = mdist[1] / lcnt[1];
-        
+  for (d, τ) in zip(pollution, gt)
+    # tt+fmin:tt+fmax, τ+fmin:τ+fmax
+    if d > 0
+      if τ == tt
+        for φ in eachindex(ftrue); ftrue[φ] = false; end
+        return ftrue
+      elseif abs(tt - τ) >= fmin + fmax + 1
+        continue
+      else
+        if tt - τ > 0
+          # consider tt - τ = 1 -> 1 estimatble f (at fmax)
+          # true at fmax-(tt-τ)+1-fmin+1:fmax-fmin+1
+          for φ in 1:fmax-(tt-τ)+1-fmin
+            ftrue[φ] = false
+          end
+        elseif tt - τ < 0
+          for φ in fmax-(tt-τ)+1-fmin+1:fmax-fmin+1
+            ftrue[φ] = false
+          end
+        end
       end
     end
   end
-  return possibles
+  return ftrue
 end
 
-function fillcaldists!(possibles, covariates, caldists, lcnt, ijk)
-  for (cnum, calvar) in enumerate(covariates)
-    possibles[ijk, calvar] = caldists[cnum] / lcnt
-  end
-  return possibles
-end
+function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen)
 
-function matching_barrier_1!(
-  possibles,
-  sdf, tusdf, iu, it, uid,
-  fmin, fmax, mmin, mmax,
-  luid, lff, lmm, tmin,
-  Σinvdict, covariates, treatment, t, id,
-  distances,
-  # tref,
-  varset,
-  i
-)
+  for (m, mu) in enumerate(uid) # [1]# (j, mu) in enumerate(uid)
+    if tu != mu
 
-  for j = eachindex(uid)
-    ju = uid[j];
-    if ceil(iu, digits = -3) != ceil(ju, digits = -3) # voting-fips-specific condition
+      # require that panels are balanced
+      # will need to handle missingness case eventually
+      # data are padded
+      
+      ftrue = fill(true, flen);
+      pollution = trtg[(tt, mu)];
 
-      LF = (it + fmin) + mmin : (it + fmax) + mmax;
-      ousdf = @view sdf[sdf[!, id] .== ju, varset];
-
-      matching_barrier_2!(
-        possibles,
-        tusdf, ousdf,
-        iu, ju, it,
-        luid, lff, lmm, tmin,
-        LF,
-        mmin,
-        fmin, fmax, mmin:mmax,
-        Σinvdict,
-        covariates,
-        treatment,
-        # outcome,
-        t,
-        distances,
-        # tref,
-        i, j
-      );
+      if sum(pollution) > 0
+        getfset!(
+          ftrue, fmin, fmax, pollution, rg[(tt, mu)], tt
+        )
+        if !any(ftrue)
+          tobs.mus[m] = false
+          # tobs.fs[m] = ftrue
+        else
+          tobs.mus[m] = true
+          tobs.fs[m] = ftrue
+        end
+      else
+        tobs.mus[m] = true
+        tobs.fs[m] = ftrue
+      end
     end
   end
-  
-  return possibles
+  return tobs
 end
 
-# this seems like the best one
-function getmatches!(
-  possibles,
-  rid, rt, uid,
-  fmin, fmax, mmin, mmax,
-  lmm, luid, lff, tmin,
-  Σinvdict,
-  covariates,
-  dat,
-  varset,
-  treatment, t, id;
-  distances = false,
-  # pretreat = -1
-)
-  
-  @inbounds Threads.@threads for i = eachindex(rid)
-  # for i = 1:10 #eachindex(rid)
-  
-    it = rt[i]; # could filter based on something like < rt[i] + fmax
-    sdf = @view dat[
-      (dat[!, t] .<= it + fmax) .& (dat[!, t] .>= it + fmin + mmin),
-      varset,
-    ];
-    # keep data only from it + fmin + mmin (50 days before first f) up until it + fmax (40 days after treatment event)
-
-    iu = rid[i]; # need tou for distances
-    tusdf = @view sdf[sdf[!, id] .== iu, :];
+function distance_allocate!(tobsvec, ids, covnum)
+  Threads.@threads for i in eachindex(tobsvec)
+  # for (i, tob) in enumerate(tobsvec)
+    tob = @views tobsvec[i];
+    # compression from uid to eligible matches
+    assigned = getassigned(tob.mus, tob.fs);
+    emus = ids[assigned]; # eligible matches
+    efsets = tob.fs[assigned]; # allowable fs for each eligible match
     
-    matching_barrier_1!(
-      possibles,
-      sdf, tusdf, iu, it, uid,
-      fmin, fmax, mmin, mmax,
-      luid, lff, lmm, tmin,
-      Σinvdict, covariates, treatment, t, id,
-      distances,
-      # pretreat,
-      varset,
-      i
-    )
-
+    # preallocate for distances
+    tobsvec[i] = @set tob.mudistances = MatchDist(undef, sum(assigned));
+    fill_mudists!(tobsvec[i].mudistances, emus, efsets, covnum);
   end
-
-  return possibles
+  return tobsvec
 end
 
-function processmatches!(cic::cicmodel)
-  cic.matches = cic.matches[cic.matches[!, :possible], :];
-  select!(cic.matches, Not(:possible))
-
-  sort!(cic.matches, [:treattime, :f, :treatunit, :mdist])
-
-  @linq cic.matches = cic.matches |>
-    groupby([:treattime, :f, :treatunit]) |>
-    transform!(
-      :matchunit => eachindex => :rank, nrow => :numpossible
-    )
-  return cic
+function getassigned(mus, fs)
+  assigned = Vector{Bool}(undef, length(mus))
+  _getassigned!(assigned, mus, fs)
+  return assigned
 end
 
-function setupmatches(dat, cc)
-
-  # begin setup
-  uid = unique(dat[!, cc.id]);
-  lmm = length(cc.mmin:cc.mmax);
-  luid = length(uid);
-  lff = length(cc.fmin:cc.fmax);
-  tmin = minimum(dat[!, cc.t]);
-
-  varset = vcat([cc.t, cc.id, cc.treatment, cc.outcome], cc.covariates);
-
-  treatment_points = findall(dat[!, cc.treatment] .== 1);
-  rid = @views dat[treatment_points, cc.id];
-  rt = @views dat[treatment_points, cc.t];
-
-  L = luid * length(treatment_points) * lff;
-
-  possibles = DataFrame(
-    treattime = zeros(Int64, L),
-    treatunit = zeros(Int64, L),
-    matchunit = zeros(Int64, L),
-    f = zeros(Int64, L),
-    possible = [false for i in 1:L]
-  );
-
-  # add caliper vars
-  for calvar in vcat(:mdist, cc.covariates)
-    possibles[!, calvar] .= 0.0;
+function _getassigned!(assigned, mus, fs)
+  for i in eachindex(mus)
+    assigned[i] = isassigned(fs, i)
   end
-
-  # get sample variances
-  Σinvdict, σd = samplecovar(
-    dat, unique(rid), cc.covariates, cc.t, cc.id, cc.treatment
-  );
-  return possibles, uid, lmm, luid, lff, tmin, rid, rt, varset, Σinvdict
+  return assigned
 end
 
+# preallocate
+function fill_mudists!(mudists, emus, efsets, covnum)
+  for em in eachindex(emus)
+    # emu = emus[e]
+    efs = efsets[em] # logical rep. of fs that exist for a match
+    # a 4-len for each f that exists for the match
+    mudists[em] = Vector{Vector{Float64}}(undef, sum(efs))
+    _fill_mudists!(mudists[em], covnum)
+  end
+  return mudists
+end
+
+function _fill_mudists!(mudists_em, covnum)
+  for j in eachindex(mudists_em)
+    mudists_em[j] = Vector{Float64}(undef, covnum + 1)
+  end
+  return mudists_em
+end
+
+function _getmatches!(
+  observations, tobsvec,
+  rg, trtg, ids, fmin, fmax, flen
+)
+  for (ob, tob) in zip(observations, tobsvec)
+      (tt, tu) = ob;
+      obsmatches!(tob, rg, trtg, ids, tt, tu, fmin, fmax, flen);
+  end
+  return tobsvec
+end
 
 """
-    match!(cic::cicmodel, dat::DataFrame; distances = true)
+    match!(cic::cicmodel, dat::DataFrame)
   
-Perform matching for treatment events, using Mahalanobis distance matching. Optionally specify that standardized Euclidean distances for the individual covariates are specified.
+Perform matching for treatment events, using Mahalanobis distance matching. Additionally, calculate standardized Euclidean distances for the individual covariates are specified.
 """
-function match!(cc::cicmodel, dat::DataFrame; distances = true)
+function match!(model::AbstractCICModel, dat)
 
-  cc.matches,
-  uid, lmm, luid, lff,
-  tmin, rid, rt, varset, Σinvdict = setupmatches(dat, cc);
+  @unpack observations, matches, ids = model;
+  @unpack F, L, id, t, treatment, covariates = model;
+  
+  flen = length(F);
+  fmin = minimum(F); fmax = maximum(F);
+  mmin = minimum(L); mmax = maximum(L);
+  covnum = length(covariates);
 
-  getmatches!(
-    cc.matches,
-    rid, rt, uid,
-    cc.fmin, cc.fmax, cc.mmin, cc.mmax,
-    lmm, luid, lff, tmin,
-    Σinvdict,
-    cc.covariates,
-    dat,
-    varset,
-    cc.treatment, cc.t, cc.id;
-    distances = distances,
-    # pretreat = cc.reference
+  cdat = Matrix(dat[!, covariates]);
+  
+  # model = allocate_matches!(observations, ids)
+  #   0.030003 seconds (17.26 k allocations: 68.326 MiB)
+  #   2.460215 seconds (17.26 k allocations: 68.326 MiB, 99.39% gc time)
+
+  tg, rg, trtg = make_groupindices(
+    dat[!, t], dat[!, treatment],
+    dat[!, id], ids,
+    fmin, fmax, mmin,
+    cdat
+  );
+  
+  GC.gc();
+
+  _getmatches!(
+    observations, matches,
+    rg, trtg, ids, fmin, fmax, flen
   );
 
-  processmatches!(cc)
+  # distance prealloation
+  distance_allocate!(matches, ids, covnum);
 
-  return cc
+  # tobsvec[1].mudistances[1]
+  Σinvdict = samplecovar(dat, covariates, t, id, treatment);
+  
+  GC.gc();
+
+  # 175.818641 seconds (1.79 G allocations: 578.938 GiB, 60.88% gc time)
+  _distances!(
+    matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
+  );
+
+  rank!(matches, flen)
+
+  return model
 end
 
-function refine(cc::AbstractCICModel, refinementnum::Int)
-  return @view cc.matches[cc.matches[!, :rank] .<= refinementnum, :]
+###
+# check allowable fs
+
+# ob = observations[2106]
+# tmu = (ob[1], 44007)
+
+# findfirst(ids .== tmu[2])
+# findfirst(ids[tobsvec[1].mus] .== tmu[2])
+
+# fset = [true for i in 1:31];
+# begin
+#   pollution = trtg[tmu];
+#   @time getfset!(
+#       fset, fmin, fmax, pollution, rg[tmu], ob[1]
+#   )
+# end
+# fset
+
+# ftrue = [true for i in 1:31];
+# pollution = trtg[tmu]; gt = rg[tmu]; tt = ob[1];
+
+###
+
+function matchassignments(tobsi, ids; returnefsets = true)
+  assigned = getassigned(tobsi.mus, tobsi.fs);
+  emus = ids[assigned]; # eligible matches
+  
+  if returnefsets == false
+    return emus
+  else
+    efsets = tobsi.fs[assigned]; # allowable fs for each eligible match
+    return emus, efsets
+  end
+end
+
+function _distances!(
+  tobs, observations, ids,
+  tg, rg, fmin, mmin, mmax, Σinvdict
+)
+  @inbounds Threads.@threads for i in eachindex(observations)
+    ob = observations[i];
+
+    emus, efsets = matchassignments(tobs[i], ids)
+
+    if length(emus) == 0
+      continue
+    end
+
+    γcs = eachcol(tg[ob]);
+    γrs = eachrow(tg[ob]);
+    γtimes = rg[ob];
+    mahas = Vector{Float64}(undef, length(γtimes));
+    distantiate!(
+      tobs[i].mudistances, mahas,
+      ob[1], Σinvdict,
+      γcs, γrs, γtimes, tg,
+      emus, efsets,
+      fmin, mmin, mmax
+    );
+  end
+  return tobs
+end
+
+# match distances
+
+matchwindow(f, tt, mmin, mmax) = (tt + f) + mmin : (tt + f) + mmax;
+
+function distantiate!(
+  mudists, mahas,
+  tt, Σinvdict,
+  γcs, γrs, γtimes, tg,
+  emus, efsets,
+  fmin, mmin, mmax
+)
+  for (em, emu) in enumerate(emus)
+    # emu = emus[e];
+    efs = efsets[em]; # logical rep. of fs that exist for a match
+    
+    g = tg[(tt, emu)];
+
+    mahadistancing!(
+        mahas, Σinvdict, γrs, eachrow(g), γtimes
+    );
+
+    # cnt: since φ will track 1:31, and we will have only those that exist 
+    __distantiate!(
+      mudists[em],
+      efs, mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, mmin, mmax
+    )
+  end
+  return mudists
+end
+
+function __distantiate!(
+  mudists_em, efs, mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, mmin, mmax
+)
+  cnt = 0
+  for (φ, fb) in enumerate(efs) # eachindex(mudists[em])
+    if fb
+      cnt += 1
+
+      fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+      
+      # mahalanobis distance
+      # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
+      # mudists[em][cnt][1] = @time mahadistancing(
+      #     Σinvdict, eachrow(γ), eachrow(g), γtimes, fw
+      # );
+
+      mudists_em[cnt][1] = mahaveraging(mahas, γtimes, fw)
+
+      # caliper distances
+      for (c, (γc, gc)) in enumerate(zip(γcs, gcs))
+        # this is the match distance for an f, for a covar
+        mudists_em[cnt][c+1] = caldistancing(
+            Σinvdict, γc, gc, γtimes, fw, c
+        );
+      end
+
+      # figure out distancing here
+      # γ; g
+
+      # nightmare b/c of type instability
+      # @time mahadistancing(Σinvdict, xrows, yrows, T, fw);
+
+    end
+  end
+  return mudists_em
+end
+
+function mahadistancing(Σinvdict, xrows, yrows, T, fw)
+  mahadist = 0.0
+  for (xr, yr, τ) in zip(xrows, yrows, T)
+    if τ ∈ fw
+      Σ = get(Σinvdict, τ, nothing);
+      mahadist += sqrt((xr - yr)' * Σ * (xr - yr));
+      # function from Distances.jl is really slow?
+      # mahadist += @time mahalanobis(xr, yr, Σ);
+    end
+  end
+  return mahadist / length(T)
+end
+
+function mahaveraging(mahas, T, fw)
+  mdist = 0.0
+  for (m, τ) in zip(mahas, T)
+    if τ ∈ fw
+      mdist += m
+    end
+  end
+  return mdist / length(mahas)
+end
+
+function mahadistancing!(mahas, Σinvdict, xrows, yrows, T)
+  for (xr, yr, τ, i) in zip(xrows, yrows, T, 1:length(T))
+    Σ = get(Σinvdict, τ, nothing);
+    mahas[i] = sqrt((xr - yr)' * Σ * (xr - yr));
+    # function from Distances.jl is really slow?
+    # mahadist += @time mahalanobis(xr, yr, Σ);
+  end
+  return mahas
+end
+
+function caldistancing(Σinvdict, X, Y, T, fw, c)
+  caldist = 0.0
+  for (x, y, τ) in zip(X, Y, T)
+    if τ ∈ fw
+      Σ = get(Σinvdict, τ, nothing);
+      caldist += weuclidean(x, y, Σ[c,c])
+    end
+  end
+  return caldist / length(X)
+end
+
+function rank!(matches, flen)
+  Threads.@threads for i in 1:length(matches)
+    tob = @views matches[i];
+    _rankmatches!(tob, flen)
+  end
+  return matches
+end
+
+function _rankmatches!(tob, flen)
+  # murank: f => mu[mu] order ranking
+  # 
+  @unpack mus, fs, mudistances, ranks = tob
+
+  positions = Vector{Int}(undef, sum(mus))
+  cntp = 0
+  for (p, mu) in enumerate(mus)
+    if mu
+      cntp += 1
+      positions[cntp] = p
+    end
+  end
+
+  mamat = fill(Inf, flen, length(positions));
+
+  _rankmatches!(mamat, positions, fs, mudistances, 1:flen);
+
+  for (φ, ec) in enumerate(eachrow(mamat))
+    ranks[φ] = positions[sortperm(ec)] # this will put impossible, Inf, values at end -- so beware -- they will be ranked, rely on other stuff to prevent them from ever mattering
+  end
+  return tob
+end
+
+function _rankmatches!(mamat, positions, fs, mudistances, Φ)
+  mcnt = 0
+  for m in eachindex(positions)
+    mcnt += 1
+
+    fsetm = @views fs[positions][m];
+    
+    # these are the φs included
+    # φs = [eachindex(F)...][fsetm];
+
+    φs = Vector{Int}(undef, sum(fsetm))
+    cnt = 0
+    for (fb, ff) in zip(fsetm, Φ)
+      if fb
+        cnt += 1
+        φs[cnt] = ff
+      end
+    end
+    
+    for (j, φ) in enumerate(φs)
+      mamat[φ, m] = mudistances[m][j][1] # index = 1 for maha distance
+    end
+
+    # _innerassign!(Q, fpos, mudistances)
+
+  end
+  return mamat
 end

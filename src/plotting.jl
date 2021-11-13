@@ -181,8 +181,8 @@ function load_mod(
 end
 
 function plot_cbs(
-  model1::Union{cicmodel, calipercicmodel},
-  model2::refinedcicmodel;
+  model1::Union{CIC, CICStratified, CaliperCIC, CaliperCICStratified},
+  model2::Union{RefinedCaliperCIC, RefinedCIC, RefinedCICStratified, RefinedCaliperCICStratified};
   labels = Dict{Int, String}(),
   variablecolors = nothing,
   fw = 700,
@@ -500,10 +500,10 @@ Generate the plots, in a new directory, for a set of models in some model set fi
 """
 function plot_modelset(
   ;
-  cc::cicmodel = nothing,
-  ccr::refinedcicmodel = nothing,
-  cal::calipercicmodel = nothing,
-  calr::refinedcicmodel = nothing,
+  cc::Union{CIC, CICStratified} = nothing,
+  ccr::Union{RefinedCIC,RefinedCaliperCICStratified} = nothing,
+  cal::Union{CaliperCIC, CaliperCICStratified} = nothing,
+  calr::Union{RefinedCaliperCIC,RefinedCaliperCICStratified} = nothing,
   labels = nothing,
   variablecolors = nothing,
   base_savepath = "", # ends in /
