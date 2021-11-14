@@ -110,7 +110,7 @@ function refine(calmodel::CaliperCIC, dat; refinementnum = 5, dobalance = true)
     treatedleft = treatedleft,
     estimator = estimator,
     caliper = caliper,
-    fullmod = Ref(model)
+    fullmod = Ref(calmodel)
   );
 
   if dobalance
@@ -153,7 +153,7 @@ function refine(calmodel::CaliperCICStratified, dat; refinementnum = 5, dobalanc
     treatedleft = treatedleft,
     estimator = estimator,
     caliper = caliper,
-    fullmod = Ref(model)
+    fullmod = Ref(calmodel)
   );
 
   if dobalance
