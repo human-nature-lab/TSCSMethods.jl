@@ -502,6 +502,7 @@ function plot_modelset(
   refinedmodel::Union{RefinedCIC,RefinedCaliperCICStratified} = nothing,
   calipermodel::Union{CaliperCIC, CaliperCICStratified} = nothing,
   refinedcalipermodel::Union{RefinedCaliperCIC,RefinedCaliperCICStratified} = nothing,
+  saveplots = true,
   variablecolors = nothing,
   base_savepath = "", # ends in /
   overwrite_dir = true,
@@ -515,20 +516,18 @@ function plot_modelset(
     "refinedcaliper_plot.png"
   ];
 
-  dirn = base_savepath * name_model(cc);
+  dirn = base_savepath * name_model(model);
 
   if overwrite_dir
     mkpath(dirn)
   else mkdir(dirn);
   end
-  
-  # cc, ccr, cal, calr, labels
 
   mpset = [];
 
-  if !isnothing(cc)
+  if !isnothing(model)
     mp1 = model_pl(
-      cc;
+      model;
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -537,9 +536,9 @@ function plot_modelset(
   else push!(mpset, nothing)
   end
 
-  if !isnothing(ccr)
+  if !isnothing(refinedmodel)
     mp2 = model_pl(
-      ccr;
+      refinedmodel;
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -548,9 +547,9 @@ function plot_modelset(
   else push!(mpset, nothing)
   end
   
-  if !isnothing(cal)
+  if !isnothing(calipermodel)
     mp3 = model_pl(
-      cal;
+      calipermodel;
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -559,9 +558,9 @@ function plot_modelset(
   else push!(mpset, nothing)
   end
 
-  if !isnothing(calr)
+  if !isnothing(refinedcalipermodel)
     mp4 = model_pl(
-      calr;
+      refinedcalipermodel;
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -570,13 +569,15 @@ function plot_modelset(
   else push!(mpset, nothing)
   end
   
-  for (i, pl) in enumerate(mpset)
+  if saveplots
+    for (i, pl) in enumerate(mpset)
 
-    if !isnothing(pl)
-      save(
-        dirn * "/" * mpnames[i],
-        pl
-      )
+      if !isnothing(pl)
+        save(
+          dirn * "/" * mpnames[i],
+          pl
+        )
+      end
     end
   end
   

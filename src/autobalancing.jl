@@ -88,7 +88,9 @@ function autobalance(
   model, dat;
   threshold = 0.1,
   min_treated_obs = 10,
-  refinementnum = 5, calmin = 0.1, step = 0.05, initial_bals = false
+  refinementnum = 5, calmin = 0.1, step = 0.05,
+  initial_bals = false,
+  doestimate = true
 )
 
 if !initial_bals
@@ -121,6 +123,11 @@ end
       refinementnum = refinementnum, dobalance = true
     );
     bc = checkbalances(refcalmodel; threshold = threshold)
+  end
+
+  if doestimate
+    estimate!(refcalmodel, dat)
+    estimate!(calmodel, dat)
   end
 
   return calmodel, refcalmodel

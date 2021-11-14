@@ -2,7 +2,10 @@
 
 # construction and execution
 
-function refine(model::CIC, dat; refinementnum = 5, dobalance = true)
+function refine(
+  model::CIC, dat;
+  refinementnum = 5, dobalance = true,
+  doestimate = true)
   
   tobscr = _refine(model, refinementnum);
 
@@ -36,10 +39,17 @@ function refine(model::CIC, dat; refinementnum = 5, dobalance = true)
     grandbalance!(modelref);
   end
 
+  if doestimate
+    estimate!(modelref, dat)
+  end
+
   return modelref
 end
 
-function refine(model::CICStratified, dat; refinementnum = 5, dobalance = true)
+function refine(
+  model::CICStratified, dat;
+  refinementnum = 5, dobalance = true, doestimate = true
+)
   
   tobscr = _refine(model, refinementnum);
 
@@ -77,10 +87,17 @@ function refine(model::CICStratified, dat; refinementnum = 5, dobalance = true)
     grandbalance!(modelref);
   end
 
+  if doestimate
+    estimate!(modelref, dat)
+  end
+
   return modelref
 end
 
-function refine(calmodel::CaliperCIC, dat; refinementnum = 5, dobalance = true)
+function refine(
+  calmodel::CaliperCIC, dat;
+  refinementnum = 5, dobalance = true, doestimate = true
+)
   
   tobscr = _refine(calmodel, refinementnum)
 
@@ -118,10 +135,16 @@ function refine(calmodel::CaliperCIC, dat; refinementnum = 5, dobalance = true)
     grandbalance!(modelcalref);
   end
 
+  if doestimate
+    estimate!(modelcalref, dat)
+  end
+
   return modelcalref
 end
 
-function refine(calmodel::CaliperCICStratified, dat; refinementnum = 5, dobalance = true)
+function refine(
+  calmodel::CaliperCICStratified, dat;
+  refinementnum = 5, dobalance = true, doestimate = true)
   
   tobscr = _refine(calmodel, refinementnum)
 
@@ -159,6 +182,10 @@ function refine(calmodel::CaliperCICStratified, dat; refinementnum = 5, dobalanc
   if dobalance
     meanbalance!(modelcalref, dat);
     grandbalance!(modelcalref);
+  end
+
+  if doestimate
+    estimate!(modelcalref, dat)
   end
 
   return modelcalref
