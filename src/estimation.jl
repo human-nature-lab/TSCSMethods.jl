@@ -167,7 +167,7 @@ end
 # treated observation weights
 function observationweights(model, dat)
 
-  @unpack id, t, outcome = model;
+  @unpack id, t, outcome, observations = model;
 
   M = Mprep(model);
 
