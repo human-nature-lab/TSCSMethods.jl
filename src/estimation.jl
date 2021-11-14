@@ -403,6 +403,7 @@ function estimate!(
 
   if !isnothing(iterations)
     @reset model.iterations = iterations;
+  end
 
   @unpack observations, ids, results, iterations = model;
   
