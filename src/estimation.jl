@@ -390,14 +390,14 @@ function bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
 end
 
 """
-    estimate!(ccr::AbstractCICModel, dat; iter = 500)
+    estimate!(ccr::AbstractCICModel, dat; iterations = 500)
 
 Perform ATT estimation, with bootstrapped CIs.
 """
 function estimate!(
   model::AbstractCICModel,
   dat::DataFrame;
-  iterations::Int = nothing,
+  iterations = nothing,
   qtiles::Union{Float64, Vector{Float64}} = [0.025, 0.5, 0.975]
 )
 
