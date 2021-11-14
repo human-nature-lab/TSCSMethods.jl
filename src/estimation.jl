@@ -21,7 +21,7 @@ end
 #   fsout[i] = obs.fs[obs.mus][i] .* 1 ./ sum(obs.fs[obs.mus])
 # end
 
-function Mloop!(M, Mt, observations, matches)
+function Mloop!(M, Mt, observations, matches, ids)
   for i in eachindex(observations)
     # matches
     append!(
@@ -87,7 +87,7 @@ function Mprep(model)
 
   Mt = similar(M, 0);
 
-  Mloop!(M, Mt, observations, matches);
+  Mloop!(M, Mt, observations, matches, ids);
 
   Mt = Mprocess(Mt, F, Fmin);
   M = Mprocess(M, F, Fmin);
