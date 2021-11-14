@@ -259,9 +259,9 @@ end
   iterations::Int64
   results::DataFrame
   treatednum::Union{Int64, Dict{Int64, Int64}}
-  treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64[]
+  treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64()
   estimator::String
   caliper::Dict{Symbol, Float64} = Dict{Symbol, Float64}()
   labels::Dict{Int64, String} = Dict{Int64, String}()
-  refinementnumber::Int = Int[]
+  refinementnumber::Int = Int()
 end

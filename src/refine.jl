@@ -2,7 +2,7 @@
 
 # construction and execution
 
-function refine(model::CIC; refinementnum = 5, dobalance = true)
+function refine(model::CIC, dat; refinementnum = 5, dobalance = true)
   
   tobscr = _refine(model, refinementnum);
 
@@ -39,7 +39,7 @@ function refine(model::CIC; refinementnum = 5, dobalance = true)
   return modelref
 end
 
-function refine(model::CICStratified; refinementnum = 5, dobalance = true)
+function refine(model::CICStratified, dat; refinementnum = 5, dobalance = true)
   
   tobscr = _refine(model, refinementnum);
 
@@ -80,7 +80,7 @@ function refine(model::CICStratified; refinementnum = 5, dobalance = true)
   return modelref
 end
 
-function refine(calmodel::CaliperCIC; refinementnum = 5, dobalance = true)
+function refine(calmodel::CaliperCIC, dat; refinementnum = 5, dobalance = true)
   
   tobscr = _refine(calmodel, refinementnum)
 
@@ -121,15 +121,13 @@ function refine(calmodel::CaliperCIC; refinementnum = 5, dobalance = true)
   return modelcalref
 end
 
-function refine(calmodel::CaliperCIC; refinementnum = 5, dobalance = true)
+function refine(calmodel::CaliperCICStratified, dat; refinementnum = 5, dobalance = true)
   
   tobscr = _refine(calmodel, refinementnum)
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, caliper = calmodel;
 
   @unpack treatednum, treatedleft = calmodel;
-  
-  @unpack stratifier, strata = calmodel
 
   modelcalref = RefinedCaliperCICStratified(
     title = title,
@@ -205,7 +203,7 @@ function refinetob!(mus, fs, ranks, Φ, refinementnum)
       m = ranks[φ][r]
       as = isassigned(fs, m);
       if !as
-        fs[m] = fill(false, flen)
+        fs[m] = fill(false, length(Φ))
       end
       fs[m][φ] = true
       mus[m] = true

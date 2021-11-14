@@ -323,7 +323,6 @@ pl_ratio(mo) = mo == :death_rate ? Relative(13/31) : Relative(13/38)
 
 function model_pl(
   model::AbstractCICModel;
-  labels = Dict{Int, String},
   variablecolors = nothing,
   fw = 700, fl = 300
 )
@@ -335,7 +334,7 @@ function model_pl(
   # ttl = "voting";
   # epth = "../covid-19-voting/outp_voting_deaths/";
 
-  strat = !(model.stratifier == Symbol(""))
+  strat = typeof(model) <: AbstractCICModelStratified
   # svlabel = string(model.stratifier)
   # svs = svlabel * " Stratum";
 
@@ -358,8 +357,8 @@ function model_pl(
 
   if strat
 
-    if isempty(labels)
-      error("supply strata labels")
+    if isempty(model.labels)
+        error("supply strata labels")
     end
     
     for (i, s) in enumerate(sn)
@@ -456,42 +455,41 @@ end
 
 Generate the plots, in a new directory, for a set of models in some model set file. Base_savepath should end in "/".
 """
-function plot_modelset(
-  model_path;
-  variablecolors = nothing,
-  base_savepath = "" # ends in /
-)
+# function plot_modelset(
+#   model_path;
+#   variablecolors = nothing,
+#   base_savepath = "" # ends in /
+# )
 
-  mpnames = [
-    "model_plot.png"
-    "refined_plot.png"
-    "caliper_plot.png"
-    "refinedcaliper_plot.png"
-  ];
+#   mpnames = [
+#     "model_plot.png"
+#     "refined_plot.png"
+#     "caliper_plot.png"
+#     "refinedcaliper_plot.png"
+#   ];
 
-  # cc, ccr, cal, calr, labels
-  objet = load_object(model_path); # better to load outside?
-  labels = objet[length[objet]]
+#   # cc, ccr, cal, calr, labels
+#   objet = load_object(model_path); # better to load outside?
+#   labels = objet[length[objet]]
 
-  dirn = base_savepath * name_model(cc);
-  mkdir(dirn);
+#   dirn = base_savepath * name_model(cc);
+#   mkdir(dirn);
 
-  for i in 1:length(objet)-1
-    mod = objet[i]
-    if !isnothing(mod)
-        mp = model_pl(
-        mod;
-        labels = labels,
-        variablecolors = variablecolors
-      )
+#   for i in 1:length(objet)-1
+#     mod = objet[i]
+#     if !isnothing(mod)
+#         mp = model_pl(
+#         mod;
+#         variablecolors = variablecolors
+#       )
       
-      save(
-        base_savepath * dirn * "/" * mpnames[i],
-        mp
-      )
-    end
-  end
-end
+#       save(
+#         base_savepath * dirn * "/" * mpnames[i],
+#         mp
+#       )
+#     end
+#   end
+# end
 
 """
     plot_modelset(model_path; variablecolors = nothing, base_savepath = "")
@@ -500,11 +498,10 @@ Generate the plots, in a new directory, for a set of models in some model set fi
 """
 function plot_modelset(
   ;
-  cc::Union{CIC, CICStratified} = nothing,
-  ccr::Union{RefinedCIC,RefinedCaliperCICStratified} = nothing,
-  cal::Union{CaliperCIC, CaliperCICStratified} = nothing,
-  calr::Union{RefinedCaliperCIC,RefinedCaliperCICStratified} = nothing,
-  labels = nothing,
+  model::Union{CIC, CICStratified} = nothing,
+  refinedmodel::Union{RefinedCIC,RefinedCaliperCICStratified} = nothing,
+  calipermodel::Union{CaliperCIC, CaliperCICStratified} = nothing,
+  refinedcalipermodel::Union{RefinedCaliperCIC,RefinedCaliperCICStratified} = nothing,
   variablecolors = nothing,
   base_savepath = "", # ends in /
   overwrite_dir = true,
@@ -532,7 +529,6 @@ function plot_modelset(
   if !isnothing(cc)
     mp1 = model_pl(
       cc;
-      labels = labels,
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -544,7 +540,6 @@ function plot_modelset(
   if !isnothing(ccr)
     mp2 = model_pl(
       ccr;
-      labels = labels,
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -556,7 +551,6 @@ function plot_modelset(
   if !isnothing(cal)
     mp3 = model_pl(
       cal;
-      labels = labels,
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )
@@ -568,7 +562,6 @@ function plot_modelset(
   if !isnothing(calr)
     mp4 = model_pl(
       calr;
-      labels = labels,
       variablecolors = variablecolors,
       fw = fw, fl = fl
     )

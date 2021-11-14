@@ -77,7 +77,7 @@ end
 
 """
     autobalance(
-      model;
+      model, dat;
       refinementnum = 5,
       calmin = 0.08, step = 0.05, initial_bals = false
     )
@@ -85,7 +85,7 @@ end
 Automatically balance via a simple algorithm. Start with initial caliper of 1.0, and subtract `step` whenever the grand mean balance threshold (0.1) is not met.
 """
 function autobalance(
-  model;
+  model, dat;
   threshold = 0.1,
   min_treated_obs = 10,
   refinementnum = 5, calmin = 0.1, step = 0.05, initial_bals = false
@@ -100,7 +100,8 @@ end
 
   calmodel = caliper(model, acaliper, dat; dobalance = false);
   refcalmodel = refine(
-    calmodel; refinementnum = refinementnum, dobalance = true
+    calmodel, dat;
+    refinementnum = refinementnum, dobalance = true
   );
 
   # check calr only
@@ -116,7 +117,8 @@ end
     end
     calmodel = acaliper(model, acaliper, dat; dobalance = false);
     refcalmodel = refine(
-      calmodel; refinementnum = refinementnum, dobalance = true
+      calmodel, dat;
+      refinementnum = refinementnum, dobalance = true
     );
     bc = checkbalances(refcalmodel; threshold = threshold)
   end
