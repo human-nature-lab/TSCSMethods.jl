@@ -76,7 +76,7 @@ function Mprep(model)
   # - treated units
   # in each case we have the unique set, at each f
 
-  @unpack observations, matches, ids, F, reference, strata = model;
+  @unpack observations, matches, ids, F, reference = model;
   Fmin = minimum(F);
 
   M = DataFrame(
@@ -149,7 +149,7 @@ function Mprep(model)
 
   ## add strata here
   if c1
-    stratmap = Dict(observations .=> strata)
+    stratmap = Dict(observations .=> model.strata)
     M[!, :stratum] = Vector{Int}(undef, nrow(M))
     @eachrow! M begin
       :stratum = stratmap[:treatob]
