@@ -5,9 +5,9 @@
 
 Generate the filename for a set of models.
 """
-function name_model(cc::AbstractCICModel)
-  strat = Symbol("") == cc.stratifier ? "" : string(cc.stratifier)
-  return cc.title * "_" * string(cc.outcome) * "_" * strat
+function name_model(model::AbstractCICModel)
+  strat = typeof(model) <: AbstractCICModelStratified ? string(model.stratifier) : ""
+  return model.title * "_" * string(model.outcome) * "_" * strat
 end
 
 function modelrecord(model::CIC)
