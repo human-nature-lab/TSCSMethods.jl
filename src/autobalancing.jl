@@ -125,6 +125,8 @@ end
     bc = checkbalances(refcalmodel; threshold = threshold)
   end
 
+  balance!(calmodel, dat)
+
   if doestimate
     estimate!(refcalmodel, dat)
     estimate!(calmodel, dat)

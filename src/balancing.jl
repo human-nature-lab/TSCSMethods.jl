@@ -83,7 +83,7 @@ function __fill_balances!(
     if timevary[covar]
       balrw[covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:length(emus)]
     else
-      balrw[covar] = Vector{Float64}(undef, length(emus))
+      balrw[covar] = Vector{Float64}(missing, length(emus))
     end
   end
   return balrw
@@ -397,6 +397,10 @@ function _meanbalance!(
       tg, tmin
     );
 
+    # if any(isnan.(balrw[vn.pd]))
+    #   error("nan found in addition " * string(i))
+    # end
+
     # _divbalance
     # alternative with broadcasting: time balrw[covar] ./ sum(efsets);
     efsum = sum(efsets);
@@ -570,6 +574,7 @@ function grandbalance!(stratmodel::AbstractCICModelStratified)
   return stratmodel
 end
 
+# stratified
 function __grandbalance!(
   grandbalances, meanbalances, covariates, timevary, Len, s
 )
@@ -591,6 +596,7 @@ function __grandbalance!(
   return grandbalances
 end
 
+# not stratified
 function __grandbalance!(
   grandbalances, meanbalances, covariates, timevary, mmlen
 )
@@ -632,3 +638,33 @@ function balance!(model::AbstractCICModel, dat)
 
   return model
 end
+
+#####
+
+#= 
+covec = model.meanbalances[!, covar];
+
+X = [false for _ in 1:length(covec)];
+for (i, cove) in enumerate(covec)
+  if any(isnan.(cove))
+    X[i] = true
+  end
+end
+
+findall(X)
+
+# this is random
+
+ pop density NAN values
+4-element Vector{Int64}:
+  716
+ 1951
+ 2407
+ 2413
+
+corresponding to observations
+ (2, 48257)
+ (93, 42083)
+ (114, 36053)
+ (114, 36065)
+=#
