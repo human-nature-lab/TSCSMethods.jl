@@ -107,9 +107,9 @@ end
   );
 
   # check calr only
-  bc = checkbalances(refcalmodel; threshold = threshold)
+  bc = checkbalances(refcalmodel; threshold = threshold);
 
-  while any(values(bc)) & (refcalmodel.treatedleft >= min_treated_obs) & all(values(acaliper) .>= calmin)
+  while checkwhile(refcalmodel, acaliper, min_treated_obs, calmin, bc)
 
     covset = [k for k in keys(bc)];
     for covar in sample(covset, length(covset); replace = false)
@@ -117,7 +117,7 @@ end
         acaliper[covar] = acaliper[covar] - step
       end
     end
-    calmodel = acaliper(model, acaliper, dat; dobalance = false);
+    calmodel = caliper(model, acaliper, dat; dobalance = false);
     refcalmodel = refine(
       calmodel, dat;
       refinementnum = refinementnum, dobalance = true
@@ -131,4 +131,19 @@ end
   end
 
   return calmodel, refcalmodel
+end
+
+function checkwhile(
+  refcalmodel::RefinedCaliperCIC, acaliper, min_treated_obs, calmin, bc
+)
+  return any(values(bc)) & (refcalmodel.treatedleft >= min_treated_obs) & all(values(acaliper) .>= calmin)
+end
+
+function checkwhile(
+  refcalmodel::RefinedCaliperCICStratified, acaliper, min_treated_obs, calmin, bc
+)
+
+  trleft = values(refcalmodel.treatedleft);
+  treatcond = any([tr >= min_treated_obs for tr in trleft])
+  return any(values(bc)) & treatcond & all(values(acaliper) .>= calmin)
 end

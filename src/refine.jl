@@ -151,7 +151,7 @@ function refine(
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels, caliper = calmodel;
 
-  @unpack stratifier, strata = model
+  @unpack stratifier, strata = calmodel
   @unpack treatednum, treatedleft = calmodel;
 
   modelcalref = RefinedCaliperCICStratified(

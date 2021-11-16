@@ -380,7 +380,7 @@ function model_pl(
 
       label_tt = Label(
         f,
-        labels[s],
+        model.labels[s],
         halign = :center)
       f[fpos..., Top()] = label_tt
     end
@@ -499,7 +499,7 @@ Generate the plots, in a new directory, for a set of models in some model set fi
 function plot_modelset(
   ;
   model::Union{CIC, CICStratified} = nothing,
-  refinedmodel::Union{RefinedCIC,RefinedCaliperCICStratified} = nothing,
+  refinedmodel::Union{RefinedCIC,RefinedCICStratified} = nothing,
   calipermodel::Union{CaliperCIC, CaliperCICStratified} = nothing,
   refinedcalipermodel::Union{RefinedCaliperCIC,RefinedCaliperCICStratified} = nothing,
   saveplots = true,

@@ -18,7 +18,7 @@ module tscsmethods
     # types
     AbstractCICModel, AbstractCICModelStratified,
     CIC, CICStratified, CaliperCIC, CaliperCICStratified,
-    RefinedCIC, RefinedCaliperCIC, RefinedCaliperCICStratified,
+    RefinedCIC, RefinedCICStratified, RefinedCaliperCIC, RefinedCaliperCICStratified,
     # mechanics
     match!,
     balance!, checkbalances, autobalance,
