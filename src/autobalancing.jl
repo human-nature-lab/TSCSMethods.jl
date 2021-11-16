@@ -103,7 +103,7 @@ end
   calmodel = caliper(model, acaliper, dat; dobalance = false);
   refcalmodel = refine(
     calmodel, dat;
-    refinementnum = refinementnum, dobalance = true
+    refinementnum = refinementnum, dobalance = true, doestimate = false
   );
 
   # check calr only
@@ -120,7 +120,7 @@ end
     calmodel = caliper(model, acaliper, dat; dobalance = false);
     refcalmodel = refine(
       calmodel, dat;
-      refinementnum = refinementnum, dobalance = true
+      refinementnum = refinementnum, dobalance = true, doestimate = false
     );
     bc = checkbalances(refcalmodel; threshold = threshold)
   end
