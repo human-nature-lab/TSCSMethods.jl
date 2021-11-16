@@ -233,7 +233,8 @@ end
   grandbalances::GrandDictStrat = GrandDictStrat()
   iterations::Int64 = 500
   results::DataFrame = DataFrame()
-  treatednum::Int64
+  treatednum::Dict{Int64, Int64}
+  treatedleft::Dict{Int64, Int64}
   estimator::String = "ATT"
   caliper::Dict{Symbol, Float64}
   fullmod = Base.RefValue{CIC}
