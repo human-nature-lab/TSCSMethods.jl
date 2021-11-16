@@ -22,7 +22,7 @@ end
 # end
 
 function Mloop!(M, Mt, observations, matches, ids)
-  Threads.@threads for i in eachindex(observations)
+  for i in eachindex(observations)
     # matches
     append!(
       M,
@@ -42,11 +42,7 @@ function Mloop!(M, Mt, observations, matches, ids)
         fbs = [sum(matches[i].fs[matches[i].mus]) .> 0] # check whether every f is included
       )
     );
-  end
-
-  sort!(M, :treatob);
-  sort!(Mt, :treatob);
-  
+  end  
   return M, Mt
 end
 
