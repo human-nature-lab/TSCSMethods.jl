@@ -45,7 +45,7 @@ end
 
 function caliper(model::CICStratified, acaliper, dat; dobalance = true)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels = model;
 
   @unpack stratifier, strata = model
 
@@ -77,7 +77,8 @@ function caliper(model::CICStratified, acaliper, dat; dobalance = true)
     treatedleft = length(obsleft[obsleft]),
     estimator = estimator,
     caliper = acaliper,
-    fullmod = Ref(model)
+    fullmod = Ref(model),
+    labels = labels
   );
 
   if dobalance

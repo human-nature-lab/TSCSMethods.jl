@@ -53,7 +53,7 @@ function refine(
   
   tobscr = _refine(model, refinementnum);
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels = model;
 
   @unpack stratifier, strata = model # no. treated obs don't change
 
@@ -79,7 +79,8 @@ function refine(
     results = DataFrame(),
     treatednum = length(tobscr),
     estimator = estimator,
-    fullmod = Ref(model)
+    fullmod = Ref(model),
+    labels = labels
   );
 
   if dobalance
@@ -148,7 +149,7 @@ function refine(
   
   tobscr = _refine(calmodel, refinementnum)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, caliper = calmodel;
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels, caliper = calmodel;
 
   @unpack treatednum, treatedleft = calmodel;
 
@@ -176,7 +177,8 @@ function refine(
     treatedleft = treatedleft,
     estimator = estimator,
     caliper = caliper,
-    fullmod = Ref(calmodel)
+    fullmod = Ref(calmodel),
+    labels = labels
   );
 
   if dobalance
