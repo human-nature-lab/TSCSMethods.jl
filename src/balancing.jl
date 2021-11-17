@@ -298,7 +298,7 @@ function __fill_meanbalances!(
     if timevary[covar]
       balrw[covar] = [Vector{Union{Missing, Float64}}(missing, Len) for _ in 1:fpresent]
     else
-      balrw[covar] = Vector{Float64}(undef, fpresent)
+      balrw[covar] = Vector{Union{Missing, Float64}}(missing, fpresent)
     end
   end
   return balrw
@@ -397,6 +397,7 @@ function _meanbalance!(
       tg, tmin
     );
 
+    # testing: resolved -- was undef instead of missing
     # if any(isnan.(balrw[vn.pd]))
     #   error("nan found in addition " * string(i))
     # end
@@ -405,6 +406,10 @@ function _meanbalance!(
     # alternative with broadcasting: time balrw[covar] ./ sum(efsets);
     efsum = sum(efsets);
     _meanmatch!(balrw, covariates, efsum);
+
+    # if any(isnan.(balrw[vn.pd]))
+    #   error("nan found after division " * string(i))
+    # end
 
   end
   return meanbalances
@@ -642,6 +647,7 @@ end
 #####
 
 #= 
+covar = vn.pd
 covec = model.meanbalances[!, covar];
 
 X = [false for _ in 1:length(covec)];
