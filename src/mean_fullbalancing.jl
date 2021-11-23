@@ -2,18 +2,18 @@
 
 ## scratch
 
-@time balances = fullbalance(model, dat);
+# @time balances = fullbalance(model, dat);
 
-names(model.meanbalances)
+# names(model.meanbalances)
 
-size(model.meanbalances)
-length(model.meanbalances[1, vn.cdr])
-length(model.meanbalances[1, vn.cdr][1])
-length(model.meanbalances[1, vn.pd])
+# size(model.meanbalances)
+# length(model.meanbalances[1, vn.cdr])
+# length(model.meanbalances[1, vn.cdr][1])
+# length(model.meanbalances[1, vn.pd])
 
-MBCOPY = deepcopy(model.meanbalances);
+# MBCOPY = deepcopy(model.meanbalances);
 
-mean_fullbalance!(model, balances);
+# mean_fullbalance!(model, balances);
 
 ##
 
