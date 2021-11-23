@@ -41,203 +41,14 @@ function std_treated(model::AbstractCICModel, dat::DataFrame)
   return Lstd 
 end
 
-function allocate_balances!(
-  balances, tobs, covariates, timevary, matches, ids, Lrnge
-);
-  obslen = length(matches)
-
-  for covar in covariates
-    if timevary[covar]
-      balances[!, covar] = Vector{
-        Vector{Vector{Union{Missing, Float64}}}
-        }(undef, obslen);
-    else
-      balances[!, covar] = Vector{Vector{Float64}}(undef, obslen);
-    end
-  end
-  
-  _fill_balances!(balances, tobs, ids, Lrnge, covariates, timevary)
-
-  # don't bother storing these again
-  # better to grab from matches, since it is fast enough
-  # for i in eachindex(observations)
-  #   balances.matchunits[i] = ids[matches[i].mus]
-  # end;
-  return balances
-end
-
-function _fill_balances!(balances, tobs, ids, Lrnge, covariates, timevary)
-  for (i, balrw) in enumerate(eachrow(balances))
-    emus = matchassignments(tobs[i], ids; returnefsets = false)
-    __fill_balances!(
-      balrw, emus, Lrnge, covariates, timevary
-    )
-  end
-  return balances
-end
-
-function __fill_balances!(
-  balrw, emus, Lrnge, covariates, timevary
-)
-  for covar in covariates
-    if timevary[covar]
-      balrw[covar] = [Vector{Union{Missing, Float64}}(missing, Lrnge) for i in 1:length(emus)]
-    else
-      balrw[covar] = Vector{Float64}(missing, length(emus))
-    end
-  end
-  return balrw
-end
-
-"""
-    fullbalance!(model::AbstractCICModel, dat::DataFrame)
-
-calculate the full set of standardized balance scores, for each treated observation - matched unit pair.
-
-cf. meanbalance for the averages by treated observation
-"""
-function fullbalance!(model::AbstractCICModel, dat::DataFrame)
-
-  @unpack observations, matches, ids = model;
-  @unpack F, L, id, t, treatment, covariates, timevary = model;
-  fmin = minimum(F); fmax = maximum(F); mmin = minimum(L); mmax = maximum(L);
-  Lrnge = length((fmin + mmin):(fmax + mmax));
-  
-  tmin = minimum(dat[!, t])
-  cdat = Matrix(dat[!, covariates]);
-  @unpack balances, reference = model;
-
-  allocate_balances!(
-    balances, matches, covariates, timevary, matches, ids, Lrnge
-  );
-  
-  Lσ = std_treated(model, dat);
-
-  tg, rg, trtg = make_groupindices(
-    dat[!, t], dat[!, treatment],
-    dat[!, id], ids,
-    fmin, fmax, mmin,
-    cdat
-  );
-
-  _balance!(
-    balances,
-    observations,
-    matches,
-    ids,
-    fmin, fmax, mmin, mmax,
-    tmin,
-    tg, rg,
-    covariates, timevary,
-    Lσ, reference
-  );
-
-  return model
-end
-
-function _balance!(
-  balances,
-  observations,
-  tobs,
-  ids,
-  fmin, fmax, mmin, mmax,
-  tmin,
-  tg, rg,
-  covariates, timevary,
-  Lσ, reference
-)
-
-  @inbounds Threads.@threads for i in eachindex(observations)
-    balrwi = @view balances[i, :];
-    ob = observations[i];
-    emus = matchassignments(tobs[i], ids; returnefsets = false);
-
-    if length(emus) == 0
-      continue
-    end
-
-    # we need the difference between the same covariates at each time point
-    # (don't need each row)
-    # we know which fs are allowable already, so we don't need to worry about lengths, etc. (since the panels are necessarily balanced)
-
-    # fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
-    ttmatch = mmin + ob[1] + fmin : mmax + ob[1] + fmax;
-
-    γcs = eachcol(tg[ob]);
-
-    # γrs = eachrow(tg[ob]);
-    # γtimes = rg[ob];
-    firstγtime = rg[ob][begin];
-
-    # if the data vector is shorter than ttmatch
-    # because of late data start
-    # can ignore early end case (there won't be a
-    # treatment known past the data...)
-    tadjustment = if minimum(ttmatch) < tmin
-      abs(minimum(ttmatch))
-    else 0
-    end
-
-    balance_atreated!(
-      balrwi, emus, ob[1], tg, covariates, timevary, γcs, Lσ,
-      tadjustment, reference, firstγtime
-    );
-
-  end
-  return tobs
-end
-
-function _timevarybalance!(
-  distlocs, γc, gc, Lσ, tt, covar, tadjustment, xtfirst
-)
-  for (l, (x, y)) in enumerate(zip(γc, gc))
-    xtfirst += 1
-    distlocs[l+tadjustment] = (x - y) * Lσ[xtfirst - tt, covar]
-  end
-end
-
-function balance_amatch!(
-  balrwi, covariates, timevary,
-  γcs, gcs, Lσ, tadjustment, reference, firstγtime, tt, em
-)
-  for (covar, γc, gc) in zip(covariates, γcs, gcs)
-    # N.B. eachrow(balances)[i][covar]
-    balic = balrwi[covar]
-    if timevary[covar]
-      _timevarybalance!(
-        balic[em], γc, gc, Lσ, tt, covar, tadjustment, firstγtime
-      )
-    else
-      balic[em] = (γc[1] - gc[1]) * Lσ[reference, covar]
-      continue
-    end
-  end
-  return balrwi
-end
-
-function balance_atreated!(
-  balrwi, emus, tt, tg, covariates, timevary, γcs, Lσ,
-  tadjustment, reference, firstγtime
-)
-  for (em, emu) in enumerate(emus)
-    # emu = emus[e];
-    # efs = efsets[em]; # logical rep. of fs that exist for a match    
-    gcs = eachcol(tg[(tt, emu)]);
-
-    # do all 80, for each covar, here
-    balance_amatch!(
-      balrwi, covariates, timevary,
-      γcs, gcs, Lσ, tadjustment, reference, firstγtime, tt, em
-    )
-  end
-  return balrwi
-end
-
 ### setup meanbalances
 
 function allocate_meanbalances!(model)
 
-  @unpack F, L, covariates, timevary, matches, ids, observations, meanbalances = model;
+  @unpack observations, matches, ids, meanbalances = model;
+  @unpack covariates, timevary = model;
+  @unpack t, id, treatment = model;
+  @unpack F, L = model;
 
   Len = length(L); Flen = length(F);
 
@@ -355,9 +166,6 @@ function _meanbalance!(
   reference, Lσ, tmin
 )
 
- # cnti = 0
-  #for i in eachindex(observations)
-   #cnti += 1
   @inbounds Threads.@threads for i in eachindex(observations)
 
     balrw = @view meanbalances[i, :];
@@ -421,10 +229,8 @@ function _addmatches!(
   reference, fmin, mmin, mmax,
   tg, tmin
 )
-#  emcount = 0
+
   for (em, emu) in enumerate(emus)
- #   emcount += 1
-    # emu = emus[e];
     efs = efsets[em]; # logical rep. of fs that exist for a match
     Xs = eachcol(tg[(tt, emu)]);
 

@@ -109,6 +109,9 @@ end
   # check calr only
   bc = checkbalances(refcalmodel; threshold = threshold);
 
+  # alternative: calculate full balances once
+  # repeatedly take means of that -- should be quicker
+
   while checkwhile(refcalmodel, acaliper, min_treated_obs, calmin, bc)
 
     covset = [k for k in keys(bc)];

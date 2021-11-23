@@ -47,7 +47,7 @@ abstract type AbstractCICModelStratified <: AbstractCICModel end
   observations::Vector{Tuple{Int, Int}}# Vector{Tuple{Int, Int}}
   ids::Vector{Int} #Vector{Int}
   matches::Vector{Tob}
-  balances::DataFrame = DataFrame()
+  # balances::DataFrame = DataFrame()
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictNoStrat = GrandDictNoStrat()
   iterations::Int64 = 500
@@ -72,7 +72,7 @@ end
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
   matches::Vector{Tob}
-  balances::DataFrame = DataFrame()
+  # balances::DataFrame = DataFrame()
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictStrat = GrandDictStrat()
   iterations::Int64 = 500
