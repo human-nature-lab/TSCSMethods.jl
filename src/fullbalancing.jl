@@ -149,6 +149,8 @@ function setup_fullbalances(model)
   @unpack F, L, covariates, timevary = model;
   @unpack matches, ids, observations = model;
 
+  Lrnge = length((F[1] + L[1]):(F[end] + L[end]));
+
   # row for each treated obs, with vector of treated observations
   # prob don't need observations, matchunits in dataframe?
   balances = DataFrame(
