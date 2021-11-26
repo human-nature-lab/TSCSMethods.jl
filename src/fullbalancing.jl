@@ -185,3 +185,15 @@ function setup_fullbalances(model)
 
   return balances
 end
+
+# function matchassignments(tobsi, ids; returnefsets = true)
+#   assigned = getassigned(tobsi.mus, tobsi.fs);
+#   emus = ids[assigned]; # eligible matches
+  
+#   if returnefsets == false
+#     return emus
+#   else
+#     efsets = tobsi.fs[assigned]; # allowable fs for each eligible match
+#     return emus, efsets
+#   end
+# end

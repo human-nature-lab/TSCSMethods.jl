@@ -31,51 +31,21 @@ Calculate the mean balances, for each treated observation from the full set of b
 """
 function mean_fullbalance!(model::AbstractCICModel, balances::DataFrame)
 
-  @unpack observations, matches, ids = model;
-  @unpack covariates, timevary = model;
-  @unpack t, id, treatment = model;
-  @unpack F, L, reference = model;
+  @unpack matches, ids = refinedmodel;
+  @unpack covariates, timevary = refinedmodel;
+  @unpack F, L = model;
 
   fmin = minimum(F); mmlen = length(L);
 
-  model.meanbalances = setup_meanbalance(model);
+  allocate_meanbalances!(refinedmodel);
 
   _meanbalance!(
     eachrow(model.meanbalances), eachrow(balances),
     matches, ids, covariates, timevary, mmlen, fmin
-  )
+  );
 
   return model
 end
-
-### setup meanbalances
-function setup_meanbalance(model::AbstractCICModel)
-  
-  MB = @chain model.matches[!, [:treattime, :treatunit, :matchunit, :f]] begin
-  groupby([:treattime, :treatunit, :f])
-    combine(
-      # :f => Ref => :fs,
-      :matchunit => Ref => :matchunits,
-    )
-    groupby([:treattime, :treatunit])
-    combine(
-      :f => Ref => :fs,
-      :matchunits => Ref => :matchunitsets,
-    )
-  end;
-  
-  for covar in model.covariates
-    if model.timevary[covar]
-      MB[!, covar] = Vector{Vector{Vector{Union{Float64, Missing}}}}(undef, nrow(MB))
-    else 
-      MB[!, covar] = Vector{Vector{Union{Float64, Missing}}}(undef, nrow(MB))
-    end
-  end
-  
-  return MB
-end
-
-###
 
 ### meanbalances loop
 function _meanbalance!(
@@ -83,33 +53,35 @@ function _meanbalance!(
   matches, ids, covariates, timevary, mmlen, fmin
 )
   
-  Threads.@threads for i in eachindex(balances)
-    br = balrows[i]; mr = barrows[i];
+  # for i in eachindex(balrows)
+  Threads.@threads for i in eachindex(balrows)
+    br = balrows[i];
+    mr = barrows[i];
 
-    _, efsets = matchassignments(matches[i], ids);
+    mus, efsets = matchassignments(matches[i], ids);
+
+    rdx = refinedmodel.matches[1].mus[model.matches[1].mus] # 2096
 
     _covar_meanbalance!(
-      mr, br, efsets, covariates, timevary, mmlen, fmin
-    )
+      mr, br, efsets, covariates, timevary, mmlen, fmin, rdx,
+    );
   end
   return barrows
 end
   
 ### inner functions
 function _covar_meanbalance!(
-  mr, br, efsets, covariates, timevary, mmlen, fmin
+  mr, br, efsets, covariates, timevary, mmlen, fmin, rdx
 )
   for covar in covariates
     # this is a [row, covar] for MB:
     #   the means across fs for a covariate (for a treated observation)
     if timevary[covar]
       row_covar_meanbalance!(
-        mr[covar], br[covar], mr[:fs], efsets, mmlen, fmin
+        mr[covar], br[covar][rdx], mr[:fs], efsets, mmlen, fmin
       );
     else
-      row_covar_meanbalance!(
-        mr[covar], br[covar], mr[:fs], efsets
-      );
+      row_covar_meanbalance!(mr[covar], br[covar], mr[:fs], efsets);
     end
   end
 end
@@ -119,27 +91,46 @@ function row_covar_meanbalance!(
   br_covar,
   fs, efsets, mmlen, fmin
 )
-  for (i, f) in enumerate(fs)
+
+  # cntf = 0
+  for (φ, f) in enumerate(fs)
+    # cntf += 1
     if f # if there are any valid matches for that f
-      ls = fidx(i + fmin - 1, mmlen, fmin);
+      ls = fidx(φ + fmin - 1, mmlen, fmin);
+      # holding = Vector{Union{Missing, Vector{Union{Float64, Missing}}}}(
+      #   missing, length(br_covar)
+      # );
+      efmφ  = [efsets[m][φ] for m in 1:length(br_covar)]
       holding = Vector{Vector{Union{Float64, Missing}}}(
-        undef, length(br_covar)
+        undef, sum(efmφ)
       );
+      mcnt = 0
       for m in eachindex(br_covar) # this is the site of averaging
         # for a single match
-        if efsets[m][i]
+        if efsets[m][φ]
+          mcnt += 1
           # if that match is valid for that f
           # else leave as missing
-          holding[m] = br_covar[m][ls];
+          holding[mcnt] = br_covar[m][ls];
         end
       end
     end
     
-    Holding[i] = Vector{Union{Missing, Float64}}(undef, mmlen);
-    for l in eachindex(ls)
-      lvec = skipmissing([vec[l] for vec in holding]);
-      Holding[i][l] = !isempty(lvec) ? mean(lvec) : missing
+    # already missing
+    # Holding[φ] = Vector{Union{Missing, Float64}}(undef, mmlen);
+    __row_covar_meanbalance!(Holding, holding, φ, ls);
+  end
+  return Holding
+end
+
+function __row_covar_meanbalance!(Holding, holding, φ, ls)
+  for l in eachindex(ls)
+    lvec = Vector{Union{Float64, Missing}}(missing, length(holding));
+    for (v, hold) in enumerate(holding)
+      lvec[v] = hold[l]
     end
+    # [isdefined(holding, lx) for lx in eachindex(holding)]
+    Holding[φ][l] = !isempty(skipmissing(lvec)) ? mean(skipmissing(lvec)) : missing
   end
   return Holding
 end
@@ -147,16 +138,42 @@ end
 function row_covar_meanbalance!(
   Holding, br_covar, fs, efsets,
 )
-  for (i, f) in eachindex(fs)
+  for (φ, f) in enumerate(fs)
     if f
       holding = Vector{Union{Float64, Missing}}(undef, length(br_covar));
       for m in eachindex(br_covar) # this is the site of averaging
-        if efsets[m][i]
+        if efsets[m][φ]
           holding[m] = br_covar[m];
         end
       end
-      Holding[i] = mean(skipmissing(holding))
+      Holding[φ] = mean(skipmissing(holding))
     end
   end
   return Holding
+end
+
+function refinebalances(refinedmodel, model, balances)
+  @unpack covariates, matches, observations = model;
+  bals = copy(balances);
+
+  # remove tobs that do not exist in ref / cal model
+  if length(observations) != length(refinedmodel.observations)
+    keep = observations .∈ Ref(calmodel.observations);
+    bals = bals[keep, :];
+  end
+
+  for covar in covariates
+    for i in eachindex(observations)
+      rdx = refinedmodel.matches[i].mus[matches[i].mus] # 2096
+      bals[i, covar] = balances[i, covar][rdx]
+    end
+  end
+  return bals
+end
+
+function balances!(refcalmodel, model, balances)
+  bals = refinebalances(refcalmodel, model, balances);
+  mean_fullbalance!(refcalmodel, bals);
+  grandbalance!(refcalmodel);
+  return refcalmodel
 end

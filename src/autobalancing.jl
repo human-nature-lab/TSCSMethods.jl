@@ -93,18 +93,22 @@ function autobalance(
   doestimate = true
 )
 
-if !initial_bals
-  acaliper = Dict{Symbol, Float64}();
-  for c in model.covariates
-    acaliper[c] = 1.0
+  # full balances, calculate one
+  balances = fullbalancing.fullbalance(model, dat);
+
+  if !initial_bals
+    acaliper = Dict{Symbol, Float64}();
+    for c in model.covariates
+      acaliper[c] = 1.0
+    end
   end
-end
 
   calmodel = caliper(model, acaliper, dat; dobalance = false);
   refcalmodel = refine(
     calmodel, dat;
-    refinementnum = refinementnum, dobalance = true, doestimate = false
+    refinementnum = refinementnum, dobalance = false, doestimate = false
   );
+  fullbalancing.balances!(refcalmodel, model, balances)
 
   # check calr only
   bc = checkbalances(refcalmodel; threshold = threshold);
@@ -123,12 +127,21 @@ end
     calmodel = caliper(model, acaliper, dat; dobalance = false);
     refcalmodel = refine(
       calmodel, dat;
-      refinementnum = refinementnum, dobalance = true, doestimate = false
+      refinementnum = refinementnum, dobalance = false, doestimate = false
     );
+    
+    # balancing for refcalmodel
+    bals = fullbalancing.refinebalances(refcalmodel, model, balances);
+    fullbalancing.mean_fullbalance!(refcalmodel, bals);
+    grandbalance!(refcalmodel)
+
     bc = checkbalances(refcalmodel; threshold = threshold)
   end
 
-  balance!(calmodel, dat)
+  # balance!(calmodel, dat)
+  calbals = fullbalancing.refinebalances(calmodel, model, balances);
+  fullbalancing.mean_fullbalance!(calmodel, bals);
+  grandbalance!(calmodel)
 
   if doestimate
     estimate!(refcalmodel, dat)

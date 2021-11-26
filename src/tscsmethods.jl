@@ -33,14 +33,14 @@ module tscsmethods
     name_model,
     modelrecord
 
-
   module fullbalancing
     using DataFrames, DataFramesMeta
-    using tscsmethods:AbstractCICModel, @unpack, std_treated, make_groupindices
-    using tscsmethods:make_groupindices, mean
+    using tscsmethods:AbstractCICModel, @unpack, std_treated
+    using tscsmethods:allocate_meanbalances!
+    using tscsmethods:make_groupindices, mean, matchassignments
     include("fullbalancing.jl")
     include("mean_fullbalancing.jl")
 
-    export fullbalance, meanbalance!
+    export fullbalance, balances!
   end
 end
