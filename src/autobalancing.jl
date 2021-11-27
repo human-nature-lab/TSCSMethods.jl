@@ -93,8 +93,17 @@ function autobalance(
   doestimate = true
 )
 
-  # full balances, calculate one
-  balances = fullbalancing.fullbalance(model, dat);
+  @unpack t, id, treatment = model;
+  @unpack F, L, reference = model;
+
+  fmin = minimum(F); fmax = maximum(F)
+  mmin = minimum(L); mmax = maximum(L);
+  tg, rg, _ = make_groupindices(
+    dat[!, t], dat[!, treatment],
+    dat[!, id], ids,
+    fmin, fmax, mmin,
+    Matrix(dat[!, covariates]);
+  );
 
   if !initial_bals
     acaliper = Dict{Symbol, Float64}();
@@ -108,7 +117,8 @@ function autobalance(
     calmodel, dat;
     refinementnum = refinementnum, dobalance = false, doestimate = false
   );
-  fullbalancing.balances!(refcalmodel, model, balances)
+  meanbalance!(refcalmodel, dat, tg, rg)
+  grandbalance!(refcalmodel)
 
   # check calr only
   bc = checkbalances(refcalmodel; threshold = threshold);
@@ -130,17 +140,14 @@ function autobalance(
       refinementnum = refinementnum, dobalance = false, doestimate = false
     );
     
-    # balancing for refcalmodel
-    bals = fullbalancing.refinebalances(refcalmodel, model, balances);
-    fullbalancing.mean_fullbalance!(refcalmodel, bals);
+    meanbalance!(refcalmodel, dat, tg, rg)
     grandbalance!(refcalmodel)
 
     bc = checkbalances(refcalmodel; threshold = threshold)
   end
 
   # balance!(calmodel, dat)
-  calbals = fullbalancing.refinebalances(calmodel, model, balances);
-  fullbalancing.mean_fullbalance!(calmodel, bals);
+  meanbalance!(calmodel, dat, tg, rg)
   grandbalance!(calmodel)
 
   if doestimate

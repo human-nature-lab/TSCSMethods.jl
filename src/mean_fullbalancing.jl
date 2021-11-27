@@ -29,18 +29,18 @@ fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
 
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
 """
-function mean_fullbalance!(model::AbstractCICModel, balances::DataFrame)
+function mean_fullbalance!(model::AbstractCICModel, bals::DataFrame)
 
-  @unpack matches, ids = refinedmodel;
-  @unpack covariates, timevary = refinedmodel;
-  @unpack F, L = model;
+  @unpack matches, ids = refcalmodel;
+  @unpack covariates, timevary = refcalmodel;
+  @unpack F, L = refcalmodel;
 
   fmin = minimum(F); mmlen = length(L);
 
-  allocate_meanbalances!(refinedmodel);
+  allocate_meanbalances!(refcalmodel);
 
   _meanbalance!(
-    eachrow(model.meanbalances), eachrow(balances),
+    eachrow(refcalmodel.meanbalances), eachrow(bals),
     matches, ids, covariates, timevary, mmlen, fmin
   );
 
@@ -60,25 +60,23 @@ function _meanbalance!(
 
     mus, efsets = matchassignments(matches[i], ids);
 
-    rdx = refinedmodel.matches[1].mus[model.matches[1].mus] # 2096
-
     _covar_meanbalance!(
-      mr, br, efsets, covariates, timevary, mmlen, fmin, rdx,
+      mr, br, efsets, covariates, timevary, mmlen, fmin,
     );
   end
   return barrows
 end
-  
+
 ### inner functions
 function _covar_meanbalance!(
-  mr, br, efsets, covariates, timevary, mmlen, fmin, rdx
+  mr, br, efsets, covariates, timevary, mmlen, fmin,
 )
   for covar in covariates
     # this is a [row, covar] for MB:
     #   the means across fs for a covariate (for a treated observation)
     if timevary[covar]
       row_covar_meanbalance!(
-        mr[covar], br[covar][rdx], mr[:fs], efsets, mmlen, fmin
+        mr[covar], br[covar], mr[:fs], efsets, mmlen, fmin
       );
     else
       row_covar_meanbalance!(mr[covar], br[covar], mr[:fs], efsets);
@@ -152,19 +150,19 @@ function row_covar_meanbalance!(
   return Holding
 end
 
-function refinebalances(refinedmodel, model, balances)
+function refinebalances(refcalmodel, model, balances)
   @unpack covariates, matches, observations = model;
   bals = copy(balances);
 
   # remove tobs that do not exist in ref / cal model
-  if length(observations) != length(refinedmodel.observations)
-    keep = observations .∈ Ref(calmodel.observations);
+  if length(observations) != length(refcalmodel.observations)
+    keep = observations .∈ Ref(refcalmodel.observations);
     bals = bals[keep, :];
   end
 
   for covar in covariates
-    for i in eachindex(observations)
-      rdx = refinedmodel.matches[i].mus[matches[i].mus] # 2096
+    for i in eachindex(refcalmodel.observations)
+      rdx = refcalmodel.matches[i].mus[matches[i].mus] # 2096
       bals[i, covar] = balances[i, covar][rdx]
     end
   end

@@ -134,12 +134,45 @@ function meanbalance!(model::AbstractCICModel, dat)
   allocate_meanbalances!(model);
   Lσ = std_treated(model, dat);
 
-  tg, rg, trtg = make_groupindices(
+  tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
     fmin, fmax, mmin,
     Matrix(dat[!, covariates]);
   );
+
+  _meanbalance!(
+    meanbalances,
+    observations,
+    matches,
+    ids,
+    fmin, mmin, mmax,
+    tg, rg,
+    covariates, timevary,
+    reference, Lσ, tmin
+  );
+
+  return model
+end
+
+"""
+    meanbalance!(model, dat, tg, rg)
+
+Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
+"""
+function meanbalance!(model::AbstractCICModel, dat, tg, rg)
+
+  @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
+  @unpack t, id, treatment = model;
+  @unpack F, L, reference = model;
+
+  fmin = minimum(F); fmax = maximum(F)
+  mmin = minimum(L); mmax = maximum(L);
+
+  tmin = minimum(dat[!, t]);
+  
+  allocate_meanbalances!(model);
+  Lσ = std_treated(model, dat);
 
   _meanbalance!(
     meanbalances,
@@ -169,7 +202,7 @@ function _meanbalance!(
   @inbounds Threads.@threads for i in eachindex(observations)
 
     balrw = @view meanbalances[i, :];
-    ob = (tt, tu) = observations[i];
+    ob = (tt, _) = observations[i];
     emus, efsets = matchassignments(matches[i], ids);
 
     if length(emus) == 0
