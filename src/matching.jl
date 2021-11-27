@@ -105,7 +105,7 @@ end
 function _makegroupindices(
   tidx, ridx, tridx, tts, uid, fmin, fmax, mmin, tvec, idvec, treatvec, cdat
 )
-  for (tt, unit) in Iterators.product(tts, uid)
+  @floop for (tt, unit) in Iterators.product(tts, uid)
     rws = (tvec .< tt + fmax) .& (tvec .>= tt + fmin + mmin)
     idrws = idvec .== unit
     tidx[(tt, unit)] = @views cdat[rws .& idrws, :];

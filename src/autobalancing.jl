@@ -93,11 +93,13 @@ function autobalance(
   doestimate = true
 )
 
-  @unpack t, id, treatment = model;
-  @unpack F, L, reference = model;
+  @unpack ids = model;
+  @unpack t, id, treatment, covariates = model;
+  @unpack F, L = model;
 
   fmin = minimum(F); fmax = maximum(F)
-  mmin = minimum(L); mmax = maximum(L);
+  mmin = minimum(L)
+  
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
@@ -107,7 +109,7 @@ function autobalance(
 
   if !initial_bals
     acaliper = Dict{Symbol, Float64}();
-    for c in model.covariates
+    for c in covariates
       acaliper[c] = 1.0
     end
   end
@@ -117,7 +119,7 @@ function autobalance(
     calmodel, dat;
     refinementnum = refinementnum, dobalance = false, doestimate = false
   );
-  meanbalance!(refcalmodel, dat, tg, rg)
+  meanbalance!(refcalmodel, dat, tg, rg);
   grandbalance!(refcalmodel)
 
   # check calr only
