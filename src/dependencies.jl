@@ -7,6 +7,7 @@ using Statistics:quantile
 using Distances:mahalanobis, weuclidean
 using Parameters
 using Accessors:@set,@reset
+using FLoops
 
 using CairoMakie
 using Colors
