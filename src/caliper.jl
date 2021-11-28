@@ -114,12 +114,14 @@ function _caliper!(tobscr, matches, calipers, flen)
   Threads.@threads for i in eachindex(matches)
     tob = @views matches[i]
     @unpack mus, fs, mudistances, ranks = tob;
-    
+
     tobcr = TobC(
       deepcopy(mus),
       deepcopy(fs),
       Dict{Int, Vector{Int}}()
-    ); # probably memory intensive
+    );
+    tobcr.fs[mus] = tobcr.fs[mus] .* 0;
+      # make zero, and fill in explicitly, rather than rely on default
     calipertobs!(tobcr, mus, fs, mudistances, calipers);
     if !(sum(tobcr.mus) == 0)
       tobscr[i] = tobcr;
@@ -150,13 +152,7 @@ function calipertobs!(tobcr, mus, fs, mudistances, calipers)
         if fb
           cntfs += 1
           dists = mudistances[cnt][cntfs] # an f for an mu
-          for c in 1:length(calipers)
-            if abs(dists[c]) > calipers[c]
-              # change correct fs in tobCR to false
-              tobcr.fs[m][φ] = false
-              break
-            end
-          end
+          tobcr.fs[m][φ] = allowcheck(calipers, dists)
         end
       end
       if !any(tobcr.fs[m])
@@ -165,5 +161,16 @@ function calipertobs!(tobcr, mus, fs, mudistances, calipers)
       end
     end
   end
+  
   return tobcr
+end
+
+function allowcheck(calipers, dists)
+  for c in 1:length(calipers)
+    if abs(dists[c]) > calipers[c]
+      # change correct fs in tobCR to false
+      return false
+    end
+  end
+  return true
 end
