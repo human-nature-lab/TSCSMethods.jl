@@ -100,7 +100,7 @@ function autobalance(
   fmin = minimum(F); fmax = maximum(F)
   mmin = minimum(L)
   
-  @time tg, rg, _ = make_groupindices(
+  tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
     fmin, fmax, mmin,
@@ -144,7 +144,6 @@ function autobalance(
     bc = checkbalances(refcalmodel; threshold = threshold)
   end
 
-  # balance!(calmodel, dat)
   meanbalance!(calmodel, dat, tg, rg)
   grandbalance!(calmodel)
 

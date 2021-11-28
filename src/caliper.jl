@@ -114,6 +114,7 @@ function _caliper!(tobscr, matches, calipers, flen)
   Threads.@threads for i in eachindex(matches)
     tob = @views matches[i]
     @unpack mus, fs, mudistances, ranks = tob;
+    
     tobcr = TobC(
       deepcopy(mus),
       deepcopy(fs),
