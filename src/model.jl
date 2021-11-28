@@ -112,7 +112,7 @@ function save_records_separate(savepath, models...)
   for model in models
     save_object(
       savepath * name_model(model) * "_" * string(typeof(model)) * ".jld2",
-      modelrecord(model)
+      modelrecord(models[1])
     )
   end
 end
@@ -123,7 +123,7 @@ function save_records(savepath, models...)
     records[i] = modelrecord(model)
   end
   save_object(
-    savepath * name_model(model) * ".jld2",
+    savepath * name_model(models[1]) * ".jld2",
     records
   )
 end
