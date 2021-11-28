@@ -235,6 +235,10 @@ function refinetob!(mus, fs, ranks, Φ, refinementnum)
       if !as
         fs[m] = fill(false, length(Φ))
       end
+      # why are we using empty fs?
+      # b/c the ranks encode all the needed info already
+      # all we need to do is reconstruct according to
+      # rank info
       fs[m][φ] = true
       mus[m] = true
     end
