@@ -309,9 +309,8 @@ function match!(model::AbstractCICModel, dat)
   GC.gc();
 
   # 175.818641 seconds (1.79 G allocations: 578.938 GiB, 60.88% gc time)
-  γlens = [length(rg[ob]) for ob in observations];
   _distances!(
-    matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict, γlens
+    matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
   );
 
   rank!(matches, flen)
@@ -356,13 +355,9 @@ end
 
 function _distances!(
   tobs, observations, ids,
-  tg, rg, fmin, mmin, mmax, Σinvdict, γlens
+  tg, rg, fmin, mmin, mmax, Σinvdict
 )
-  
-  # @inbounds Threads.@threads for i in eachindex(observations)
-  @floop for i in eachindex(observations)
-    @init mahas = Vector{Float64}(undef, γlens[i]);
-
+  @inbounds Threads.@threads for i in eachindex(observations)
     ob = observations[i];
 
     emus, efsets = matchassignments(tobs[i], ids)
@@ -374,8 +369,7 @@ function _distances!(
     γcs = eachcol(tg[ob]);
     γrs = eachrow(tg[ob]);
     γtimes = rg[ob];
-    # mahas = Vector{Float64}(undef, length(γtimes));
-
+    mahas = Vector{Float64}(undef, length(γtimes));
     distantiate!(
       tobs[i].mudistances, mahas,
       ob[1], Σinvdict,
