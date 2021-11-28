@@ -81,7 +81,14 @@ function samplecovar(
   return Σinvdict
 end
 
+"""
+    make_groupindices(tvec, treatvec, idvec, uid, fmin, fmax, mmin, cdat)
+
+Get partially overlapping values for treated observations.
+"""
 function make_groupindices(tvec, treatvec, idvec, uid, fmin, fmax, mmin, cdat)
+  #  14.354192 seconds
+  # (3.11 M allocations: 283.229 MiB, 14.99% gc time, 7.10% compilation time)
   STypeMat = SubArray{Float64, 2, Matrix{Float64}, Tuple{Vector{Int64}, Base.Slice{Base.OneTo{Int64}}}, false};
   STypeVec = SubArray{Int64, 1, Vector{Int64}, Tuple{Vector{Int64}}, false}
 
@@ -96,8 +103,8 @@ function make_groupindices(tvec, treatvec, idvec, uid, fmin, fmax, mmin, cdat)
   sizehint!(tridx, length(Iterators.product(tts, uid)));
 
   _makegroupindices(
-  tidx, ridx, tridx, tts, uid, fmin, fmax, mmin, tvec, idvec, treatvec, cdat
-)
+    tidx, ridx, tridx, tts, uid, fmin, fmax, mmin, tvec, idvec, treatvec, cdat
+  )
   
   return tidx, ridx, tridx
 end
@@ -106,13 +113,21 @@ function _makegroupindices(
   tidx, ridx, tridx, tts, uid, fmin, fmax, mmin, tvec, idvec, treatvec, cdat
 )
   @floop for (tt, unit) in Iterators.product(tts, uid)
-    rws = (tvec .< tt + fmax) .& (tvec .>= tt + fmin + mmin)
-    idrws = idvec .== unit
-    tidx[(tt, unit)] = @views cdat[rws .& idrws, :];
-    ridx[(tt, unit)] = @views tvec[rws .& idrws];
-    tridx[(tt, unit)] = @views treatvec[rws .& idrws];
+    @init yesrows = Vector{Bool}(undef, length(tvec))
+    getyes!(yesrows, tvec, idvec, tt, fmin, fmax, mmin, unit)
+
+    tidx[(tt, unit)] = @views cdat[yesrows, :];
+    ridx[(tt, unit)] = @views tvec[yesrows];
+    tridx[(tt, unit)] = @views treatvec[yesrows];
   end
   return tidx, ridx, tridx
+end
+
+function getyes!(yesrows, tvec, idvec, tt, fmin, fmax, mmin, unit)
+  for k in eachindex(tvec)
+    yesrows[k] = ((tvec[k] < tt + fmax) & (tvec[k] >= tt + fmin + mmin)) & (idvec[k] == unit)
+  end
+  return yesrows
 end
 
 """
@@ -153,7 +168,7 @@ function getfset!(ftrue, fmin, fmax, pollution, gt, tt);
   return ftrue
 end
 
-function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen)
+function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen, ftrue)
 
   for (m, mu) in enumerate(uid) # [1]# (j, mu) in enumerate(uid)
     if tu != mu
@@ -162,7 +177,12 @@ function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen)
       # will need to handle missingness case eventually
       # data are padded
       
-      ftrue = fill(true, flen);
+      # reset ftrue to true for all values
+      # (preallocated before loops)
+      for l in eachindex(ftrue)
+        ftrue[l] = true
+      end
+      
       pollution = trtg[(tt, mu)];
 
       if sum(pollution) > 0
@@ -235,11 +255,11 @@ end
 
 function _getmatches!(
   observations, tobsvec,
-  rg, trtg, ids, fmin, fmax, flen
+  rg, trtg, ids, fmin, fmax, flen, ftrue
 )
   for (ob, tob) in zip(observations, tobsvec)
       (tt, tu) = ob;
-      obsmatches!(tob, rg, trtg, ids, tt, tu, fmin, fmax, flen);
+      obsmatches!(tob, rg, trtg, ids, tt, tu, fmin, fmax, flen, ftrue);
   end
   return tobsvec
 end
@@ -274,9 +294,10 @@ function match!(model::AbstractCICModel, dat)
   
   GC.gc();
 
+  ftrue = Vector{Bool}(undef, flen);
   _getmatches!(
     observations, matches,
-    rg, trtg, ids, fmin, fmax, flen
+    rg, trtg, ids, fmin, fmax, flen, ftrue
   );
 
   # distance prealloation
@@ -288,8 +309,9 @@ function match!(model::AbstractCICModel, dat)
   GC.gc();
 
   # 175.818641 seconds (1.79 G allocations: 578.938 GiB, 60.88% gc time)
+  γlens = [length(rg[ob]) for ob in observations];
   _distances!(
-    matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
+    matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict, γlens
   );
 
   rank!(matches, flen)
@@ -334,9 +356,13 @@ end
 
 function _distances!(
   tobs, observations, ids,
-  tg, rg, fmin, mmin, mmax, Σinvdict
+  tg, rg, fmin, mmin, mmax, Σinvdict, γlens
 )
-  @inbounds Threads.@threads for i in eachindex(observations)
+  
+  # @inbounds Threads.@threads for i in eachindex(observations)
+  @floop for i in eachindex(observations)
+    @init mahas = Vector{Float64}(undef, γlens[i]);
+
     ob = observations[i];
 
     emus, efsets = matchassignments(tobs[i], ids)
@@ -348,7 +374,8 @@ function _distances!(
     γcs = eachcol(tg[ob]);
     γrs = eachrow(tg[ob]);
     γtimes = rg[ob];
-    mahas = Vector{Float64}(undef, length(γtimes));
+    # mahas = Vector{Float64}(undef, length(γtimes));
+
     distantiate!(
       tobs[i].mudistances, mahas,
       ob[1], Σinvdict,

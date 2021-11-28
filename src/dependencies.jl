@@ -8,6 +8,7 @@ using Distances:mahalanobis, weuclidean
 using Parameters
 using Accessors:@set,@reset
 using FLoops
+import JLD2:save_object
 
 using CairoMakie
 using Colors

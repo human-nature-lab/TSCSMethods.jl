@@ -100,7 +100,7 @@ function autobalance(
   fmin = minimum(F); fmax = maximum(F)
   mmin = minimum(L)
   
-  tg, rg, _ = make_groupindices(
+  @time tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
     fmin, fmax, mmin,
@@ -122,11 +122,7 @@ function autobalance(
   meanbalance!(refcalmodel, dat, tg, rg);
   grandbalance!(refcalmodel)
 
-  # check calr only
   bc = checkbalances(refcalmodel; threshold = threshold);
-
-  # alternative: calculate full balances once
-  # repeatedly take means of that -- should be quicker
 
   while checkwhile(refcalmodel, acaliper, min_treated_obs, calmin, bc)
 

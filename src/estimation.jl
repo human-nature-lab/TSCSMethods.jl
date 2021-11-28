@@ -239,6 +239,22 @@ function countmemb(itr, len::Int64)
   return d
 end
 
+"""
+faster version when length is known
+"""
+function countmembinput!(itr, d)
+  for val in itr
+      d[val] = get(d, val, 0) + 1
+  end
+  return d
+end
+
+function dictlen(itr, len)
+  d = Dict{eltype(itr), Int64}()
+  sizehint!(d, len)
+  return d
+end
+
 function bootstrap(W, uid; iter = 500)
   # ADD TREAT EVE RESTRICTION MINIMUM?
   # >= one unit suffices
@@ -344,16 +360,16 @@ end
 Inner function to bootstrap(), which actually executes the bootstrapping. N.B. that the seed should be set globally.
 """
 function _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter)
-  @inbounds Threads.@threads for i in 1:iter
-    reuid = countmemb(
-      sample_check(uid, luid, checkunitsets),
-      length(uid)
-    );
+  # @inbounds Threads.@threads for i in 1:iter
+  @floop for i in 1:iter
+    @init reuid = dictlen(uid, luid);
+    countmembinput!(sample_check(uid, luid, checkunitsets), reuid);
+
     for c in eachindex(wout) # fs
       wo = wout[c]; ufo = uinfo[c]; to = trt[c]
       # n = stratified ? zeros(Int64, uslen) : zero(Int64)
       n = zero(Int64)
-      for r in 1:length(wo)
+      for r in eachindex(wo)
         boots[c, i] += get(reuid, ufo[r], 0) * wo[r] # adding up to get a single estimate for an f
         n += get(reuid, ufo[r], 0) * to[r]
       end
