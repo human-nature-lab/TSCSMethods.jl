@@ -105,12 +105,12 @@ function modelrecord(model::RefinedCICStratified)
 end
 
 function save_record(savepath, modelrecord::ModelRecord)
-  JLD2.save_object(savepath * name_model(modelrecord), modelrecord(modelrecord))
+  save_object(savepath * name_model(modelrecord), modelrecord(modelrecord))
 end
 
 function save_records_separate(savepath, models...)
   for model in models
-    JLD2.save_object(
+    save_object(
       savepath * name_model(model) * "_" * string(typeof(model)) * ".jld2",
       modelrecord(model)
     )
@@ -122,7 +122,7 @@ function save_records(savepath, models...)
   for (i, model) in enumerate(models)
     records[i] = modelrecord(model)
   end
-  JLD2.save_object(
+  save_object(
     savepath * name_model(model) * ".jld2",
     records
   )
