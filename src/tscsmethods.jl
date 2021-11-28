@@ -31,7 +31,7 @@ module tscsmethods
     model_pl, plot_modelset,
     # saving
     name_model,
-    modelrecord
+    modelrecord, save_record, save_records
 
   # module fullbalancing
   #   using DataFrames, DataFramesMeta
