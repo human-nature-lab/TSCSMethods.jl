@@ -249,12 +249,6 @@ function countmembinput!(itr, d)
   return d
 end
 
-function dictlen(itr, len)
-  d = Dict{eltype(itr), Int64}()
-  sizehint!(d, len)
-  return d
-end
-
 function bootstrap(W, uid; iter = 500)
   # ADD TREAT EVE RESTRICTION MINIMUM?
   # >= one unit suffices

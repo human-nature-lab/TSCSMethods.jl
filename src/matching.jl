@@ -168,7 +168,7 @@ function getfset!(ftrue, fmin, fmax, pollution, gt, tt);
   return ftrue
 end
 
-function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen, ftrue)
+function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen)
 
   for (m, mu) in enumerate(uid) # [1]# (j, mu) in enumerate(uid)
     if tu != mu
@@ -179,9 +179,7 @@ function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen, ftrue)
       
       # reset ftrue to true for all values
       # (preallocated before loops)
-      for l in eachindex(ftrue)
-        ftrue[l] = true
-      end
+      ftrue = fill(true, flen);
       
       pollution = trtg[(tt, mu)];
 
@@ -255,11 +253,11 @@ end
 
 function _getmatches!(
   observations, tobsvec,
-  rg, trtg, ids, fmin, fmax, flen, ftrue
+  rg, trtg, ids, fmin, fmax, flen
 )
   for (ob, tob) in zip(observations, tobsvec)
       (tt, tu) = ob;
-      obsmatches!(tob, rg, trtg, ids, tt, tu, fmin, fmax, flen, ftrue);
+      obsmatches!(tob, rg, trtg, ids, tt, tu, fmin, fmax, flen);
   end
   return tobsvec
 end
@@ -294,10 +292,9 @@ function match!(model::AbstractCICModel, dat)
   
   GC.gc();
 
-  ftrue = Vector{Bool}(undef, flen);
   _getmatches!(
     observations, matches,
-    rg, trtg, ids, fmin, fmax, flen, ftrue
+    rg, trtg, ids, fmin, fmax, flen
   );
 
   # distance prealloation
