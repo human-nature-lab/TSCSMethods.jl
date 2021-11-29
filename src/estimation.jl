@@ -8,6 +8,18 @@ function outcomedict(dat, t, id, outcome)
 return outdict
 end
 
+
+# matches = model.matches;
+# observations = model.observations;
+
+# treatob = fill(observations[i], sum(matches[i].mus));
+# treatma = ids[matches[i].mus];
+# fma = matches[i].fs[matches[i].mus];
+
+# i=2500
+# unique(matches[i].fs[matches[i].mus])
+
+
 # obs = matches[1]
 
 # hcat(obs.mus[obs.mus], obs.fs[obs.mus])

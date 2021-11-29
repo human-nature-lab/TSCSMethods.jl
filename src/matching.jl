@@ -177,8 +177,6 @@ function obsmatches!(tobs, rg, trtg, uid, tt, tu, fmin, fmax, flen)
       # will need to handle missingness case eventually
       # data are padded
       
-      # reset ftrue to true for all values
-      # (preallocated before loops)
       ftrue = fill(true, flen);
       
       pollution = trtg[(tt, mu)];
@@ -289,7 +287,13 @@ function match!(model::AbstractCICModel, dat)
     fmin, fmax, mmin,
     cdat
   );
-  
+
+  # test group indices
+  # ck = [key for key in keys(tg)];
+  # i = 100
+  # tg[ck[i]][70:80,:]
+  # @subset(dat, $t .>= (ck[i][1] + fmin + mmin), $t .< (ck[i][1] + fmax), $id .== ck[i][2])[70:80, covariates]
+
   GC.gc();
 
   _getmatches!(
