@@ -267,11 +267,11 @@ function bootstrap(W, uid; iter = 500)
   end
   
   uf = sort(unique(W[!, wgroup]), wgroup);
-  len = nrow(uf);
+  flen = nrow(uf);
 
-  uinfo = Vector{Vector{Int64}}(undef, len);
-  wout = Vector{Vector{Float64}}(undef, len);
-  trt = Vector{Vector{Int64}}(undef, len);
+  uinfo = Vector{Vector{Int64}}(undef, flen);
+  wout = Vector{Vector{Float64}}(undef, flen);
+  trt = Vector{Vector{Int64}}(undef, flen);
   
   # actually, don't need to do this
   # strt = Vector{Vector{Int64}}(undef, len);
@@ -287,7 +287,7 @@ function bootstrap(W, uid; iter = 500)
     # end
   end
 
-  boots = zeros(Float64, len, iter);
+  boots = zeros(Float64, flen, iter);
   # boots = zeros(Float64, iter, length(uf));
 
   #=
@@ -360,11 +360,11 @@ end
 Inner function to bootstrap(), which actually executes the bootstrapping. N.B. that the seed should be set globally.
 """
 function _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter)
-  # @inbounds Threads.@threads for i in 1:iter
-  @floop for i in 1:iter
-    @init reuid = dictlen(uid, luid);
-    countmembinput!(sample_check(uid, luid, checkunitsets), reuid);
-
+  @inbounds Threads.@threads for i in 1:iter
+    reuid = countmemb(
+      sample_check(uid, luid, checkunitsets),
+      length(uid)
+    );
     for c in eachindex(wout) # fs
       wo = wout[c]; ufo = uinfo[c]; to = trt[c]
       # n = stratified ? zeros(Int64, uslen) : zero(Int64)
