@@ -146,7 +146,7 @@ function meanbalance!(model::AbstractCICModel, dat)
     observations,
     matches,
     ids,
-    mmin, mmax,
+    F, mmin, mmax,
     tg, rg,
     covariates, timevary,
     reference, Lσ, tmin
@@ -178,7 +178,7 @@ function meanbalance!(model::AbstractCICModel, dat, tg, rg)
     observations,
     matches,
     ids,
-    mmin, mmax,
+    F, mmin, mmax,
     tg, rg,
     covariates, timevary,
     reference, Lσ, tmin
@@ -192,7 +192,7 @@ function _meanbalance!(
   observations,
   matches,
   ids,
-  mmin, mmax,
+  F, mmin, mmax,
   tg, rg,
   covariates, timevary,
   reference, Lσ, tmin
@@ -204,8 +204,8 @@ function _meanbalance!(
     ob = (tt, _) = observations[i];
     emus, efsets = matchassignments(matches[i], ids);
     efsum = sum(efsets);
-    bwpres = efsum .> 0
-    fset = F[bwpres]
+    bwpres = efsum .> 0;
+    fset = F[bwpres];
 
     if length(emus) == 0
       continue
