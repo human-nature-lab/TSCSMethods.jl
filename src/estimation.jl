@@ -228,7 +228,7 @@ function att!(results, M)
     groupby(mgroup)
     @combine(
       :att = sum(:wstar),
-      treatnum = sum(:treatev)
+      :treatnum = sum(:treatev)
     ) # MUST DIVIDE BY N. TREATED UNITS
     @transform(:att = :att ./ :treatnum) # same order
   end
