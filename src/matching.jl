@@ -14,12 +14,6 @@ function observe(datt, datid, dattrt)
   return sort(v), unique(datid)
 end
 
-function make_matches(obslen, idlen)
-  matches = Vector{Tob}(undef, obslen);
-  _make_matches!(matches, obslen, idlen);
-  return matches
-end
-
 function _make_matches!(matches, obslen, idlen)
   for i in 1:obslen
     matches[i] = Tob(
@@ -342,17 +336,7 @@ end
 
 ###
 
-function matchassignments(tobsi, ids; returnefsets = true)
-  assigned = getassigned(tobsi.mus, tobsi.fs);
-  emus = ids[assigned]; # eligible matches
-  
-  if returnefsets == false
-    return emus
-  else
-    efsets = tobsi.fs[assigned]; # allowable fs for each eligible match
-    return emus, efsets
-  end
-end
+
 
 function _distances!(
   tobs, observations, ids,

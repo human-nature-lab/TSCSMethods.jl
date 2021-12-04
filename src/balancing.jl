@@ -1,4 +1,4 @@
-# balancing functions
+# balancing.jl
 
 """
 gives (1 / (std of treated units)) for each l in the matching period
@@ -146,7 +146,7 @@ function meanbalance!(model::AbstractCICModel, dat)
     observations,
     matches,
     ids,
-    fmin, mmin, mmax,
+    mmin, mmax,
     tg, rg,
     covariates, timevary,
     reference, Lσ, tmin
@@ -166,7 +166,6 @@ function meanbalance!(model::AbstractCICModel, dat, tg, rg)
   @unpack t, id, treatment = model;
   @unpack F, L, reference = model;
 
-  fmin = minimum(F); fmax = maximum(F)
   mmin = minimum(L); mmax = maximum(L);
 
   tmin = minimum(dat[!, t]);
@@ -179,7 +178,7 @@ function meanbalance!(model::AbstractCICModel, dat, tg, rg)
     observations,
     matches,
     ids,
-    fmin, mmin, mmax,
+    mmin, mmax,
     tg, rg,
     covariates, timevary,
     reference, Lσ, tmin
@@ -193,7 +192,7 @@ function _meanbalance!(
   observations,
   matches,
   ids,
-  fmin, mmin, mmax,
+  mmin, mmax,
   tg, rg,
   covariates, timevary,
   reference, Lσ, tmin
@@ -204,6 +203,9 @@ function _meanbalance!(
     balrw = @view meanbalances[i, :];
     ob = (tt, _) = observations[i];
     emus, efsets = matchassignments(matches[i], ids);
+    efsum = sum(efsets);
+    bwpres = efsum .> 0
+    fset = F[bwpres]
 
     if length(emus) == 0
       continue
@@ -232,10 +234,10 @@ function _meanbalance!(
     # end
     
     _addmatches!(
-      balrw, tt, Ys, Yt, emus, efsets,
+      balrw, tt, Ys, Yt, emus, efsets, fset, bwpres,
       Lσ, covariates, timevary,
-      reference, fmin, mmin, mmax,
-      tg, tmin
+      reference, mmin, mmax,
+      tg, tmin,
     );
 
     # testing: resolved -- was undef instead of missing
@@ -245,8 +247,7 @@ function _meanbalance!(
 
     # _divbalance
     # alternative with broadcasting: time balrw[covar] ./ sum(efsets);
-    efsum = sum(efsets);
-    _meanmatch!(balrw, covariates, efsum);
+    _meanmatch!(balrw, covariates, efsum[bwpres]);
 
     # if any(isnan.(balrw[vn.pd]))
     #   error("nan found after division " * string(i))
@@ -257,20 +258,24 @@ function _meanbalance!(
 end
 
 function _addmatches!(
-  balrw, tt, Ys, Yt, emus, efsets,
+  balrw, tt, Ys, Yt, emus, efsets, fset, bwpres,
   Lσ, covariates, timevary,
-  reference, fmin, mmin, mmax,
+  reference, mmin, mmax,
   tg, tmin
 )
 
   for (em, emu) in enumerate(emus)
-    efs = efsets[em]; # logical rep. of fs that exist for a match
+    efs = efsets[em][bwpres];
+       # logical rep. of fs that exist for a match, then
+       # reindex by bwpres, since balrw only contains bwpres 
+       # entries (out of flen)
     Xs = eachcol(tg[(tt, emu)]);
 
     # cnt: since φ will track 1:31, and we will have only those that exist 
     _addmatch!(
-      balrw, Ys, Xs, Yt, Lσ, efs, tt, covariates, timevary,
-      reference, fmin, mmin, mmax, tmin
+      balrw, Ys, Xs, Yt, Lσ, efs, fset,
+      tt, covariates, timevary,
+      reference, mmin, mmax, tmin
     );
   end
   return balrw
@@ -283,7 +288,11 @@ function _meanmatch!(balrw, covariates, efsum)
   return balrw
 end
 
-function __meanmatch!(balrwcovar::Vector{Vector{Union{Missing, Float64}}}, efsum)
+function __meanmatch!(
+  balrwcovar::Vector{Vector{Union{Missing, Float64}}},
+  efsum
+)
+
   for (φ, balφ) in enumerate(balrwcovar)
     for μ in eachindex(balφ)
       balφ[μ] = balφ[μ] / efsum[φ]
@@ -300,39 +309,43 @@ function __meanmatch!(balrwcovar::Vector{Union{Missing, Float64}}, efsum)
 end
 
 function _addmatch!(
-  balrw, Ys, Xs, Yt, Lσ, efs, tt, covariates, timevary,
-  reference, fmin, mmin, mmax, tmin
+  balrw, Ys, Xs, Yt, Lσ, efs, fset,
+  tt, covariates, timevary,
+  reference, mmin, mmax, tmin
 )
   for (c, (Y, X, covar)) in enumerate(zip(Ys, Xs, covariates))
     addmatch_f!(
-      balrw[c+1], Y, X, Yt, Lσ, efs, tt, covar, timevary,
-      reference, fmin, mmin, mmax, tmin
+      balrw[c+1], Y, X, Yt, Lσ, efs, fset, tt, covar, timevary,
+      reference, mmin, mmax, tmin
     )
   end
   return balrw
 end
 
 function addmatch_f!(
-  balrwc, Y, X, Yt, Lσ, efs, tt, covar, timevary, reference,
-  fmin, mmin, mmax, tmin
+  balrwc,
+  Y, X, Yt, Lσ, efs, fset, tt, covar, timevary, reference,
+  mmin, mmax, tmin
 )
-  φcnt = 0; # COUNTING ISSUE?
-  # ocnt = 0
-  for (φ, fb) in enumerate(efs)
-    # ocnt += 1
+
+  for ((φ, fb), f) in zip(enumerate(efs), fset)
+    # ANOTHER COUNTING/INDEXING ISSUE
+    # we restrict to the cases where there is at least one f, so we need to index accordingly
+    # efs[bwpres] is the correct object to index
+    
     if fb
-      φcnt += 1;
-      fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+      fw = tscsmethods.matchwindow(f, tt, mmin, mmax);
       fwadjustment = minimum(fw) < tmin ? abs(minimum(fw)) : 0;
       if timevary[covar]
         _timevarybalance!(
-          balrwc[φcnt], Y, X, Yt, fw, Lσ, tt, covar, fwadjustment
+          balrwc[φ], # mcounts[c][φ],
+          Y, X, Yt, fw, Lσ, tt, covar, fwadjustment
         )
       else
-        if ismissing(balrwc[φcnt])
-          balrwc[φcnt] = 0.0
+        if ismissing(balrwc[φ])
+          balrwc[φ] = 0.0
         else
-          balrwc[φcnt] += (Y[1] - X[1]) * Lσ[reference, covar]
+          balrwc[φ] += (Y[1] - X[1]) * Lσ[reference, covar]
         end
         continue
       end
@@ -344,23 +357,26 @@ end
 function _timevarybalance!(
   balrwcφ, Y, X, Yt, fw, Lσ, tt, covar, fwadjustment
 )
-  downcount = 0 # when the thing is longer, we need to adjust the other way, or something
+  downcount = 0 # when the thing is longer, we need to adjust the other way
   for (l, (y, x, τ)) in enumerate(zip(Y, X, Yt))
+  # (l, (y, x, τ)) = collect(enumerate(zip(Y, X, Yt)))[1]
     # timepoint must exist and be in window
     # if in window and does not exist, will remain missing
     if τ < minimum(fw)
       downcount += 1 # substract one for every period before the window
     end
     if τ ∈ fw
-      # cntl += 1
-      if ismissing(balrwcφ[l+fwadjustment-downcount])
-        balrwcφ[l+fwadjustment-downcount] = 0.0
-      else
-        balrwcφ[l+fwadjustment-downcount] += (y - x) * Lσ[τ - tt, covar]
+      # if the timepoint in Yt is in the window
+      # (recall we have a Yt for the period over whole window range across fs)
+      # this is going to be an addition
+      # mcountscφ[l+fwadjustment-downcount] += 1
+      if ismissing(balrwcφ[l + fwadjustment - downcount])
+        balrwcφ[l + fwadjustment - downcount] = 0.0
       end
+      balrwcφ[l + fwadjustment - downcount] += (y - x) * Lσ[τ - tt, covar]
     end
   end
-  return balrwcφ
+  return balrwcφ #, mcountscφ
 end
 
 ####################
