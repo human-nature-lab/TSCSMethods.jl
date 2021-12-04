@@ -14,6 +14,12 @@ function observe(datt, datid, dattrt)
   return sort(v), unique(datid)
 end
 
+function make_matches(obslen, idlen)
+  matches = Vector{Tob}(undef, obslen);
+  _make_matches!(matches, obslen, idlen);
+  return matches
+end
+
 function _make_matches!(matches, obslen, idlen)
   for i in 1:obslen
     matches[i] = Tob(
