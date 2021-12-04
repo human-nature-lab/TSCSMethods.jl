@@ -8,7 +8,6 @@ function outcomedict(dat, t, id, outcome)
 return outdict
 end
 
-
 # matches = model.matches;
 # observations = model.observations;
 
@@ -228,10 +227,10 @@ function att!(results, M)
   atts = @chain M begin
     groupby(mgroup)
     @combine(
-      att = sum(:wstar),
+      :att = sum(:wstar),
       treatnum = sum(:treatev)
     ) # MUST DIVIDE BY N. TREATED UNITS
-    @transform(att = :att ./ :treatnum) # same order
+    @transform(:att = :att ./ :treatnum) # same order
   end
 
   append!(results, atts)
