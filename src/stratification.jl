@@ -18,7 +18,7 @@ function stratify(
 
   strata, stratlabels, stratifier = stratfunc(model, args...; kwargs...)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, balances, meanbalances, iterations, estimator = model;
+  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, meanbalances, iterations, estimator = model;
 
   stratmodel = CICStratified(
     title = title,
@@ -35,7 +35,6 @@ function stratify(
     observations = observations,
     ids = ids,
     matches = matches,
-    balances = balances,
     meanbalances = meanbalances,
     grandbalances = GrandDictStrat(),
     iterations = iterations,
