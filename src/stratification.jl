@@ -105,7 +105,7 @@ Assumes that matching, balancing, and meanbalancing has ocurred.
 """
 function variablestrat(
   model::CIC, stratifier, dat;
-  qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false
+  qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false, stratvary = false
 )
 
   @unpack title, id, t, outcome, treatment, timevary, observations = model;
@@ -119,7 +119,13 @@ function variablestrat(
   # if separate zero
   zs = 0;
 
-  if !timevary[stratifier]
+  if stratifier ∈ model.covariates
+    varystrat = timevary[stratifier]
+  else
+    varystrat = stratvary
+  end
+
+  if !varystrat
     udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
         
     udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, stratifier])}();
@@ -141,7 +147,7 @@ function variablestrat(
       strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
     end
     
-  elseif timevary[stratifier] # do at time of treatment
+  elseif varystrat # do at time of treatment
     
     X = sort(quantile(@views(dat[c1, var])));
     Xlen = length(X);
