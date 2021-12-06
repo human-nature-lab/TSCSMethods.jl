@@ -90,7 +90,8 @@ function autobalance(
   min_treated_obs = 10,
   refinementnum = 5, calmin = 0.1, step = 0.05,
   initial_bals = false,
-  doestimate = true
+  doestimate = true,
+  verbose = true
 )
 
   @unpack ids = model;
@@ -142,6 +143,10 @@ function autobalance(
     grandbalance!(refcalmodel)
 
     bc = checkbalances(refcalmodel; threshold = threshold)
+
+    if verbose
+      println(refcalmodel.caliper)
+    end
   end
 
   meanbalance!(calmodel, dat, tg, rg)

@@ -322,11 +322,33 @@ function bootstrap(W, uid; iter = 500)
     # unique since we don't need to check for unitsets that are redundant
     # for each row, at least one unit (of that row) must exist in the sample
     unique(checkset.units)
+    # this is the set of treated units, such that at least one from
+    # each row  must occur in the sample
   end
   
   _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter);
 
   return boots
+end
+
+function _checkunits(units, samp)
+  for unit in units # at least one must be true
+    if unit ∈ samp # is the unit from a row of checkunitsets in the sample?
+      return true
+      break # if > 0 units are present, that row is satisfied by the sample
+    end
+  end
+  return false
+end
+
+function samplepass(checkunitsets, samp)
+  for units in checkunitsets
+    if !_checkunits(units, samp)
+      break
+      return false
+    end
+  end
+  return true
 end
 
 """
@@ -337,7 +359,7 @@ Sample the units, and ensure that there is a treated unit in the resample. If th
 function sample_check(uid, luid, unitsets)
   samp = sample(uid, luid);
 
-  while !(_check(unitsets, samp))
+  while !(samplepass(unitsets, samp))
     samp = sample(uid, luid);
   end
 
