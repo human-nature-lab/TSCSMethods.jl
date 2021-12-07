@@ -1,7 +1,5 @@
 # ranking.jl
 
-@unpack matches = model;
-
 function rank!(matches, flen)
   Threads.@threads for i in 1:length(matches)
     tob = @views matches[i];
