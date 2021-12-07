@@ -9,13 +9,13 @@ MatchDist = Vector{Vector{Vector{Float64}}} # = Vector{Vector{Vector{Float64}}}
   mus::Vector{Bool}
   fs::Vector{Vector{Bool}}
   mudistances::MatchDist = MatchDist()
-  ranks::Dict{Int, Vector{Int}}
+  ranks::Dict{Int, SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{Int64}}, false}}
 end
 
 @with_kw struct TobC
   mus::Vector{Bool}
   fs::Vector{Vector{Bool}}
-  ranks::Dict{Int, Vector{Int}}
+  ranks::Dict{Int, SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{Int64}}, false}}
 end
 
 @with_kw struct TobR

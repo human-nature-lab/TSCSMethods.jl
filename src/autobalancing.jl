@@ -98,8 +98,8 @@ function autobalance(
   @unpack t, id, treatment, covariates = model;
   @unpack F, L = model;
 
-  fmin = minimum(F); fmax = maximum(F)
-  mmin = minimum(L)
+  fmin = minimum(F); fmax = maximum(F);
+  mmin = minimum(L);
   
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],

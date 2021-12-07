@@ -126,7 +126,6 @@ function variablestrat(
 
   if !varystrat
     udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
-        
     udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, stratifier])}();
     @eachrow udf begin
       udict[($(t), $(id))] = $stratifier

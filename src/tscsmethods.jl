@@ -5,6 +5,7 @@ module tscsmethods
   include("types.jl")
   include("construction.jl")
   include("matching.jl")
+  include("ranking.jl")
   include("caliper.jl")
   include("balancing.jl")
   include("estimation.jl")
