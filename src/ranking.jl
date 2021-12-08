@@ -11,17 +11,26 @@ end
 function rankmatches!(tob, flen)
   @unpack mus, fs, distances, ranks = tob;
 
-  mamat = fill(Inf, flen, length(mus)); # in id order
-  _mahaposition!(mamat, mus, fs, mudistances, 1:flen);
+  mamat = fill(Inf, flen, size(mus)[1]); # in id order
+  valids = vec(sum(mus, dims = 2) .> 0);
+  # musvalid = @views mus[valids, :];
+  mamat[:, valids] = @views distances[1];
+  
+  # mamatminor = @views(mamat[:, valids]);
+  # _mahaposition!(mamatminor, mus, fs, mudistances, 1:flen);
 
-  fbools = sum(fs[mus]) .> 0; # valid fs for treated obs
-  _rankmatches!(ranks, mus, fbools, mamat);
+  fbools = sum(mamat .> 0, dims = 2) .> 0;
+
+  _rankmatches!(
+    ranks, fbools,
+    eachrow(mamat), eachcol(mus)
+  );
   
   return tob
 end
 
 function _mahaposition!(mamat, mus, fs, mudistances, Φ)
-  
+
   mcnt = 0
   for (m, mu) in enumerate(mus) # matchunit by matchunit
     if mu
@@ -41,8 +50,11 @@ function _mahaposition!(mamat, mus, fs, mudistances, Φ)
   return mamat
 end
 
-function _rankmatches!(ranks, mus, fbools, mamat)
-  for (φ, (fbool, ec)) in enumerate(zip(fbools, eachrow(mamat)))
+function _rankmatches!(ranks, fbools, mamatc, musc)
+
+  (φ, (fbool, ec, mc)) = collect(enumerate(zip(fbools, mamatc, musc)))[1]
+
+  for (φ, (fbool, ec, mc)) in enumerate(zip(fbools, mamatc, musc))
     if fbool
       # in-place ranking
       # ranks[φ] = StatsBase.ordinalrank(ec);
@@ -51,7 +63,7 @@ function _rankmatches!(ranks, mus, fbools, mamat)
       # really, we want to be able to shut off the mus easily
       # and make it such that we get the mu elements in ranked order
       # by simple indexing:
-      ranks[φ] = @views mus[sortperm(ec)];
+      ranks[φ] = @views mc[sortperm(ec)];
 
       # remove impossible mus (for that f)
       ranks[φ][findfirst(isinf.(ec[sortperm(ec)])):end] .= 0

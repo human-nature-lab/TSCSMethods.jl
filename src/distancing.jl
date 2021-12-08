@@ -1,6 +1,6 @@
 ## distancing.jl
 
-function distances_allocate!(matches, covnum)
+function distances_allocate!(matches, flen, covnum)
   Threads.@threads for i in eachindex(matches)
   # for (i, tob) in enumerate(tobsvec)
     
@@ -23,7 +23,7 @@ function distances_allocate!(matches, covnum)
     # matches[i] = @set tob.mudistances = MatchDist(undef, sum(valids));
     # fill_mudists!(tobsvec[i].mudistances, emus, efsets, covnum);
   end
-  return distances
+  return matches
 end
 
 function _distances_allocate!(matches_i_distances, validmus, covnum)
@@ -125,7 +125,7 @@ function distances_calculate!(
     mahas = Vector{Float64}(undef, length(γtimes));
 
     distantiate!(
-      eachcol(distances), mahas,
+      distances, mahas,
       eachrow(validmus), validunits,
       ob[1], Σinvdict,
       γcs, γrs, γtimes, tg,
@@ -140,16 +140,25 @@ end
 matchwindow(f, tt, mmin, mmax) = (tt + f) + mmin : (tt + f) + mmax;
 
 function distantiate!(
-  distancescols, mahas,
+  distances, mahas,
   validmuscols, validunits,
   tt, Σinvdict,
   γcs, γrs, γtimes, tg,
   fmin, mmin, mmax
 )
 
-  for (unit, distancescol, muscol) in zip(
-    validunits, distancescols, validmuscols
-  )
+
+# (m, (unit, muscol)) = collect(enumerate(
+#     zip(
+#       validunits, validmuscols
+#       )
+#     ))[1]
+
+  for (m, (unit, muscol)) in enumerate(
+    zip(
+      validunits, validmuscols
+      )
+    )
     g = tg[(tt, unit)];
 
     mahadistancing!(
@@ -158,21 +167,23 @@ function distantiate!(
 
     # cnt: since φ will track 1:31, and we will have only those that exist 
     __distantiate!(
-      distancescol,
+      distances, m,
       muscol,
       mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, mmin, mmax
     )
 
   end
 
-  return distancescols
+  return distances
 end
 
 function __distantiate!(
-  distancescol,
+  distances, m,
   muscol,
   mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, mmin, mmax
 )
+
+  # (φ, fb) = collect(enumerate(muscol))[1]
 
   for (φ, fb) in enumerate(muscol)
     if fb
@@ -180,19 +191,19 @@ function __distantiate!(
       # mahalanobis distance
       # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
       fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
-      distancescol[φ][1] = mahaveraging(mahas, γtimes, fw)
+      distances[1][φ, m] = mahaveraging(mahas, γtimes, fw)
 
       # caliper distances
       for (c, (γc, gc)) in enumerate(zip(γcs, gcs))
         # this is the match distance for an f, for a covar
-        distancescol[φ][c + 1] = caldistancing(
+        distances[c + 1][φ, m] = caldistancing(
             Σinvdict, γc, gc, γtimes, fw, c
         );
       end
     end
   end
 
-  return distancescol
+  return distances
 end
 
 function mahadistancing(Σinvdict, xrows, yrows, T, fw)
