@@ -14,16 +14,16 @@ function observe(datt, datid, dattrt)
   return sort(v), unique(datid)
 end
 
-function make_matches(obslen, idlen)
+function make_matches(obslen, idlen, flen)
   matches = Vector{Tob}(undef, obslen);
-  _make_matches!(matches, obslen, idlen);
+  _make_matches!(matches, obslen, idlen, flen);
   return matches
 end
 
-function _make_matches!(matches, obslen, idlen)
+function _make_matches!(matches, obslen, idlen, flen)
   for i in 1:obslen
     matches[i] = Tob(
-      mus = fill(false, idlen),
+      mus = fill(false, idlen, flen),
       fs = Vector{Vector{Bool}}(undef, idlen),
       ranks = Dict{Int, Vector{Int}}()
     );

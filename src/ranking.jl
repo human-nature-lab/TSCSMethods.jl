@@ -11,16 +11,16 @@ end
 function rankmatches!(tob, flen)
   @unpack mus, fs, mudistances, ranks = tob;
 
-  mamat = fill(Inf, flen, length(positions)); # in id order
-  _mahaposition!(mamat, fs, mudistances, 1:flen);
+  mamat = fill(Inf, flen, length(mus)); # in id order
+  _mahaposition!(mamat, mus, fs, mudistances, 1:flen);
 
   fbools = sum(fs[mus]) .> 0; # valid fs for treated obs
-  _rankmatches!(ranks, fbools, mamat);
+  _rankmatches!(ranks, mus, fbools, mamat);
   
   return tob
 end
 
-function _mahaposition!(mamat, fs, mudistances, Φ)
+function _mahaposition!(mamat, mus, fs, mudistances, Φ)
   
   mcnt = 0
   for (m, mu) in enumerate(mus) # matchunit by matchunit
@@ -41,7 +41,7 @@ function _mahaposition!(mamat, fs, mudistances, Φ)
   return mamat
 end
 
-function _rankmatches!(ranks, fbools, mamat)
+function _rankmatches!(ranks, mus, fbools, mamat)
   for (φ, (fbool, ec)) in enumerate(zip(fbools, eachrow(mamat)))
     if fbool
       # in-place ranking

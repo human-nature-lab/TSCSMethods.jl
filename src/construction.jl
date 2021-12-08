@@ -11,7 +11,7 @@ function makemodel(
   observations, ids = observe(dat[!, t], dat[!, id], dat[!, treatment]);
   
   # tobs = make_tobsvec(length(observations), length(ids));
-  tobs = make_matches(length(observations), length(ids));
+  tobs = make_matches(length(observations), length(ids), length(F));
 
   return CIC(
     title = title,

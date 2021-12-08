@@ -6,20 +6,20 @@ model object
 MatchDist = Vector{Vector{Vector{Float64}}} # = Vector{Vector{Vector{Float64}}}
 
 @with_kw struct Tob
-  mus::Vector{Bool}
+  mus::Matrix{Bool}
   fs::Vector{Vector{Bool}}
   mudistances::MatchDist = MatchDist()
   ranks::Dict{Int, SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{Int64}}, false}}
 end
 
 @with_kw struct TobC
-  mus::Vector{Bool}
+  mus::Matrix{Bool}
   fs::Vector{Vector{Bool}}
   ranks::Dict{Int, SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{Int64}}, false}}
 end
 
 @with_kw struct TobR
-  mus::Vector{Bool}
+  mus::Matrix{Bool}
   fs::Vector{Vector{Bool}}
 end
 
