@@ -4,7 +4,11 @@ module tscsmethods
 
   include("types.jl")
   include("construction.jl")
-  include("matching.jl")
+  include("matching_setup.jl")
+  include("makegroup_indices.jl")
+  include("getmatches!.jl")
+  include("distancing.jl")
+  include("match!.jl")
   include("ranking.jl")
   include("caliper.jl")
   include("balancing.jl")
