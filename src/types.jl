@@ -8,7 +8,7 @@ MatchDist = Vector{Vector{Vector{Float64}}} # = Vector{Vector{Vector{Float64}}}
 @with_kw struct Tob
   mus::Matrix{Bool}
   fs::Vector{Vector{Bool}}
-  distances::Matrix{Vector{Float64}} = Matrix{Vector{Float64}}(undef, 0, 0)
+  distances::Vector{Matrix{Float64}} = Vector{Matrix{Float64}}(undef, 0)
   ranks::Dict{Int, SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{Int64}}, false}}
 end
 

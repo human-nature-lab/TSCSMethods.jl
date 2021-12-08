@@ -9,7 +9,7 @@ function rank!(matches, flen)
 end
 
 function rankmatches!(tob, flen)
-  @unpack mus, fs, mudistances, ranks = tob;
+  @unpack mus, fs, distances, ranks = tob;
 
   mamat = fill(Inf, flen, length(mus)); # in id order
   _mahaposition!(mamat, mus, fs, mudistances, 1:flen);

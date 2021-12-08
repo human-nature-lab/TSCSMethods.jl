@@ -1,29 +1,38 @@
 ## distancing.jl
 
-import tscsmethods:@set,MatchDist
-
-function distance_allocate!(matches, ids, covnum)
+function distances_allocate!(matches, covnum)
   Threads.@threads for i in eachindex(matches)
   # for (i, tob) in enumerate(tobsvec)
+    
     tob = @views matches[i];
     
     # at least one f is valid
     valids = vec(sum(tob.mus, dims = 2) .> 0);
 
-    distances = Matrix{Vector{Float64}}(undef, flen, sum(valids));
-    validmus = permutedims(tob.mus[valids, :]);
+    matches[i] = @set tob.distances = [
+      fill(Inf, flen, sum(valids)) for _ in 1:covnum + 1
+    ];
 
-    for (s, e) in enumerate(validmus)
-      if e
-        distances[s] = Vector{Float64}(undef, covnum + 1);
-      end
-    end
+    # matches[i] = @set tob.distances = Vector{Matrix{Float64}}(
+    #   undef, flen, sum(valids)
+    # );
+    # validmus = permutedims(tob.mus[valids, :]);
 
-    # matches[i] = @set tob.mudistances = MatchDist(undef, sum(valids));
+    # _distances_allocate!(matches[i].distances, validmus, covnum)
     
+    # matches[i] = @set tob.mudistances = MatchDist(undef, sum(valids));
     # fill_mudists!(tobsvec[i].mudistances, emus, efsets, covnum);
   end
   return distances
+end
+
+function _distances_allocate!(matches_i_distances, validmus, covnum)
+  for (s, e) in enumerate(validmus)
+    if e
+      matches_i_distances[s] = Vector{Float64}(undef, covnum + 1);
+    end
+  end
+  return matches_i_distances[s]
 end
 
 function getassigned(mus, fs)
@@ -93,18 +102,18 @@ function matchassignments(tobsi, ids; returnefsets = true)
   end
 end
 
-function _distances!(
-  tobs, observations, ids,
+function distances_calculate!(
+  matches, observations, ids,
   tg, rg, fmin, mmin, mmax, Σinvdict
 )
   @inbounds Threads.@threads for i in eachindex(observations)
     ob = observations[i];
 
-    @unpack mus, distances = tobs[i]
+    @unpack mus, distances = matches[i];
 
     valids = vec(sum(mus, dims = 2) .> 0);
     validunits = @views ids[valids];
-    validmus = permutedims(mus[valids, :]);
+    validmus = @views mus[valids, :];
 
     if length(validunits) == 0
       continue
@@ -114,15 +123,16 @@ function _distances!(
     γrs = eachrow(tg[ob]);
     γtimes = rg[ob];
     mahas = Vector{Float64}(undef, length(γtimes));
+
     distantiate!(
       eachcol(distances), mahas,
-      eachcol(validmus), validunits,
+      eachrow(validmus), validunits,
       ob[1], Σinvdict,
       γcs, γrs, γtimes, tg,
       fmin, mmin, mmax
     );
   end
-  return tobs
+  return matches
 end
 
 # match distances
@@ -155,10 +165,8 @@ function distantiate!(
 
   end
 
-  return mudists
+  return distancescols
 end
-
-import tscsmethods:mahadistancing!,matchwindow,mahaveraging
 
 function __distantiate!(
   distancescol,
@@ -184,7 +192,7 @@ function __distantiate!(
     end
   end
 
-  return distances
+  return distancescol
 end
 
 function mahadistancing(Σinvdict, xrows, yrows, T, fw)

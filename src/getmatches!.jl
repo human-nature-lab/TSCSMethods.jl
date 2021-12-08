@@ -48,7 +48,7 @@ function obsmatches!(mus, rg, trtg, uid, tt, tu, fmin, fmax)
       end
     end
   end
-  return tobs
+  return mus
 end
 
 """
