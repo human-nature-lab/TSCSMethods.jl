@@ -201,7 +201,7 @@ function _refine(model, refinementnum)
   
   # new objects
   tobscr = Vector{TobR}(undef, length(observations));
-  _refine_assign!(tobscr, matches, refinementnum, idlen, length(F));
+  _refine_assign!(tobscr, matches, refinementnum, length(ids), length(F));
 
   return tobscr
 end

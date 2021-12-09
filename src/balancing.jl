@@ -9,32 +9,34 @@ outputs dict[t-l, covariate] where t-l is l days prior to the treatment
 """
 function std_treated(model::AbstractCICModel, dat::DataFrame)
 
-  trtobs = unique(dat[dat[!, model.treatment] .== 1, [model.t, model.id]])
-  sort!(trtobs, [model.t, model.id])
+  @unpack treatment, t, id, F, L, covariates = model;
+
+  trtobs = unique(dat[dat[!, treatment] .== 1, [t, id]])
+  sort!(trtobs, [t, id])
   idx = Int[];
   L = Int[];
 
-  mmin = model.L[begin]
-  fmax = model.F[end]
+  mmin = L[begin]
+  fmax = F[end]
 
   for i in 1:nrow(trtobs)
     to = trtobs[i, :]
 
-    c1 = dat[!, model.id] .== to[2];
-    ct = (dat[!, model.t] .>= (to[1] - 1 + mmin)) .& (dat[!, model.t] .<= to[1] + fmax);
+    c1 = dat[!, id] .== to[2];
+    ct = (dat[!, t] .>= (to[1] - 1 + mmin)) .& (dat[!, t] .<= to[1] + fmax);
 
     append!(idx, findall((c1 .& ct)))
-    append!(L, dat[c1 .& ct, model.t] .- to[1]) # L relative to tt, not the actual time
+    append!(L, dat[c1 .& ct, t] .- to[1]) # L relative to tt, not the actual time
   end
 
-  allvals = @view dat[idx, model.covariates];
+  allvals = @view dat[idx, covariates];
 
   Lset = unique(L);
   Lstd = zeros(Float64, length(Lset));
   Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
   for l in Lset
     lvals = @view allvals[L .== l, :]
-    for covar in model.covariates
+    for covar in covariates
       Lstd[(l, covar)] = inv(std(lvals[!, covar]; corrected = true))
     end
   end
@@ -43,6 +45,11 @@ end
 
 ### setup meanbalances
 
+"""
+    allocate_meanbalances!(model)
+
+Prepare the meanbalances DataFrame for a model. Meanbalances has number of rows == observations.
+"""
 function allocate_meanbalances!(model)
 
   @unpack observations, matches, ids, meanbalances = model;
@@ -71,29 +78,30 @@ function allocate_meanbalances!(model)
   end
 
   _fill_meanbalances!(
-    meanbalances, matches, ids, Len, covariates, timevary, Flen
+    meanbalances, matches, Len, covariates, timevary, Flen
   );
 
   return model
 end
 
-function getfunion!(funion, efsets)
-  for j in 1:length(funion)
-    funion[j] = any([efset[j] for efset in efsets])
+function getfunion!(funion, matches_i_mus)
+  for j in 1:Flen
+    funion[j] = any(matches_i_mus[:, j])
   end
 end
 
 function _fill_meanbalances!(
-  meanbalances, matches, ids, Len, covariates, timevary, Flen
+  meanbalances, matches, Len, covariates, timevary, Flen
 )
-  
+
+  # (i, balrw) = collect(enumerate(eachrow(meanbalances)))[1]
+
   for (i, balrw) in enumerate(eachrow(meanbalances))
-    emus, efsets = matchassignments(matches[i], ids);
-    # we want to create a vector for f, so long as at least one match unit allows it
     
-    balrw[:fs] = Vector{Bool}(undef, Flen);    
-    getfunion!(balrw[:fs], efsets)
-    fpresent = sum(balrw[:fs])
+    # we want to create a vector for f, so long as at least one match unit allows it
+    balrw[:fs] = Vector{Bool}(undef, Flen);
+    getfunion!(balrw[:fs], matches[i].mus);
+    fpresent = sum(balrw[:fs]);
   
     __fill_meanbalances!(
       balrw, fpresent, Len, covariates, timevary
@@ -113,46 +121,6 @@ function __fill_meanbalances!(
     end
   end
   return balrw
-end
-
-"""
-    meanbalance!(model)
-
-Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
-"""
-function meanbalance!(model::AbstractCICModel, dat)
-
-  @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
-  @unpack t, id, treatment = model;
-  @unpack F, L, reference = model;
-
-  fmin = minimum(F); fmax = maximum(F)
-  mmin = minimum(L); mmax = maximum(L);
-
-  tmin = minimum(dat[!, t]);
-  
-  allocate_meanbalances!(model);
-  Lσ = std_treated(model, dat);
-
-  tg, rg, _ = make_groupindices(
-    dat[!, t], dat[!, treatment],
-    dat[!, id], ids,
-    fmin, fmax, mmin,
-    Matrix(dat[!, covariates]);
-  );
-
-  _meanbalance!(
-    meanbalances,
-    observations,
-    matches,
-    ids,
-    F, mmin, mmax,
-    tg, rg,
-    covariates, timevary,
-    reference, Lσ, tmin
-  );
-
-  return model
 end
 
 """
