@@ -251,7 +251,7 @@ function _meanbalance!(
     _addmatches!(
       balrw, tt, Ys, Yt, ids, eachrow(mus),
       Lσ, covariates, timevary,
-      reference, fmin, mmin, mmax,
+      reference, minimum(F), mmin, mmax,
       tg, tmin
     );
 
