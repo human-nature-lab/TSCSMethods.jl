@@ -141,17 +141,6 @@ function Mprep(model)
   return M
 end
 
-function get_anymus!(anymus, mus)
-  for (i, r) in enumerate(eachrow(mus))
-    if any(r)
-      anymus[i] = true
-    else 
-      anymus[i] = false
-    end
-  end
-  return anymus
-end
-
 function Mloop!(M, Mt, observations, matches, ids, Flen)
   for i in eachindex(observations)
     @unpack mus = matches[i]
@@ -183,6 +172,17 @@ function Mloop!(M, Mt, observations, matches, ids, Flen)
     );
   end  
   return M, Mt
+end
+
+function get_anymus!(anymus, mus)
+  for (i, r) in enumerate(eachrow(mus))
+    if any(r)
+      anymus[i] = true
+    else 
+      anymus[i] = false
+    end
+  end
+  return anymus
 end
 
 function Mprocess(Mt, F, Fmin)
