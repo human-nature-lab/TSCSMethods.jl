@@ -12,6 +12,7 @@ module tscsmethods
   include("ranking.jl")
   include("caliper.jl")
   include("balancing.jl")
+  include("estimation_observationweights.jl")
   include("estimation.jl")
   include("stratification.jl")
   include("refine.jl")
