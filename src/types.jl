@@ -10,18 +10,18 @@ MatchDist = Vector{Vector{Vector{Float64}}} # = Vector{Vector{Vector{Float64}}}
   fs::Vector{Vector{Bool}}
   distances::Vector{Matrix{Float64}} = Vector{Matrix{Float64}}(undef, 0)
   # ranks::Dict{Int, SubArray{Bool, 1, Matrix{Bool}, Tuple{Vector{Int64}, Int64}, false}}
-  ranks::Vector{Int}
+  ranks::Dict{Int, Vector{Int}}
 end
 
 @with_kw struct TobC
   mus::Matrix{Bool}
   fs::Vector{Vector{Bool}}
-  ranks::Vector{Int}
+  ranks::Dict{Int, Vector{Int}}
 end
 
 @with_kw struct TobR
   mus::Matrix{Bool}
-  fs::Vector{Vector{Bool}}
+  ranks::Dict{Int, Vector{Int}}
 end
 
 # Vector{Vector{MVector{C}{Float64}}}([[[1],[1]],[[1],[1]]])

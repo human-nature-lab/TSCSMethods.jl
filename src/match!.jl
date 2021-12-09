@@ -12,6 +12,8 @@ import tscsmethods:distantiate!,__distantiate!,caldistancing
 
 import tscsmethods:rank!,rankmatches!,_rankmatches!
 
+import tscsmethods:TobR
+
 """
     match!(cic::cicmodel, dat::DataFrame)
   

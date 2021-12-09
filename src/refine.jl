@@ -196,24 +196,25 @@ end
 
 # mechanics
 
-function refinesetup!(tobscr, idlen)
-  for i in eachindex(tobscr)
-    # positions
-    tobscr[i] = TobR(
-      mus = fill(false, idlen),
-      fs = Vector{Vector{Bool}}(undef, idlen)
-    )
-  end
-  return tobscr
-end
 
 function _refine(model, refinementnum)
   @unpack observations, matches, ids, F = model;
   flen = length(F);
   
   tobscr = Vector{TobR}(undef, length(observations));
-  refinesetup!(tobscr, length(ids));
+  refinesetup!(tobscr, length(ids), flen);
   _refine!(tobscr, matches, flen, refinementnum)
+  return tobscr
+end
+
+function refinesetup!(tobscr, idlen, flen)
+  for i in eachindex(tobscr)
+    # positions
+    tobscr[i] = TobR(
+      mus = fill(false, idlen, flen),
+      fs = Vector{Vector{Bool}}(undef, idlen)
+    )
+  end
   return tobscr
 end
 
