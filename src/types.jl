@@ -21,7 +21,6 @@ end
 
 @with_kw struct TobR
   mus::Matrix{Bool}
-  ranks::Dict{Int, Vector{Int}}
 end
 
 # Vector{Vector{MVector{C}{Float64}}}([[[1],[1]],[[1],[1]]])

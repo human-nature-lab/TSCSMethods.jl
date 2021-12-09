@@ -23,38 +23,17 @@ function rankmatches!(tob, flen)
 
   _rankmatches!(
     ranks, fbools,
-    eachrow(mamat), eachcol(mus)
+    eachrow(mamat),
   );
   
   return tob
 end
 
-function _mahaposition!(mamat, mus, fs, mudistances, Φ)
-
-  mcnt = 0
-  for (m, mu) in enumerate(mus) # matchunit by matchunit
-    if mu
-      mcnt += 1 # index mudistances
-
-      fsm = @views fs[m];
-
-      φcnt = 0
-      for (φ, fb) in enumerate(fsm)
-        if fb
-          φcnt += 1
-          mamat[φ, m] = mudistances[mcnt][φcnt][1] # maha distance at 1
-        end
-      end
-    end
-  end
-  return mamat
-end
-
-function _rankmatches!(ranks, fbools, mamatc, musc)
+function _rankmatches!(ranks, fbools, mamatc)
 
   # (φ, (fbool, ec, mc)) = collect(enumerate(zip(fbools, mamatc, musc)))[1]
 
-  for (φ, (fbool, ec, mc)) in enumerate(zip(fbools, mamatc, musc))
+  for (φ, (fbool, ec)) in enumerate(zip(fbools, mamatc))
     if fbool
       # in-place ranking
       # ranks[φ] = StatsBase.ordinalrank(ec);
@@ -64,10 +43,13 @@ function _rankmatches!(ranks, fbools, mamatc, musc)
       # and make it such that we get the mu elements in ranked order
       # by simple indexing:
       # ranks[φ] = @views mc[sortperm(ec)];
-      ranks[φ] = sortperm(ec);
+  
+      # give indices based on ids
+      # only give valid ones
+      ranks[φ] = sortperm(ec)[1:findfirst(isinf.(ec[sortperm(ec)]))-1]
 
       # remove impossible mus (for that f)
-      ranks[φ][findfirst(isinf.(ec[sortperm(ec)])):end] .= 0
+      # ranks[φ][findfirst(isinf.(ec[sortperm(ec)])):end] .= 0
         # Inf values should never be used, in any model
       # example refinement application:
       # ormus[1+5:end] .= 0

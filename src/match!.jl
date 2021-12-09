@@ -12,7 +12,7 @@ import tscsmethods:distantiate!,__distantiate!,caldistancing
 
 import tscsmethods:rank!,rankmatches!,_rankmatches!
 
-import tscsmethods:TobR
+import tscsmethods:TobR,refinesetup!
 
 """
     match!(cic::cicmodel, dat::DataFrame)
@@ -69,7 +69,7 @@ function match!(model::AbstractCICModel, dat)
     matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
   );
 
-  rank!(matches, flen);
+  @time rank!(matches, flen);
 
   return model
 end
