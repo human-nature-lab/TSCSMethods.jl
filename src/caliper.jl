@@ -47,7 +47,7 @@ function caliper(model::CICStratified, acaliper, dat; dobalance = true)
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels = model;
 
-  @unpack stratifier, strata = model
+  @unpack stratifier, strata = model;
 
   tobscr = calipermatches(model, acaliper);
 
@@ -91,6 +91,19 @@ end
 
 # mechanics
 
+function calipermatches(model, acaliper)
+  @unpack observations, matches, covariates = model;
+
+  calipers = calipervars(acaliper, covariates);
+
+  tobscr = Vector{TobC}(undef, length(observations));
+  _fillcal!(tobscr, matches);
+
+  _caliper!(tobscr, matches, calipers);
+
+  return tobscr
+end
+
 function calipervars(caliper, covariates)
   calipers = fill(Inf, length(covariates)+1);
   for (c, covar) in enumerate(vcat(:Mahalanobis, covariates))
@@ -99,78 +112,57 @@ function calipervars(caliper, covariates)
   return calipers
 end
 
-function calipermatches(model, acaliper)
-  @unpack observations, matches, covariates, F = model;
-
-  calipers = calipervars(acaliper, covariates);
-
-  tobscr = Vector{TobC}(undef, length(observations));
-  _caliper!(tobscr, matches, calipers, length(F))
-
-  return tobscr
-end
-
-function _caliper!(tobscr, matches, calipers, flen)
+function _fillcal!(tobscr, matches)
   Threads.@threads for i in eachindex(matches)
     tob = @views matches[i]
-    @unpack mus, fs, mudistances, ranks = tob;
+    @unpack fs, mus, distances, ranks = tob;
 
-    tobcr = TobC(
+    tobscr[i] = TobC(
       deepcopy(mus),
       deepcopy(fs),
-      Dict{Int, Vector{Int}}()
+      deepcopy(ranks)
     );
-    tobcr.fs[mus] = tobcr.fs[mus] .* 0;
-      # make zero, and fill in explicitly, rather than rely on default
-    calipertobs!(tobcr, mus, fs, mudistances, calipers);
-    if !(sum(tobcr.mus) == 0)
-      tobscr[i] = tobcr;
-      tobcr.mus
-      
-      for φ in 1:flen
-        # tobcr.mus[mus][tobcr.mus[mus]]
-        # this should convert the indices
-        # tobcr.mus[mus] sends tobcr (calipered) to coords in space of original
-        # model true mus. Then, we get only the true ones in that space
-        # to get the ranks that are left
-        tobcr.ranks[φ] = tob.ranks[φ][tobcr.mus[mus]] # mu[mu] order
-        # sorting is preserved, with rejects removed
-      end
-    end
   end
   return tobscr
 end
 
-function calipertobs!(tobcr, mus, fs, mudistances, calipers)
-  cnt = 0
-  for (m, mu) in enumerate(mus)
-    if mu
-      fsmu = @views fs[m]
-      cnt += 1
-      cntfs = 0
-      for (φ, fb) in enumerate(fsmu)
-        if fb
-          cntfs += 1
-          dists = mudistances[cnt][cntfs] # an f for an mu
-          tobcr.fs[m][φ] = allowcheck(calipers, dists)
-        end
-      end
-      if !any(tobcr.fs[m])
-        # if no fs are true, knock the whole match unit out
-        tobcr.mus[m] = false
-      end
-    end
-  end
+function _caliper!(tobscr, matches, calipers)
   
-  return tobcr
+  Threads.@threads for m in eachindex(tobscr)
+
+    tob = @views tobscr[m];
+    @unpack distances = @views matches[m];
+
+    @unpack mus, ranks = tob;
+
+    anymus = Vector{Bool}(undef, size(mus)[1]);
+    get_anymus!(anymus, mus);
+    validmus = @views mus[anymus, :];
+
+    _inner_caliper!(validmus, distances, calipers);
+    rerank!(ranks, mus)
+
+  end
 end
 
-function allowcheck(calipers, dists)
-  for c in 1:length(calipers)
-    if abs(dists[c]) > calipers[c]
-      # change correct fs in tobCR to false
-      return false
+function _inner_caliper!(validmus, distances, calipers)
+  for i in 1:size(distances[1])[1]
+    for j in 1:size(distances[1])[2]
+      if validmus[j, i]
+        for k in 1:length(calipers)
+          if abs(distances[k][i, j]) > calipers[k]
+            validmus[j, i] = false
+          end
+        end
+      end
     end
   end
-  return true
+  return validmus
+end
+
+function rerank!(ranks, mus)
+  for key in keys(ranks)
+    ranks[key] = ranks[key][mus[:, key][ranks[key]]]
+  end
+  return ranks
 end
