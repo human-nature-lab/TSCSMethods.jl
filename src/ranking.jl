@@ -52,7 +52,7 @@ end
 
 function _rankmatches!(ranks, fbools, mamatc, musc)
 
-  (φ, (fbool, ec, mc)) = collect(enumerate(zip(fbools, mamatc, musc)))[1]
+  # (φ, (fbool, ec, mc)) = collect(enumerate(zip(fbools, mamatc, musc)))[1]
 
   for (φ, (fbool, ec, mc)) in enumerate(zip(fbools, mamatc, musc))
     if fbool
@@ -63,7 +63,8 @@ function _rankmatches!(ranks, fbools, mamatc, musc)
       # really, we want to be able to shut off the mus easily
       # and make it such that we get the mu elements in ranked order
       # by simple indexing:
-      ranks[φ] = @views mc[sortperm(ec)];
+      # ranks[φ] = @views mc[sortperm(ec)];
+      ranks[φ] = sortperm(ec);
 
       # remove impossible mus (for that f)
       ranks[φ][findfirst(isinf.(ec[sortperm(ec)])):end] .= 0

@@ -10,6 +10,8 @@ import tscsmethods:mahadistancing!,matchwindow,mahaveraging
 
 import tscsmethods:distantiate!,__distantiate!,caldistancing
 
+import tscsmethods:rank!,rankmatches!,_rankmatches!
+
 """
     match!(cic::cicmodel, dat::DataFrame)
   
@@ -65,7 +67,7 @@ function match!(model::AbstractCICModel, dat)
     matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
   );
 
-  rank!(matches, flen)
+  rank!(matches, flen);
 
   return model
 end
