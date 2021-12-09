@@ -196,52 +196,27 @@ end
 
 # mechanics
 
-
 function _refine(model, refinementnum)
   @unpack observations, matches, ids, F = model;
-  flen = length(F);
   
+  # new objects
   tobscr = Vector{TobR}(undef, length(observations));
-  refinesetup!(tobscr, length(ids), flen);
-  _refine!(tobscr, matches, flen, refinementnum)
+  _refine_assign!(tobscr, matches, refinementnum, idlen, length(F));
+
   return tobscr
 end
 
-function refinesetup!(tobscr, idlen, flen)
-  for i in eachindex(tobscr)
-    # positions
+function _refine_assign!(tobscr, matches, refinementnum, idlen, flen)
+  Threads.@threads for i in eachindex(tobscr)
     tobscr[i] = TobR(
-      mus = fill(false, idlen, flen),
-      fs = Vector{Vector{Bool}}(undef, idlen)
+      mus = fill(false, idlen, flen)
     )
-  end
-  return tobscr
-end
-
-function _refine!(tobscr, matches, flen, refinementnum)
-  Threads.@threads for i in eachindex(matches)
-    @unpack ranks = matches[i];
-    @unpack mus, fs = tobscr[i];
-    refinetob!(mus, fs, ranks, 1:flen, refinementnum)
-  end
-  return tobscr
-end
-
-function refinetob!(mus, fs, ranks, Φ, refinementnum)
-  for φ in Φ
-    # the caliper may have left fewer than refinementnum matches
-    for r in 1:min(refinementnum, length(ranks[φ]))
-      m = ranks[φ][r]
-      as = isassigned(fs, m);
-      if !as
-        fs[m] = fill(false, length(Φ))
+    for φ in 1:flen
+      for n in 1:refinementnum
+        idx = matches[i].ranks[φ][n]
+        tobscr[i].mus[idx, φ] = 1
       end
-      # why are we using empty fs?
-      # b/c the ranks encode all the needed info already
-      # all we need to do is reconstruct according to
-      # rank info
-      fs[m][φ] = true
-      mus[m] = true
     end
   end
+  return tobscr
 end

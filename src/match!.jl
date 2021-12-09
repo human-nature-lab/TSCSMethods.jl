@@ -1,19 +1,5 @@
 # match!.jl
 
-import tscsmethods:@unpack,make_groupindices
-import tscsmethods:getmatches!,distances_allocate!,distances_calculate!
-import tscsmethods:samplecovar,rank!,obsmatches!,make_groupindices
-
-import tscsmethods:@set,MatchDist,@unpack
-
-import tscsmethods:mahadistancing!,matchwindow,mahaveraging
-
-import tscsmethods:distantiate!,__distantiate!,caldistancing
-
-import tscsmethods:rank!,rankmatches!,_rankmatches!
-
-import tscsmethods:TobR,refinesetup!
-
 """
     match!(cic::cicmodel, dat::DataFrame)
   
@@ -30,10 +16,6 @@ function match!(model::AbstractCICModel, dat)
   covnum = length(covariates);
 
   cdat = Matrix(dat[!, covariates]);
-  
-  # model = allocate_matches!(observations, ids)
-  #   0.030003 seconds (17.26 k allocations: 68.326 MiB)
-  #   2.460215 seconds (17.26 k allocations: 68.326 MiB, 99.39% gc time)
 
   tg, rg, trtg = make_groupindices(
     dat[!, t], dat[!, treatment],
@@ -55,21 +37,18 @@ function match!(model::AbstractCICModel, dat)
     rg, trtg, ids, fmin, fmax
   );
 
-  # distance prealloation
-  # probably largest bottleneck
   distances_allocate!(matches, flen, covnum);
 
-  # tobsvec[1].mudistances[1]
   Σinvdict = samplecovar(dat, covariates, t, id, treatment);
   
   GC.gc();
 
   # 193.266173 seconds (2.17 G allocations: 677.980 GiB, 59.13% gc time, 0.01% compilation time)
-  @time distances_calculate!(
+  distances_calculate!(
     matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
   );
 
-  @time rank!(matches, flen);
+  rank!(matches, flen);
 
   return model
 end
