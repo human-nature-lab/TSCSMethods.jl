@@ -206,8 +206,9 @@ function _meanbalance!(
   reference, Lσ, tmin
 )
 
+  # for i in eachindex(observations)
   @inbounds Threads.@threads for i in eachindex(observations)
-
+  
     matches_i = @views matches[i]
     @unpack mus = matches_i;
 
@@ -277,10 +278,11 @@ function _addmatches!(
   tg, tmin
 )
 
-  # murow = collect(eachrow(mus))[1];
+  # musrows = eachrow(mus)
+  # (m, murow) = collect(enumerate(musrows))[229];
   for (m, murow) in enumerate(musrows)
     if any(murow)
-      mu = ids[m] # matches[1].mus
+      mu = ids[m]; # matches[1].mus
       Xs = eachcol(tg[(tt, mu)]);
 
       # cnt: since φ will track 1:31, and we will have only those that exist 
@@ -317,25 +319,26 @@ function addmatch_f!(
   tt, covar, timevary, reference,
   fmin, mmin, mmax, tmin
 )
-
+  fbcnt = 0 # index balrwc, since it will only have vectors for included fs
   for (φ, fb) in enumerate(murow)
     # ANOTHER COUNTING/INDEXING ISSUE
     # we restrict to the cases where there is at least one f, so we need to index accordingly
     # efs[bwpres] is the correct object to index
     
     if fb
+      fbcnt += 1
       fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
       fwadjustment = minimum(fw) < tmin ? abs(minimum(fw)) : 0;
       if timevary[covar]
         _timevarybalance!(
-          balrwc[φ], # mcounts[c][φ],
+          balrwc[fbcnt], # mcounts[c][φ],
           Y, X, Yt, fw, Lσ, tt, covar, fwadjustment
         )
       else
-        if ismissing(balrwc[φ])
-          balrwc[φ] = 0.0
+        if ismissing(balrwc[fbcnt])
+          balrwc[fbcnt] = 0.0
         else
-          balrwc[φ] += (Y[1] - X[1]) * Lσ[reference, covar]
+          balrwc[fbcnt] += (Y[1] - X[1]) * Lσ[reference, covar]
         end
         continue
       end
