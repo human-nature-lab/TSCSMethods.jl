@@ -147,7 +147,7 @@ function variablestrat(
     
   elseif varystrat # do at time of treatment
     
-    X = sort(quantile(@views(dat[c1, var])));
+    X = sort(quantile(@views(dat[c1, stratifier])));
     Xlen = length(X);
 
     udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
@@ -159,14 +159,14 @@ function variablestrat(
     end
     
     if zerosep
-      c2 = dat[:, var] .> 0;
-      X = sort(quantile(@views(dat[c2 .& c1, var])));
+      c2 = dat[:, stratifier] .> 0;
+      X = sort(quantile(@views(dat[c2 .& c1, stratifier])));
       zs = 1;
     end
 
     for (i, ob) in enumerate(observations)
       obval = get(udict, ob, 0)
-      strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
+      strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen)  + zs : Xlen + zs
     end
     
   end
