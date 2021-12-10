@@ -113,6 +113,10 @@ function autobalance(
     for c in covariates
       acaliper[c] = 1.0
     end
+
+    if verbose
+      println(acaliper)
+    end
   end
 
   calmodel = caliper(model, acaliper, dat; dobalance = false);

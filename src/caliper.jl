@@ -8,8 +8,8 @@ function caliper(model::CIC, acaliper, dat; dobalance = true)
 
   tobscr = calipermatches(model, acaliper);
 
-  # only include observations that have matches post-caliper
-  obsleft = [isassigned(tobscr, i) for i in 1:length(tobscr)];
+  obsleft = Vector{Bool}(undef, length(tobscr));
+  get_observations_left!(obsleft, tobscr);
 
   modelcal = CaliperCIC(
     title = title,
@@ -51,8 +51,8 @@ function caliper(model::CICStratified, acaliper, dat; dobalance = true)
 
   tobscr = calipermatches(model, acaliper);
 
-  # only include observations that have matches post-caliper
-  obsleft = [isassigned(tobscr, i) for i in 1:length(tobscr)];
+  obsleft = Vector{Bool}(undef, length(tobscr));
+  get_observations_left!(obsleft, tobscr);
 
   modelcal = CaliperCICStratified(
     title = title,
@@ -87,6 +87,14 @@ function caliper(model::CICStratified, acaliper, dat; dobalance = true)
   end
 
   return modelcal
+end
+
+function get_observations_left!(obsleft, tobscr)
+  # only include observations that have matches post-caliper
+  for (i, e) in enumerate(tobscr)
+    obsleft[i] = sum(e.mus) > 0
+  end
+  return obsleft
 end
 
 # mechanics

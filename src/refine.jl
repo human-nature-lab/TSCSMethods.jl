@@ -46,6 +46,8 @@ function refine(
   return modelref
 end
 
+# import tscsmethods:_refine,RefinedCaliperCICStratified,@unpack,meanbalance!,grandbalance!,TobR
+
 function refine(
   model::CICStratified, dat;
   refinementnum = 5, dobalance = true, doestimate = true
@@ -212,9 +214,12 @@ function _refine_assign!(tobscr, matches, refinementnum, idlen, flen)
       mus = fill(false, idlen, flen)
     )
     for φ in 1:flen
-      for n in 1:refinementnum
-        idx = matches[i].ranks[φ][n]
-        tobscr[i].mus[idx, φ] = 1
+      rlen = length(matches[i].ranks[φ])
+      if rlen > 0
+        for n in 1:min(refinementnum, rlen)
+          idx = matches[i].ranks[φ][n]
+          tobscr[i].mus[idx, φ] = true
+        end
       end
     end
   end
