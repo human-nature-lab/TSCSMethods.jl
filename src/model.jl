@@ -92,6 +92,22 @@ function modelrecord(model::CICStratified)
   )
 end
 
+function modelrecord(model::RefinedCICStratified)
+
+  @unpack title, id, t, outcome, treatment, covariates, reference, F, L, observations, ids, grandbalances, iterations, results, treatednum, estimator, stratifier, strata, labels, refinementnum = model
+
+  return ModelRecord(
+    title = title, id = id, t = t, outcome = outcome,
+    treatment = treatment,
+    covariates = covariates, reference = reference,
+    F = F, L = L, observations = observations, ids = ids,
+    grandbalances = grandbalances, iterations = iterations,
+    results = results, treatednum = treatednum,
+    estimator = estimator, refinementnumber = refinementnum,
+    stratifier = stratifier, strata = strata, labels = labels
+  )
+end
+
 function modelrecord(model::CaliperCICStratified)
 
   @unpack title, id, t, outcome, treatment, covariates, reference, F, L, observations, ids, grandbalances, iterations, results, treatednum, treatedleft, estimator, stratifier, strata, labels, caliper = model
