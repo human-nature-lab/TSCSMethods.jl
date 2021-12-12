@@ -125,7 +125,7 @@ function variablestrat(
   end
 
   if !varystrat
-    udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
+    udf = unique(@view(dat[c1, [id, t, stratifier]]), view = true);
     udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, stratifier])}();
     @eachrow udf begin
       udict[($(t), $(id))] = $stratifier
@@ -150,7 +150,7 @@ function variablestrat(
     X = sort(quantile(@views(dat[c1, stratifier])));
     Xlen = length(X);
 
-    udf = unique(@view(dat[c1, :]), [id, stratifier], view = true);
+    udf = unique(@view(dat[c1, [id, t, stratifier]]), view = true);
 
     # treatment events
     udict = Dict{Tuple{Int64, Int64}, eltype(udf[!, stratifier])}();
