@@ -205,12 +205,13 @@ function label_variablestrat(
   return labels
 end
 
+
 """
     combostrat(model, dat, vars::Vector{Symbol}; varslabs = nothing)
 
 Stratify based on the combinations of one or more variables that exist in the data. Strata are formed directly from the variable values.
 """
-function combostrat(model, dat, vars::Vector{Symbol}; varslabs = nothing)
+function combostrat(model, vars::Vector{Symbol}, dat; varslabs = nothing)
 
   ### example vars
   # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
@@ -224,7 +225,7 @@ function combostrat(model, dat, vars::Vector{Symbol}; varslabs = nothing)
   strata = Vector{Int}(undef, length(observations));
 
   c1 = dat[:, treatment] .== 1;
-  udf = unique(@view(dat[c1, :]), [t, id, vars...], view = true);
+  udf = unique(@view(dat[c1, [t, id, vars...]]), view = true);
   
   combos = Iterators.product([unique(udf[!, var]) for var in vars]...);
   
@@ -238,8 +239,7 @@ function combostrat(model, dat, vars::Vector{Symbol}; varslabs = nothing)
   end
   
   for (i, ob) in enumerate(observations)
-    obval = get(udict, ob, 0)
-    strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
+    strata[i] = get(udict, ob, 0)
   end
   
   stratathatexist = unique(strata);
