@@ -13,13 +13,13 @@ and append output
 Apply a stratification function, its arguments, to apply the stratification, calculate the stratified grandbalances, the treated observations in each group, and return the updated model with plot labels.
 """
 function stratify(
-  stratfunc::Function, model::CIC, args...; kwargs...
+  stratfunc::Function, model::CIC, args...; labels = nothing, kwargs...
 )
 
   strata, stratlabels, stratifier = stratfunc(model, args...; kwargs...)
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, meanbalances, iterations, estimator = model;
-
+  
   stratmodel = CICStratified(
     title = title,
     id = id,
@@ -41,7 +41,7 @@ function stratify(
     results = DataFrame(),
     treatednum = Dict{Int64, Int64}(), ##
     estimator = estimator,
-    labels = stratlabels
+    labels = !isnothing(labels) ? labels : stratlabels
   );
   
   if nrow(meanbalances) == 0
@@ -79,6 +79,8 @@ function customstrat(
 )
 
   @unpack observations = model;
+
+  strata = Vector{Int}(undef, length(observations));
 
   for (i, ob) in enumerate(observations)
     strata[i] = get(stratdict, ob, 0)
