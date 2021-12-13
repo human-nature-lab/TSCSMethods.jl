@@ -19,7 +19,7 @@ function stratify(
   strata, stratlabels, stratifier = stratfunc(model, args...; kwargs...)
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, meanbalances, iterations, estimator = model;
-  
+
   stratmodel = CICStratified(
     title = title,
     id = id,
@@ -205,6 +205,55 @@ function label_variablestrat(
   return labels
 end
 
+"""
+    combostrat(model, dat, vars::Vector{Symbol}; varslabs = nothing)
+
+Stratify based on the combinations of one or more variables that exist in the data. Strata are formed directly from the variable values.
+"""
+function combostrat(model, dat, vars::Vector{Symbol}; varslabs = nothing)
+
+  ### example vars
+  # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
+  # dat[!, :highinc] = dat[!, vn.mil] .>= tscsmethods.mean(dat[!, vn.mil]);
+
+  # vars = [:hightrump, :highinc]
+  ###
+
+  @unpack title, id, t, outcome, treatment, timevary, observations = model;
+
+  strata = Vector{Int}(undef, length(observations));
+
+  c1 = dat[:, treatment] .== 1;
+  udf = unique(@view(dat[c1, :]), [t, id, vars...], view = true);
+  
+  combos = Iterators.product([unique(udf[!, var]) for var in vars]...);
+  
+  stratmap = Dict(
+    reshape(collect(combos), length(combos)) .=> 1:length(combos)
+  );
+  
+  udict = Dict{Tuple{Int, Int}, Int}();
+  for r in eachrow(udf)
+    udict[(r[t], r[id])] = stratmap[(r[vars]...)]
+  end
+  
+  for (i, ob) in enumerate(observations)
+    obval = get(udict, ob, 0)
+    strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
+  end
+  
+  stratathatexist = unique(strata);
+
+  stratlabels = Dict{Int, String}();
+  for (k, v) in stratmap
+    if stratmap[k] ∈ stratathatexist
+      stratlabels[v] = combostratlab(vars, k, varslabs)
+    end
+  end
+  
+  return strata, stratlabels, combostratname(vars)
+end
+
 function combostratname(vars)
   varn = ""
   for (i, var) in enumerate(vars)
@@ -216,50 +265,6 @@ function combostratname(vars)
   end
   
   return Symbol(varn)
-end
-
-"""
-    combostrat!(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
-
-Stratify based on the combinations of one or more variables. Strata are formed directly from the variable values.
-"""
-function combostrat(cc, dat, vars::Vector{Symbol}; varslabs = nothing)
-
-  ### example vars
-  # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
-  # dat[!, :highinc] = dat[!, vn.mil] .>= tscsmethods.mean(dat[!, vn.mil]);
-
-  # vars = [:hightrump, :highinc]
-  ###
-  c1 = dat[:, cc.treatment] .== 1;
-  udf = unique(@view(dat[c1, :]), [cc.t, cc.id, vars...], view = true);
-  
-  combos = Iterators.product([unique(udf[!, var]) for var in vars]...);
-  
-  stratmap = Dict(
-    reshape(collect(combos), length(combos)) .=> 1:length(combos)
-  );
-  
-  udict = Dict{Tuple{Int, Int}, Int}();
-  for r in eachrow(udf)
-    udict[(r[cc.t], r[cc.id])] = stratmap[(r[vars]...)]
-  end
-  
-  for (i, ob) in enumerate(observations)
-    obval = get(udict, ob, 0)
-    strata[i] = !ismissing(obval) ? assignq(obval, X, Xlen) : Xlen
-  end
-  
-  stratathatexist = unique(cc.meanbalances.stratum);
-
-  stratlabels = Dict{Int, String}();
-  for (k, v) in stratmap
-    if stratmap[k] ∈ stratathatexist
-      stratlabels[v] = combostratlab(vars, k, varslabs)
-    end
-  end
-  
-  return strata, stratlabels. combostratname(vars)
 end
 
 function combostratlab(vars, k, varslabs)
