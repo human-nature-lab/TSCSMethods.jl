@@ -263,10 +263,6 @@ function bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
   return atts
 end
 
-# import tscsmethods:@unpack,observationweights,att!,nrow
-# using Accessors,DataFrames,DataFramesMeta
-# @reset calmodel.results = DataFrame()
-
 """
     estimate!(ccr::AbstractCICModel, dat; iterations = 500)
 
