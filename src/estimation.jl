@@ -161,26 +161,6 @@ function getcheckset(W, observations)
   return unique(checkset.units)
 end
 
-function _checkunits(units, samp)
-  for unit in units # at least one must be true
-    if unit ∈ samp # is the unit from a row of checkunitsets in the sample?
-      return true
-      break # if > 0 units are present, that row is satisfied by the sample
-    end
-  end
-  return false
-end
-
-function samplepass(checkunitsets, samp)
-  for units in checkunitsets
-    if !_checkunits(units, samp)
-      break
-      return false
-    end
-  end
-  return true
-end
-
 """
     sample_check(uid, luid, checkset, uslen)
 
@@ -194,6 +174,25 @@ function sample_check(uid, luid, unitsets)
   end
 
   return samp
+end
+
+function samplepass(checkunitsets, samp)
+  for units in checkunitsets
+    if !_checkunits(units, samp)
+      return false
+    end
+  end
+  return true
+end
+
+function _checkunits(units, samp)
+  for unit in units # at least one must be true
+    if unit ∈ samp # is the unit from a row of checkunitsets in the sample?
+      return true
+      # break # if > 0 units are present, that row is satisfied by the sample
+    end
+  end
+  return false
 end
 
 function _check(unitsets, samp)
@@ -210,6 +209,8 @@ function _check(unitsets, samp)
   end
   return true # all rows have a treated unit present
 end
+
+# hcat([units .∈ Ref(keys(reuid)) for units in checkunitsets], checkunitsets)
 
 """
     _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter)
@@ -262,8 +263,8 @@ function bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
   return atts
 end
 
-# import tscsmethods:@unpack,observationweights,att!,DataFrame,nrow
-# using Accessors
+# import tscsmethods:@unpack,observationweights,att!,nrow
+# using Accessors,DataFrames,DataFramesMeta
 # @reset calmodel.results = DataFrame()
 
 """
@@ -282,7 +283,7 @@ function estimate!(
     @reset model.iterations = iterations;
   end
 
-  @unpack observations, ids, results, iterations = model;
+  @unpack observations, ids, results, iterations = calmodel;
   
   c1 = (length(observations) == 0);
   c2 = sum([isassigned(observations, i) for i in 1:length(observations)]) == 0
@@ -290,10 +291,10 @@ function estimate!(
     return "There are no matches."
   end
 
-  W = observationweights(model, dat);
+  W = observationweights(calmodel, dat);
   results = att!(results, W);
-  if typeof(model) <: AbstractCICModelStratified
-    boots = bootstrap(W, ids, observations, model.strata; iter = iterations);
+  if typeof(calmodel) <: AbstractCICModelStratified
+    boots = tscsmethods.bootstrap(W, ids, observations, calmodel.strata; iter = iterations);
   else
     boots = bootstrap(W, ids, observations, nothing; iter = iterations);
   end
