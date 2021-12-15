@@ -283,7 +283,7 @@ function estimate!(
     @reset model.iterations = iterations;
   end
 
-  @unpack observations, ids, results, iterations = calmodel;
+  @unpack observations, ids, results, iterations = model;
   
   c1 = (length(observations) == 0);
   c2 = sum([isassigned(observations, i) for i in 1:length(observations)]) == 0
@@ -291,10 +291,10 @@ function estimate!(
     return "There are no matches."
   end
 
-  W = observationweights(calmodel, dat);
+  W = observationweights(model, dat);
   results = att!(results, W);
-  if typeof(calmodel) <: AbstractCICModelStratified
-    boots = tscsmethods.bootstrap(W, ids, observations, calmodel.strata; iter = iterations);
+  if typeof(model) <: AbstractCICModelStratified
+    boots = tscsmethods.bootstrap(W, ids, observations, model.strata; iter = iterations);
   else
     boots = bootstrap(W, ids, observations, nothing; iter = iterations);
   end
