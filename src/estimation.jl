@@ -58,7 +58,7 @@ function countmembinput!(itr, d)
   return d
 end
 
-function bootstrap(W, uid; iter = 500)
+function bootstrap(W, uid, observations, strata; iter = 500)
   # ADD TREAT EVE RESTRICTION MINIMUM?
   # >= one unit suffices
 
@@ -93,40 +93,72 @@ function bootstrap(W, uid; iter = 500)
   boots = zeros(Float64, flen, iter);
   # boots = zeros(Float64, iter, length(uf));
 
-  #=
-  if !(us == 1:uslen)
-    error("strata definition problem")
-  end
-  =#
-
   luid = length(uid);
-  if c1
-    cgroup = [:stratum, :f, :unit]
-    us = unique(uf.stratum);
-    uslen = length(us);
+  checkunitsets = if c1
+    getcheckset(W, observations, strata)
   else
-    cgroup = [:f, :unit]
-    uslen = 1
-  end
-  
-  # new checkset
-  checkunitsets = begin
-    checkset = @chain W[W.treatev, cgroup] begin
-      groupby(cgroup[1:end-1])
-      combine(
-        :unit => Ref ∘ unique => :units,
-      )
-    end
-    # unique since we don't need to check for unitsets that are redundant
-    # for each row, at least one unit (of that row) must exist in the sample
-    unique(checkset.units)
-    # this is the set of treated units, such that at least one from
-    # each row  must occur in the sample
+    getcheckset(W, observations)
   end
   
   _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter);
 
   return boots
+end
+
+function getcheckset(W, observations, strata)
+
+  cgroup = [:stratum, :f, :unit]
+  checkset = @chain W[W.treatev, cgroup] begin
+    groupby(cgroup[1:end-1])
+    combine(
+      :unit => Ref ∘ unique => :units,
+    )
+  end
+
+  # treated units left after caliper application
+  # we need at least one of these in the set
+  trtleft = Dict{Int, Vector{Int}}();
+  for s in unique(strata)
+    trtleft[s] = [ob[2] for ob in observations[strata .== s]]
+  end
+  
+  @eachrow! checkset begin
+    :units = intersect(:units, trtleft[:stratum])
+  end;
+
+  # unique since we don't need to check for unitsets that are redundant
+  # for each row, at least one unit (of that row) must exist in the sample
+
+  # this is the set of treated units, such that at least one from
+  # each row  must occur in the sample
+  return unique(checkset.units)
+end
+
+function getcheckset(W, observations)
+
+  cgroup = [:f, :unit];
+
+  checkset = @chain W[W.treatev, cgroup] begin
+    groupby(cgroup[1:end-1])
+    combine(
+      :unit => Ref ∘ unique => :units,
+    )
+  end
+
+  # treated units left after caliper application
+  # we need at least one of these in the set
+  trtleft = [ob[2] for ob in observations]
+  
+  @eachrow! checkset begin
+    :units = intersect(:units, trtleft)
+  end;
+
+  # unique since we don't need to check for unitsets that are redundant
+  # for each row, at least one unit (of that row) must exist in the sample
+
+  # this is the set of treated units, such that at least one from
+  # each row  must occur in the sample
+  return unique(checkset.units)
 end
 
 function _checkunits(units, samp)
@@ -230,6 +262,10 @@ function bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
   return atts
 end
 
+# import tscsmethods:@unpack,observationweights,att!,DataFrame,nrow
+# using Accessors
+# @reset calmodel.results = DataFrame()
+
 """
     estimate!(ccr::AbstractCICModel, dat; iterations = 500)
 
@@ -256,7 +292,11 @@ function estimate!(
 
   W = observationweights(model, dat);
   results = att!(results, W);
-  boots = bootstrap(W, ids; iter = iterations);
+  if typeof(model) <: AbstractCICModelStratified
+    boots = bootstrap(W, ids, observations, model.strata; iter = iterations);
+  else
+    boots = bootstrap(W, ids, observations, nothing; iter = iterations);
+  end
   bootinfo!(results, boots; qtiles = qtiles)
   
   return model
