@@ -4,6 +4,7 @@ function getmatches!(
   observations, matches,
   rg, trtg, ids, fmin, fmax; sliding = false
 )
+  
   for (ob, tob) in zip(observations, matches)
     (tt, tu) = ob;
     @unpack mus = tob;
@@ -105,7 +106,7 @@ function getfset!(ftrue, fmin, fmax, pollution, gt, tt; sliding = false);
           else
             # if not sliding, all are bad
             # since we work off fmin PO window
-            for φ in ftrue; ftrue[φ] = false end
+            for φ in eachindex(ftrue); ftrue[φ] = false end
           end
 
 
