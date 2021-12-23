@@ -46,25 +46,27 @@ There is no standalone att_plot().
 """
 function ax_att(
   fsub,
+  fmin, fmax,
   atts;
   attl = "",
   outcome = :death_rte,
   CIbnds = [Symbol("2.5%"), Symbol("97.5%")]
 )
 
+  intrv = Int(round((fmax - fmin) / 10, digits = 0))
   # paper specific
   if outcome == :death_rte
-    xt = collect(10:3:40)
+    xt = collect(fmin:intrv:fmax)
     ocolor = gen_colors(3)[3]
     olab = "Death Rate"
   elseif outcome == :case_rte
-    xt = collect(3:3:40)
+    xt = collect(fmax:intrv:fmax)
     ocolor = gen_colors(5)[5]
     olab = "Case Rate"
   # general
   else
     fmin = minimum(atts.f); fmax = maximum(atts.f)
-    xt = collect(fmin:(fmax-fmin)/10:fmax)
+    xt = collect(fmin:intrv:fmax)
     ocolor = gen_colors(3)[3]
     olab = string(outcome)
   end
@@ -131,6 +133,7 @@ end
 function ax_cb(
   fsub,
   cbi,
+  pomin, pomax,
   variablecolors;
   cbttl = "",
   step = 5
@@ -141,7 +144,7 @@ function ax_cb(
   axcb = Axis(
     fsub,
     title = cbttl,
-    xticks = collect(range(-50, stop = 0; step = step)), # generalize
+    xticks = collect(range(pomin, stop = pomax; step = step)), # generalize
     xlabel = "Day",
     ylabel = "Balance Score",
     xminorgridvisible = true,
@@ -151,7 +154,7 @@ function ax_cb(
 
   ser = series!(
     axcb,
-    collect(range(-50, -1; step =1)), # generalize
+    collect(range(pomin, pomax; step =1)), # generalize
     servals,
     labels = serlabs,
     markersize = 5,
@@ -209,7 +212,7 @@ function plot_cbs(
     txt1,
     color = (:black, 0.25)
   )
-
+  
   f2 = plot_cb(
     model2;
     labels = labels,
@@ -260,7 +263,7 @@ function plot_cb(
   end
 
   f = Figure(resolution = (wf * fw, lf * fl + fl));
-
+  
   if strat
 
     if isempty(labels)
@@ -272,7 +275,9 @@ function plot_cb(
       cbi = model.grandbalances[s];
 
       fpos = pdict[i];
-      axc, ser = ax_cb(f[fpos...][1, 1], cbi, variablecolors);
+      axc, ser = ax_cb(
+        f[fpos...][1, 1], cbi, pomin, pomax, variablecolors
+      );
 
       label_tt = Label(
         f,
@@ -283,7 +288,9 @@ function plot_cb(
   else
 
     fpos = [1, 1]
-    axc, ser = ax_cb(f[fpos...][1,1], model.grandbalances, variablecolors);
+    axc, ser = ax_cb(
+      f[fpos...][1,1], model.grandbalances, pomin, pomax, variablecolors
+    );
 
     hm_sublayout = GridLayout()
     f[1, 1] = hm_sublayout
@@ -315,7 +322,7 @@ function plot_cb(
       f
     )
   end
-
+  
   return f
 end
 
@@ -326,6 +333,9 @@ function model_pl(
   variablecolors = nothing,
   fw = 700, fl = 300
 )
+
+  fmin = minimum(model.F); fmax = maximum(model.F)
+  pomin = minimum(model.L); pomax = maximum(model.L)
 
   crel = pl_ratio(model.outcome);
 
@@ -367,8 +377,12 @@ function model_pl(
       resi = model.results[model.results.stratum .== s, :];
       
       fpos = pdict[i];
-      axa, rb = ax_att(f[fpos...][1,1], resi; outcome = model.outcome);
-      axc, ser = ax_cb(f[fpos...][1,2], cbi, variablecolors; step = 10);
+      axa, rb = ax_att(
+        f[fpos...][1,1], fmin, fmax, resi; outcome = model.outcome
+      );
+      axc, ser = ax_cb(
+        f[fpos...][1,2], cbi, pomin, pomax, variablecolors; step = 10
+      );
 
       axs = [axc, axa];
 
@@ -386,9 +400,13 @@ function model_pl(
     end
   else
     fpos = [1,1]
-    axa, rb = ax_att(f[fpos...][1,1], model.results; outcome = model.outcome);
+    axa, rb = ax_att(
+      f[fpos...][1,1], fmin, fmax, model.results;
+      outcome = model.outcome
+    );
     axc, ser = ax_cb(
-      f[fpos...][1,2], model.grandbalances, variablecolors; step = 10
+      f[fpos...][1,2], model.grandbalances, pomin, pomax, variablecolors;
+      step = 10
     );
 
     axs = [axc, axa];
