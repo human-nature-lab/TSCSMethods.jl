@@ -104,7 +104,7 @@ end
 
 function distances_calculate!(
   matches, observations, ids,
-  tg, rg, fmin, mmin, mmax, Σinvdict
+  tg, rg, fmin, mmin, mmax, Σinvdict; sliding = false
 )
   @inbounds Threads.@threads for i in eachindex(observations)
     ob = observations[i];
@@ -129,7 +129,8 @@ function distances_calculate!(
       eachrow(validmus), validunits,
       ob[1], Σinvdict,
       γcs, γrs, γtimes, tg,
-      fmin, mmin, mmax
+      fmin, mmin, mmax;
+      sliding = sliding
     );
   end
   return matches
@@ -137,14 +138,15 @@ end
 
 # match distances
 
-matchwindow(f, tt, mmin, mmax) = (tt + f) + mmin : (tt + f) + mmax;
+matchwindow(f, tt, pomin, pomax) = (tt + f) + pomin : (tt + f) + pomax;
 
 function distantiate!(
   distances, mahas,
   validmuscols, validunits,
   tt, Σinvdict,
   γcs, γrs, γtimes, tg,
-  fmin, mmin, mmax
+  fmin, mmin, mmax;
+  sliding = false
 )
 
 
@@ -169,7 +171,8 @@ function distantiate!(
     __distantiate!(
       distances, m,
       muscol,
-      mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, mmin, mmax
+      mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, mmin, mmax;
+      sliding = sliding
     )
 
   end
@@ -180,7 +183,8 @@ end
 function __distantiate!(
   distances, m,
   muscol,
-  mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, mmin, mmax
+  mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, mmin, mmax;
+  sliding = false
 )
 
   # (φ, fb) = collect(enumerate(muscol))[1]
@@ -190,7 +194,15 @@ function __distantiate!(
 
       # mahalanobis distance
       # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
-      fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+
+      if sliding
+        # based on PO for f
+        fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+      else
+        # based on PO for fmin
+        fw = matchwindow(fmin, tt, mmin, mmax);
+      end
+
       distances[1][φ, m] = mahaveraging(mahas, γtimes, fw)
 
       # caliper distances
