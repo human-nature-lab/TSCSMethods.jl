@@ -50,7 +50,8 @@ function ax_att(
   atts;
   attl = "",
   outcome = :death_rte,
-  CIbnds = [Symbol("2.5%"), Symbol("97.5%")]
+  CIbnds = [Symbol("2.5%"), Symbol("97.5%")],
+  forpanel = false
 )
 
   intrv = Int(round((fmax - fmin) / 10, digits = 0))
@@ -71,16 +72,29 @@ function ax_att(
     olab = string(outcome)
   end
 
-  ax = Axis(
+  ax = if forpanel
+    Axis(
     fsub,
     title = attl,
     xticks = xt,
     xlabel = "Day",
-    ylabel = "ATT Estimate",
+    # ylabel = "ATT Estimate",
     xminorgridvisible = true,
     xminorticksvisible = true,
     xminorticks = IntervalsBetween(3)
   )
+  else
+    Axis(
+      fsub,
+      title = attl,
+      xticks = xt,
+      xlabel = "Day",
+      ylabel = "ATT Estimate",
+      xminorgridvisible = true,
+      xminorticksvisible = true,
+      xminorticks = IntervalsBetween(3)
+    )
+  end 
 
   rb = rangebars!(
     atts.f,
@@ -467,47 +481,6 @@ function make_pdict()
 
   return pdict
 end
-
-"""
-    plot_modelset(model_path; variablecolors = nothing, base_savepath = "")
-
-Generate the plots, in a new directory, for a set of models in some model set file. Base_savepath should end in "/".
-"""
-# function plot_modelset(
-#   model_path;
-#   variablecolors = nothing,
-#   base_savepath = "" # ends in /
-# )
-
-#   mpnames = [
-#     "model_plot.png"
-#     "refined_plot.png"
-#     "caliper_plot.png"
-#     "refinedcaliper_plot.png"
-#   ];
-
-#   # cc, ccr, cal, calr, labels
-#   objet = load_object(model_path); # better to load outside?
-#   labels = objet[length[objet]]
-
-#   dirn = base_savepath * name_model(cc);
-#   mkdir(dirn);
-
-#   for i in 1:length(objet)-1
-#     mod = objet[i]
-#     if !isnothing(mod)
-#         mp = model_pl(
-#         mod;
-#         variablecolors = variablecolors
-#       )
-      
-#       save(
-#         base_savepath * dirn * "/" * mpnames[i],
-#         mp
-#       )
-#     end
-#   end
-# end
 
 """
     plot_modelset(model_path; variablecolors = nothing, base_savepath = "")
