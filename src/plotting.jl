@@ -77,7 +77,7 @@ function ax_att(
     fsub,
     title = attl,
     xticks = xt,
-    xlabel = "Day",
+    # xlabel = "Day",
     # ylabel = "ATT Estimate",
     xminorgridvisible = true,
     xminorticksvisible = true,
