@@ -54,7 +54,7 @@ function ax_att(
   forpanel = false
 )
 
-  intrv = Int(round((fmax - fmin) / 10, digits = 0))
+  # intrv = Int(round((fmax - fmin) / 10, digits = 0))
   # paper specific
   if outcome == :death_rte
     xt = collect(fmin:intrv:fmax)
@@ -87,12 +87,12 @@ function ax_att(
     Axis(
       fsub,
       title = attl,
-      xticks = xt,
+      xticks = collect(3:4:40),
       xlabel = "Day",
       ylabel = "ATT Estimate",
       xminorgridvisible = true,
       xminorticksvisible = true,
-      xminorticks = IntervalsBetween(3)
+      xminorticks = IntervalsBetween(4)
     )
   end 
 
