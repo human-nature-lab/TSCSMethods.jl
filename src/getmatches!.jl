@@ -1,135 +1,128 @@
 # getmatches!.jl
 
-function getmatches!(
+function eligiblematches!(
   observations, matches,
-  rg, trtg, ids, fmin, fmax; sliding = false
+  rg, trtg, ids, fmin, fmax, treatcat
 )
   
   for (ob, tob) in zip(observations, matches)
     (tt, tu) = ob;
     @unpack mus = tob;
-    obsmatches!(mus, rg, trtg, ids, tt, tu, fmin, fmax; sliding = sliding);
+    matchespossible!(mus, rg, trtg, ids, tt, tu, fmin, fmax, treatcat);
   end
   return matches
 end
 
-function obsmatches!(mus, rg, trtg, uid, tt, tu, fmin, fmax; sliding = false)
+function matchespossible!(
+  mus, rg, trtg, uid, tt, tu, fmin, fmax, treatcat::Function
+)
 
   for (mu, rmus) in zip(uid, eachrow(mus))
 
-    # testing
-    # (mu, rmus) = collect(zip(uid, eachrow(mus)))[2000]
-
+    # clearly, if same unit, match is not allowed
     if tu == mu
       rmus .= false
     else
 
-      # require that panels are balanced
+      # requires that panels are balanced
       # will need to handle missingness case eventually
       # data are padded
-      
-      # ftrue = @views tobs.mus[m, :];
-      
-      pollution = trtg[(tt, mu)];
-      
-      # testing for tt = 2
-      # ftrue = fill(true, flen);
-      # pollution = zeros(Int, 31);
-      # pollution[findfirst(rg[(tt, mu)] .== 3)] = 1;
 
-      if sum(pollution) > 0
-        getfset!(
-          rmus, fmin, fmax, pollution, rg[(tt, mu)], tt; sliding = sliding
-        )
+      # relevant treatment history for tu (treated unit)
+      tu_trtimes = rg[(tt, tu)][trtg[(tt, tu)]];
+      # relevant treatment history for mu (pot. match unit)
+      mu_trtimes = rg[(tt, mu)][trtg[(tt, mu)]];
 
-      # else -- leave as true
-      #   tobs.mus[m] = true # leave
-      #   tobs.fs[m] = ftrue
+      fpossible!(
+        rmus, tu_trtimes, mu_trtimes,
+        fmin, fmax, tt,
+        treatcat
+      );
 
-      end
+      # old full sliding window
+      # sliding window in which matched units are barred from being treated
+      # the window is [t + f - fmax, t + f - fmin]
+      # if length(mtts) > 0
+      #   for ttmu in mtts
+      #     if tt == ttmu
+      #       for α in 1:length(rmus); rmus[α] = false end
+      #     elseif tt - ttmu > 0
+      #       # remove f and prior fs
+      #       priorremove = fmax - (tt - ttmu) # bar these
+      #       for α in 1:(priorremove - fmin + 1)
+      #         rmus[α] = false
+      #       end
+      #     elseif ttmu - tt > 0
+      #       # remove f and later fs
+      #       postremove = (ttmu - tt) + fmin;
+      #       for α in (postremove - fmin + 1):length(rmus); rmus[α] = false end
+      #     end
+      #   end
+      # end
+      
     end
   end
   return mus
 end
 
 """
-    getfset!(ftrue, fmin, fmax, pollution, gt, tt; sliding = false)
-
-The PO for a unit at t is 40 days before up to 10 days before.
-This is the period in which an intervention can directly alter the death rate at t. The 41st day after an intervention is the first day in which we could observe *no* exogenous deaths. Where *no* means that we are above the 95th percentile of the infection-death distribution (as in days after intervention).
-
-We are concerned with treatments whose outcome windows overlap the outcome window of a focal treatment event. For some day q+f after a treatment, we want to ensure that there are no treatment events in a match that take place 10 to 40 days before q+f.
-
-e.g.
-
-for f = fmin
-  - we don't care about a treatment that occurs 31 days before a treatment
-  - 40 - 10 + 1
-for f = fmax
-  - we don't care about a treatment that occurs 01 days before a treatment
-  - 40 - 40 + 1 = fmax - f + 1
-
-## old, worse description
-All fs are allowable if the matchunit is treated no closer than 31 days (before or after) the treatment.
-  => mu treatment at 31th day after treatment means first outcome
-      window day is after tu's fmax
-  => 41st day after mu treatment is beyond its outcome window
-      so it is fully elgible to be a match to a unit with an fmin
-      on that day. Then the treatment can happen 10 (fmin), days before.
+check possibility of the match for each f
 """
-function getfset!(ftrue, fmin, fmax, pollution, gt, tt; sliding = false);
-
-  # (d, τ) = collect(zip(pollution, gt))[10]
-  for (d, τ) in zip(pollution, gt)
-    # tt+fmin:tt+fmax, τ+fmin:τ+fmax
-    if d > 0
-      if τ == tt # cannot do
-        for φ in eachindex(ftrue); ftrue[φ] = false; end
-        return ftrue
-      else
-        if (tt - τ > 0) & (tt - τ < (fmax - fmin + 1))
-          # if before focal treatment, and within 30 days
-
-          # φ possibly over 1:31
-          # not usable towards the end,
-          # tt - τ gives the number of days before
-          # that the treatment happens in the match
-          # this is also the number of usable
-          # outcome days at the end for the pairing
-          # 1:(fmax - fmin + 1) - (tt - τ)
-
-          # if sliding, reasoning above applies
-          if sliding
-            for φ in 1:(fmax - fmin + 1) - (tt - τ)
-              ftrue[φ] = false
-            end
-          else
-            # if not sliding, all are bad
-            # since we work off fmin PO window
-            for φ in eachindex(ftrue); ftrue[φ] = false end
+function fpossible!(
+  rmus, tu_trtimes, mu_trtimes,
+  fmin, fmax, tt,
+  treatcat
+)
+  for φ in eachindex(rmus)
+    f = φ + fmin - 1;
+    tu_treatments = 0; # count for tu
+    mu_treatments = 0; # count for mu
+    
+    # given that f, check possibility of match
+    # by examining crossover period
+    for h in 1:max(length(mu_trtimes), length(tu_trtimes))
+      
+      # post-treatment crossover window
+      tx_l = tt + 1; tx_u = tt + f - fmin;
+      # pre-treatment crossover window
+      ptx_l = (tt + f - fmax); ptx_u = (tt - 1);
+      
+      # bar on post-treatment match window
+      if (length(mu_trtimes) > 0) & (length(tx_l:tx_u) > 0)
+        for mtt in mu_trtimes
+          if (mtt >= tx_l) & (mtt <= tx_u)
+            rmus[φ] = false
+            break
           end
-
-
-        elseif (tt - τ < 0) & (tt - τ < (fmin + fmax + 1))
-          # if after focal treatment and within 30 days after
-          # e.g. if there is a treatment 30 days after a treatment,
-          # day 40 cannot be estimated with that match
-
-          # φ possibly over 1:31
-          # for post-treated-treatment
-          # treatment in match unit,
-          # these are not valid:
-          # fmin + (τ - tt) - fmin + 1:(fmax - fmin + 1)
-
-          # if sliding or not, since only later fs are affected
-          # by later treatments in a potential match
-          for φ in (τ - tt) + 1:(fmax - fmin + 1)
-            ftrue[φ] = false
-          end
-
         end
+      end
+
+      if !rmus[φ]
+        # skip to next f if it is cancelled
+        break
+      end
+
+      # (if the f wasn't blocked by post-treatment requirements)
+      # match on pre-treatment xover: t+F-Fmax to t-1
+      if (h <= length(tu_trtimes)) & (h > 0)
+        if (tu_trtimes[h] >= ptx_l) & (tu_trtimes[h] <= ptx_u);
+          tu_treatments += 1
+        end
+      end
+      
+      # match on pre-treatment xover: t+F-Fmax to t-1
+      if (h <= length(mu_trtimes)) & (h > 0)
+        if (mu_trtimes[h] >= ptx_l) & (mu_trtimes[h] <= ptx_u)
+          mu_treatments += 1
+        end
+      end
+
+      # check similarity of tu_treatments & mu_treatments
+      # based on treatcat function (default or user defined)
+      if treatcat(tu_treatments) != treatcat(mu_treatments)
+        rmus[φ] = false
       end
     end
   end
-  return ftrue
+  return rmus
 end

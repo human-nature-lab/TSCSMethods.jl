@@ -1,11 +1,33 @@
 # match!.jl
 
 """
-    match!(cic::cicmodel, dat::DataFrame)
+    default_treatmentcategories(x)
+
+(For use as input to match!)
+Default treatment history categories.
+We look at total count in the pre-treatment crossover
+period for both the treated unit and its (potential) match.
+If the totals, for each, in the same period fall into the same cateory,
+we allow the match.
+
+Here the categories are either not treated, or treated. Ths works for single treatments, and prevents matches from being treated at all during the pretreatment crossover window.
+"""
+function default_treatmentcategories(x)
+  return if x == 0
+    0
+  else 1
+  end
+end
+
+"""
+    match!(cic::cicmodel, dat::DataFrame; treatcat = nothing)
   
 Perform matching for treatment events, using Mahalanobis distance matching. Additionally, calculate standardized Euclidean distances for the individual covariates are specified.
 """
-function match!(model::AbstractCICModel, dat)
+function match!(
+  model::AbstractCICModel, dat;
+  treatcat::Function = default_treatmentcategories
+)
 
   @unpack observations, matches, ids = model;
   @unpack F, L, id, t, treatment, covariates = model;
@@ -17,25 +39,28 @@ function match!(model::AbstractCICModel, dat)
 
   cdat = Matrix(dat[!, covariates]);
 
-  tg, rg, trtg = make_groupindices(
+  @time tg, rg, trtg = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
     fmin, fmax, mmin,
     cdat
   );
 
-  # test group indices
-  # ck = [key for key in keys(tg)];
-  # i = 100
-  # tg[ck[i]][70:80,:]
-  # @subset(dat, $t .>= (ck[i][1] + fmin + mmin), $t .< (ck[i][1] + fmax), $id .== ck[i][2])[70:80, covariates]
-
   GC.gc();
 
-  getmatches!(
+  eligiblematches!(
     observations, matches,
-    rg, trtg, ids, fmin, fmax
+    rg, trtg, ids, fmin, fmax, treatcat
   );
+
+  # "eligibility" for units
+  # eligibility = similar(matches[1].mus) .* 0;
+  # over all treated units
+  # => num. times a particular unit is eligible to be a match, for each F
+  # in the outcome window
+  # for objet in matches
+  #   eligibility += objet.mus
+  # end
 
   distances_allocate!(matches, flen, covnum);
 
