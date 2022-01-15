@@ -39,7 +39,7 @@ function match!(
 
   cdat = Matrix(dat[!, covariates]);
 
-  @time tg, rg, trtg = make_groupindices(
+  tg, rg, trtg = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
     fmin, fmax, mmin,
@@ -68,7 +68,8 @@ function match!(
   
   GC.gc();
 
-  # 193.266173 seconds (2.17 G allocations: 677.980 GiB, 59.13% gc time, 0.01% compilation time)
+  # 193.266173 seconds
+  # (2.17 G allocations: 677.980 GiB, 59.13% gc time, 0.01% compilation time)
   distances_calculate!(
     matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
   );
