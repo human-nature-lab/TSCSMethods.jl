@@ -38,7 +38,8 @@ module tscsmethods
     # saving
     name_model,
     modelrecord, save_record, save_records,
-    default_treatmentcategories
+    default_treatmentcategories,
+    showmatches, matchinfo, obsinfo
 
   # module fullbalancing
   #   using DataFrames, DataFramesMeta

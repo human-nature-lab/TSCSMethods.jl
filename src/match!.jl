@@ -53,15 +53,6 @@ function match!(
     rg, trtg, ids, fmin, fmax, treatcat
   );
 
-  # "eligibility" for units
-  # eligibility = similar(matches[1].mus) .* 0;
-  # over all treated units
-  # => num. times a particular unit is eligible to be a match, for each F
-  # in the outcome window
-  # for objet in matches
-  #   eligibility += objet.mus
-  # end
-
   distances_allocate!(matches, flen, covnum);
 
   Σinvdict = samplecovar(dat, covariates, t, id, treatment);

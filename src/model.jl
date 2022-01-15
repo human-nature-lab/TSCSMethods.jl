@@ -160,10 +160,19 @@ end
 function save_records(savepath, models...)
   records = Vector{ModelRecord}(undef, length(models))
   for (i, model) in enumerate(models)
-    records[i] = modelrecord(model)
+    if i < 5
+      records[i] = modelrecord(model)
+    end
   end
-  save_object(
-    savepath * name_model(models[1]) * ".jld2",
-    records
-  )
+  if length(models) < 5
+    save_object(
+      savepath * name_model(models[1]) * ".jld2",
+      records
+    )
+  else
+    save_object(
+      savepath * name_model(models[1]) * ".jld2",
+      [records, models[5:end]...]
+    )
+  end
 end
