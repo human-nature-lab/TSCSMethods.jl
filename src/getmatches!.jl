@@ -83,7 +83,7 @@ function fpossible!(
     for h in 1:max(length(mu_trtimes), length(tu_trtimes))
       
       # post-treatment crossover window
-      tx_l = tt + 1; tx_u = tt + f - fmin;
+      tx_l = tt; tx_u = tt + f - fmin;
       # pre-treatment crossover window
       ptx_l = (tt + f - fmax); ptx_u = (tt - 1);
       
