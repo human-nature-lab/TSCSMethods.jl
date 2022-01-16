@@ -142,7 +142,7 @@ function matchinfo(rc, model; maxrank = 5)
     
     for f in rc.F
       φ = f - minimum(rc.F) + 1      
-      mus = ids[rc.matches[i].mus[:,φ]];
+      mus = model.ids[rc.matches[i].mus[:,φ]];
       mus = mus[1:min(length(mus), maxrank)];
       fullmus = model.ids[model.matches[cnt].ranks[φ]];
       rnks = [findfirst(x -> x == mu, fullmus) for mu in mus];
