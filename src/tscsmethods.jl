@@ -19,6 +19,7 @@ module tscsmethods
   include("autobalancing.jl")
   include("model.jl")
   include("plotting.jl")
+  include("information.jl")
 
   export
     # types
@@ -40,16 +41,4 @@ module tscsmethods
     modelrecord, save_record, save_records,
     default_treatmentcategories,
     showmatches, matchinfo, obsinfo
-
-  # module fullbalancing
-  #   using DataFrames, DataFramesMeta
-  #   using tscsmethods:AbstractCICModel, @unpack, std_treated
-  #   using tscsmethods:allocate_meanbalances!
-  #   using tscsmethods:make_groupindices, mean, matchassignments
-  #   using tscsmethods:grandbalance!
-  #   include("fullbalancing.jl")
-  #   include("mean_fullbalancing.jl")
-
-  #   export fullbalance, balances!
-  # end
 end
