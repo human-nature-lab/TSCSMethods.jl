@@ -5,7 +5,7 @@ module tscsmethods
   include("types.jl")
   include("construction.jl")
   include("matching_setup.jl")
-  include("makegroup_indices.jl")
+  include("make_groupindices.jl")
   include("getmatches!.jl")
   include("distancing.jl")
   include("match!.jl")

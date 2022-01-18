@@ -26,7 +26,8 @@ Perform matching for treatment events, using Mahalanobis distance matching. Addi
 """
 function match!(
   model::AbstractCICModel, dat;
-  treatcat::Function = default_treatmentcategories
+  treatcat::Function = default_treatmentcategories,
+  exposure = nothing
 )
 
   @unpack observations, matches, ids = model;
@@ -39,19 +40,30 @@ function match!(
 
   cdat = Matrix(dat[!, covariates]);
 
-  tg, rg, trtg = make_groupindices(
-    dat[!, t], dat[!, treatment],
-    dat[!, id], ids,
-    fmin, fmax, mmin,
-    cdat
-  );
-
-  GC.gc();
-
-  eligiblematches!(
-    observations, matches,
-    rg, trtg, ids, fmin, fmax, treatcat
-  );
+  if isnothing(exposure)
+    tg, rg, trtg = make_groupindices(
+      dat[!, t], dat[!, treatment],
+      dat[!, id], ids,
+      fmin, fmax, mmin,
+      cdat
+    );
+    eligiblematches!(
+      observations, matches,
+      rg, trtg, ids, fmin, fmax, treatcat
+    );
+  else
+    tg, rg, trtg, exg = make_groupindices(
+      dat[!, t], dat[!, treatment],
+      dat[!, id], ids,
+      fmin, fmax, mmin,
+      cdat;
+      exvec = dat[!, exposure]
+    );
+    eligiblematches!(
+      observations, matches,
+      rg, trtg, ids, fmin, fmax, treatcat, exg = exg
+    );
+  end
 
   distances_allocate!(matches, flen, covnum);
 
