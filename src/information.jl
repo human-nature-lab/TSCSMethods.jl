@@ -109,6 +109,12 @@ function matchinfo(model::Union{CIC, CICStratified}; maxrank = 5)
 
   sort!(mf, [:timetreated, :treatedunit])
 
+  for r in 1:length(mf.matchunits)
+    for j in 1:length(mf.matchunits[r])
+      mf.matchunits[r][j] = model.ids[mf.matchunits[r][j]]
+    end
+  end
+
   return mf
 end
 
