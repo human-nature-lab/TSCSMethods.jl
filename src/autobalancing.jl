@@ -167,14 +167,22 @@ end
 function checkwhile(
   refcalmodel::RefinedCaliperCIC, acaliper, min_treated_obs, calmin, bc
 )
-  return any(values(bc)) & (refcalmodel.treatedleft >= min_treated_obs) & all(values(acaliper) .>= calmin)
+
+  treated, _ = unitcounts(refcalmodel);
+
+  # the minimum no. of treated observations left over all Fs, strata
+  mintreated = minimum(treated);
+
+  return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
 end
 
 function checkwhile(
   refcalmodel::RefinedCaliperCICStratified, acaliper, min_treated_obs, calmin, bc
 )
 
-  trleft = values(refcalmodel.treatedleft);
-  treatcond = any([tr >= min_treated_obs for tr in trleft])
-  return any(values(bc)) & treatcond & all(values(acaliper) .>= calmin)
+  # the minimum no. of treated observations left over all Fs, strata
+  mintreated = minimum([minimum(treated[i]) for i in keys(treated)]);
+
+
+  return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
 end

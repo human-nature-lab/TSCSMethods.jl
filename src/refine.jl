@@ -106,7 +106,7 @@ function refine(
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, caliper = calmodel;
 
-  @unpack treatednum, treatedleft = calmodel;
+  @unpack treatednum = calmodel;
   
   modelcalref = RefinedCaliperCIC(
     title = title,
@@ -127,7 +127,6 @@ function refine(
     iterations = iterations,
     results = DataFrame(),
     treatednum = treatednum,
-    treatedleft = treatedleft,
     estimator = estimator,
     caliper = caliper,
     fullmod = Ref(calmodel)
@@ -154,7 +153,7 @@ function refine(
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels, caliper = calmodel;
 
   @unpack stratifier, strata = calmodel
-  @unpack treatednum, treatedleft = calmodel;
+  @unpack treatednum = calmodel;
 
   modelcalref = RefinedCaliperCICStratified(
     title = title,
@@ -177,7 +176,6 @@ function refine(
     iterations = iterations,
     results = DataFrame(),
     treatednum = treatednum,
-    treatedleft = treatedleft,
     estimator = estimator,
     caliper = caliper,
     fullmod = Ref(calmodel),

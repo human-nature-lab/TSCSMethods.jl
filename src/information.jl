@@ -2,6 +2,70 @@
 # various functions that give information about the models, etc.
 
 """
+    unitcounts(m)
+
+count the total number of treated and the number of matched units for each F.
+"""
+function unitcounts(m)
+    
+    X = Vector{Vector{Int}}(undef, 0);
+
+    Flen = length(m.F)
+    
+    for i in eachindex(m.matches)
+        push!(
+            X,
+            vec(sum(m.matches[i].mus, dims = 1))
+        )
+    end
+
+    strat = any(
+        [
+            typeof(m) == x for x in [
+                CICStratified, RefinedCICStratified, RefinedCaliperCICStratified
+            ]
+        ]
+    );
+
+    if !strat
+        # compute the number of treated units left (for each F)
+        Y = zeros(Int, Flen)
+        _treatedcount!(Y, X)
+        
+        # compute the total number of match units (for each F)
+        U = sum(X)
+        return Y, U
+    else
+        S = sort(unique(m.strata));
+        # with stratification
+        Ys = Dict{Int, Vector{Int}}();
+        Us = Dict{Int, Vector{Int}}();
+
+        # compute the number of treated units left (for each F)
+        for (i, s) in enumerate(S)
+            Ys[s] = zeros(Int, Flen)
+            Us[s] = zeros(Int, Flen)
+            c1 = m.strata .== s;
+            _treatedcount!(Ys[s], X[c1])
+        
+            # compute the total number of match units (for each F)
+            Us[i] = sum(X[c1])
+        end
+        return Ys, Us
+    end
+end
+
+function _treatedcount!(Y, X)
+    for x in X
+        for (i, xi) in enumerate(x)
+            if xi > 0
+                Y[i] += 1
+            end
+        end
+    end
+end
+
+"""
     eligibility(model)
 
 "eligibility" for units, over all treated units => num. times a particular unit

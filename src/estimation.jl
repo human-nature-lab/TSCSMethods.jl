@@ -295,6 +295,42 @@ function estimate!(
     boots = bootstrap(W, ids, observations, nothing; iter = iterations);
   end
   bootinfo!(results, boots; qtiles = qtiles)
+  applyunitcounts!(model)
   
   return model
+end
+
+function applyunitcounts!(model)
+  
+  Ys, Us = unitcounts(model)
+
+  res = model.results;
+  res[!, :treated] = zeros(Int, nrow(res))
+  res[!, :matches] = zeros(Int, nrow(res))
+
+  strat = any(
+    [
+        typeof(m) == x for x in [
+            CICStratified, RefinedCICStratified, RefinedCaliperCICStratified
+        ]
+    ]
+  );
+
+  if !strat
+    Yd = Dict(collect(1:length(model.F)) .=> Ys)
+    Ud = Dict(collect(1:length(model.F)) .=> Us)
+
+    res[!, :treated] = [Yd[res.f[i] - minimum(model.F) + 1] for i in 1:sum(c1)]
+    res[!, :matches] = [Ud[res.f[i] - minimum(model.F) + 1] for i in 1:sum(c1)]
+  else
+    for (i, s) in enumerate(res.stratum)
+      Yd = Dict(collect(1:length(model.F)) .=> Ys[s])
+      Ud = Dict(collect(1:length(model.F)) .=> Us[s])
+
+      c1 = res.stratum .== s;
+      res[c1, :treated] = [Yd[res.f[c1][i] - minimum(model.F) + 1] for i in 1:sum(c1)]
+      res[c1, :matches] = [Ud[res.f[c1][i] - minimum(model.F) + 1] for i in 1:sum(c1)]
+    end
+  end
+  return
 end

@@ -101,7 +101,6 @@ end
   iterations::Int64 = 500
   results::DataFrame = DataFrame()
   treatednum::Int64
-  treatedleft::Int64
   estimator::String = "ATT"
   caliper::Dict{Symbol, Float64}
   fullmod = Base.RefValue{CIC}
@@ -128,7 +127,6 @@ end
   iterations::Int64 = 500
   results::DataFrame = DataFrame()
   treatednum::Dict{Int64, Int64}
-  treatedleft::Dict{Int64, Int64}
   estimator::String = "ATT"
   caliper::Dict{Symbol, Float64}
   fullmod = Base.RefValue{CICStratified}
@@ -206,7 +204,6 @@ end
   iterations::Int64 = 500
   results::DataFrame = DataFrame()
   treatednum::Int64
-  treatedleft::Int64
   estimator::String = "ATT"
   caliper::Dict{Symbol, Float64}
   fullmod = Base.RefValue{CaliperCIC}
@@ -234,7 +231,6 @@ end
   iterations::Int64 = 500
   results::DataFrame = DataFrame()
   treatednum::Dict{Int64, Int64}
-  treatedleft::Dict{Int64, Int64}
   estimator::String = "ATT"
   caliper::Dict{Symbol, Float64}
   fullmod = Base.RefValue{CIC}
@@ -260,7 +256,6 @@ end
   iterations::Int64
   results::DataFrame
   treatednum::Union{Int64, Dict{Int64, Int64}}
-  treatedleft::Union{Int64, Dict{Int64, Int64}} = Int64()
   estimator::String
   caliper::Dict{Symbol, Float64} = Dict{Symbol, Float64}()
   labels::Dict{Int64, String} = Dict{Int64, String}()

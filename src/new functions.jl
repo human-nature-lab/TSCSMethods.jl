@@ -82,7 +82,6 @@ function refine(model::CaliperCIC; refinementnum = 5)
     iterations = iterations,
     results = DataFrame(),
     treatednum = model.treatednum,
-    treatedleft = model.treatedleft,
     estimator = estimator,
     caliper = caliper,
     fullmod = Ref(model)
