@@ -310,7 +310,7 @@ function applyunitcounts!(model)
 
   strat = any(
     [
-        typeof(m) == x for x in [
+        typeof(model) == x for x in [
             CICStratified, RefinedCICStratified, RefinedCaliperCICStratified
         ]
     ]
@@ -332,5 +332,5 @@ function applyunitcounts!(model)
       res[c1, :matches] = [Ud[res.f[c1][i] - minimum(model.F) + 1] for i in 1:sum(c1)]
     end
   end
-  return
+  return model
 end
