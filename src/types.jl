@@ -29,9 +29,11 @@ StratDict = Dict{Int64, Dict{Symbol, Float64}};
 GrandDictNoStrat = Dict{Symbol, Union{Vector{Float64}, Float64}};
 GrandDictStrat = Dict{Int64, Dict{Symbol, Union{Float64, Vector{Float64}}}};
 
-abstract type AbstractCICModel end
+abstract type VeryAbstractCICModel end
 
-abstract type AbstractCICModelStratified <: AbstractCICModel end
+abstract type AbstractCICModel <: VeryAbstractCICModel end
+
+abstract type AbstractCICModelStratified <: VeryAbstractCICModel end
 
 @with_kw struct CIC <: AbstractCICModel
   title::String = ""

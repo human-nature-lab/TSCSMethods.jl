@@ -343,7 +343,7 @@ end
 pl_ratio(mo) = mo == :death_rate ? Relative(13/31) : Relative(13/38)
 
 function model_pl(
-  model::AbstractCICModel;
+  model::VeryAbstractCICModel;
   variablecolors = nothing,
   fw = 700, fl = 300
 )

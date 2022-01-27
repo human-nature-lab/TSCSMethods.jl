@@ -36,28 +36,6 @@ function att!(results, M)
   return results
 end
 
-"""
-faster version when length is known
-"""
-function countmemb(itr, len::Int64)
-  d = Dict{eltype(itr), Int64}()
-  sizehint!(d, len)
-  for val in itr
-      d[val] = get(d, val, 0) + 1
-  end
-  return d
-end
-
-"""
-faster version when length is known
-"""
-function countmembinput!(itr, d)
-  for val in itr
-      d[val] = get(d, val, 0) + 1
-  end
-  return d
-end
-
 function bootstrap(W, uid, observations, strata; iter = 500)
   # ADD TREAT EVE RESTRICTION MINIMUM?
   # >= one unit suffices
@@ -279,6 +257,10 @@ function estimate!(
     @reset model.iterations = iterations;
   end
 
+  if nrow(model.results) > 0
+    @reset model.results = DataFrame();
+  end
+
   @unpack observations, ids, results, iterations = model;
   
   c1 = (length(observations) == 0);
@@ -290,7 +272,10 @@ function estimate!(
   W = observationweights(model, dat);
   results = att!(results, W);
   if typeof(model) <: AbstractCICModelStratified
-    boots = tscsmethods.bootstrap(W, ids, observations, model.strata; iter = iterations);
+    boots = tscsmethods.bootstrap(
+      W, ids, observations, model.strata;
+      iter = iterations
+    );
   else
     boots = bootstrap(W, ids, observations, nothing; iter = iterations);
   end
@@ -320,16 +305,21 @@ function applyunitcounts!(model)
     Yd = Dict(collect(1:length(model.F)) .=> Ys)
     Ud = Dict(collect(1:length(model.F)) .=> Us)
 
-    res[!, :treated] = [Yd[res.f[i] - minimum(model.F) + 1] for i in 1:sum(c1)]
-    res[!, :matches] = [Ud[res.f[i] - minimum(model.F) + 1] for i in 1:sum(c1)]
+    for (j, f) in enumerate(res.f)
+      φ = f - minimum(model.F) + 1
+      res[j, :treated] = Ys[φ]
+      res[j, :matches] = Us[φ]
+    end
   else
-    for (i, s) in enumerate(res.stratum)
+    for s in res.stratum
       Yd = Dict(collect(1:length(model.F)) .=> Ys[s])
       Ud = Dict(collect(1:length(model.F)) .=> Us[s])
-
-      c1 = res.stratum .== s;
-      res[c1, :treated] = [Yd[res.f[c1][i] - minimum(model.F) + 1] for i in 1:sum(c1)]
-      res[c1, :matches] = [Ud[res.f[c1][i] - minimum(model.F) + 1] for i in 1:sum(c1)]
+      
+      for (j, f, s) in zip(eachindex(res.f), res.f, res.stratum)
+        φ = f - minimum(model.F) + 1
+        res[j, :treated] = Ys[s][φ]
+        res[j, :matches] = Us[s][φ]
+      end
     end
   end
   return model

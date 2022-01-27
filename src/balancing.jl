@@ -7,7 +7,7 @@ outputs dict[t-l, covariate] where t-l is l days prior to the treatment
 
 (adjust this for f, in sliding window F-defined match period case, which is the case...)
 """
-function std_treated(model::AbstractCICModel, dat::DataFrame)
+function std_treated(model::VeryAbstractCICModel, dat::DataFrame)
 
   trtobs = unique(dat[dat[!, model.treatment] .== 1, [model.t, model.id]])
   sort!(trtobs, [model.t, model.id])
@@ -126,7 +126,7 @@ end
 
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
 """
-function meanbalance!(model::AbstractCICModel, dat)
+function meanbalance!(model::VeryAbstractCICModel, dat)
 
   @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
   @unpack t, id, treatment = model;
@@ -166,7 +166,7 @@ end
 
 Calculate the mean balances, for each treated observation from the full set of balances. This will limit the calculations to include those present in model.matches, e.g. in case a caliper has been applied.
 """
-function meanbalance!(model::AbstractCICModel, dat, tg, rg)
+function meanbalance!(model::VeryAbstractCICModel, dat, tg, rg)
 
   @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
   @unpack t, id, treatment = model;
@@ -511,7 +511,7 @@ function _grandbalance(covec)
   return mean(skipmissing(reduce(vcat, covec)))
 end
 
-function balance!(model::AbstractCICModel, dat)
+function balance!(model::VeryAbstractCICModel, dat)
 
   meanbalance!(model, dat);
   grandbalance!(model);

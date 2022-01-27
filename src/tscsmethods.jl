@@ -23,7 +23,7 @@ module tscsmethods
 
   export
     # types
-    AbstractCICModel, AbstractCICModelStratified,
+    VeryAbstractCICModel, AbstractCICModel, AbstractCICModelStratified,
     CIC, CICStratified, CaliperCIC, CaliperCICStratified,
     RefinedCIC, RefinedCICStratified, RefinedCaliperCIC, RefinedCaliperCICStratified,
     # mechanics

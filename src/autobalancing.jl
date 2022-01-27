@@ -180,9 +180,10 @@ function checkwhile(
   refcalmodel::RefinedCaliperCICStratified, acaliper, min_treated_obs, calmin, bc
 )
 
+  treated, _ = unitcounts(refcalmodel);
+
   # the minimum no. of treated observations left over all Fs, strata
   mintreated = minimum([minimum(treated[i]) for i in keys(treated)]);
-
 
   return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
 end
