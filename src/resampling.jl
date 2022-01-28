@@ -1,9 +1,5 @@
 # sampling
 
-using Parameters
-import tscsmethods:mean,sample
-using DataFrames,DataFramesMeta
-
 """
 faster version of countmap, use when length is known
 """
