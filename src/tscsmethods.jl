@@ -1,7 +1,6 @@
 module tscsmethods
 
   include("dependencies.jl")
-
   include("types.jl")
   include("construction.jl")
   include("matching_setup.jl")
@@ -14,6 +13,8 @@ module tscsmethods
   include("balancing.jl")
   include("estimation_observationweights.jl")
   include("estimation.jl")
+  include("resampling.jl")
+  include("estimation_setup.jl")
   include("stratification.jl")
   include("refine.jl")
   include("autobalancing.jl")

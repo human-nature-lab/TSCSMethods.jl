@@ -1,288 +1,223 @@
-# estimation.jl
-
-function outcomedict(dat, t, id, outcome)
-  outdict = Dict{Tuple{Int64, Int64}, Float64}();
-  @eachrow dat begin
-    outdict[($t, $id)] = $outcome
-  end;
-return outdict
-end
-
-"""
-    att!(results, M)
-
-calculate the ATT.
-"""
-function att!(results, M)
-
-  if "stratum" ∈ names(M)
-    mgroup = [:stratum, :f]
-  else
-    mgroup = :f
-  end
-
-  # combine to get one value for each f, via sums over W^*_(i',t) * Y_(i',t)
-  atts = @chain M begin
-    groupby(mgroup)
-    @combine(
-      :att = sum(:wstar),
-      :treatnum = sum(:treatev)
-    ) # MUST DIVIDE BY N. TREATED UNITS
-    @transform(:att = :att ./ :treatnum) # same order
-  end
-
-  append!(results, atts)
-
-  return results
-end
-
-function bootstrap(W, uid, observations, strata; iter = 500)
-  # ADD TREAT EVE RESTRICTION MINIMUM?
-  # >= one unit suffices
-
-  c1 = "stratum" ∈ names(W);
-  wgroup = if c1
-    [:stratum, :f];
-  else
-    [:f];
-  end
-  
-  uf = sort(unique(W[!, wgroup]), wgroup);
-  flen = nrow(uf);
-
-  uinfo = Vector{Vector{Int64}}(undef, flen);
-  wout = Vector{Vector{Float64}}(undef, flen);
-  trt = Vector{Vector{Int64}}(undef, flen);
-  
-  # actually, don't need to do this
-  # strt = Vector{Vector{Int64}}(undef, len);
-  
-  G = groupby(W, wgroup);
-  for (i, k) in enumerate(sort(keys(G)))
-    g = get(G, k, 0);
-    uinfo[i] = g[!, :unit];
-    wout[i] = g[!, :wstar];
-    trt[i] = g[!, :treatev];
-    # if c1
-    #   strt[i] = g[!, :stratum]; # this is assigning for each unit, need to ignore not-event items
-    # end
-  end
-
-  boots = zeros(Float64, flen, iter);
-  # boots = zeros(Float64, iter, length(uf));
-
-  luid = length(uid);
-  checkunitsets = if c1
-    getcheckset(W, observations, strata)
-  else
-    getcheckset(W, observations)
-  end
-  
-  _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter);
-
-  return boots
-end
-
-function getcheckset(W, observations, strata)
-
-  cgroup = [:stratum, :f, :unit]
-  checkset = @chain W[W.treatev, cgroup] begin
-    groupby(cgroup[1:end-1])
-    combine(
-      :unit => Ref ∘ unique => :units,
-    )
-  end
-
-  # treated units left after caliper application
-  # we need at least one of these in the set
-  trtleft = Dict{Int, Vector{Int}}();
-  for s in unique(strata)
-    trtleft[s] = [ob[2] for ob in observations[strata .== s]]
-  end
-  
-  @eachrow! checkset begin
-    :units = intersect(:units, trtleft[:stratum])
-  end;
-
-  # unique since we don't need to check for unitsets that are redundant
-  # for each row, at least one unit (of that row) must exist in the sample
-
-  # this is the set of treated units, such that at least one from
-  # each row  must occur in the sample
-  return unique(checkset.units)
-end
-
-function getcheckset(W, observations)
-
-  cgroup = [:f, :unit];
-
-  checkset = @chain W[W.treatev, cgroup] begin
-    groupby(cgroup[1:end-1])
-    combine(
-      :unit => Ref ∘ unique => :units,
-    )
-  end
-
-  # treated units left after caliper application
-  # we need at least one of these in the set
-  trtleft = [ob[2] for ob in observations]
-  
-  @eachrow! checkset begin
-    :units = intersect(:units, trtleft)
-  end;
-
-  # unique since we don't need to check for unitsets that are redundant
-  # for each row, at least one unit (of that row) must exist in the sample
-
-  # this is the set of treated units, such that at least one from
-  # each row  must occur in the sample
-  return unique(checkset.units)
-end
-
-"""
-    sample_check(uid, luid, checkset, uslen)
-
-Sample the units, and ensure that there is a treated unit in the resample. If the data is stratified, ensure that there is at least one treated unit in each stratum.
-"""
-function sample_check(uid, luid, unitsets)
-  samp = sample(uid, luid);
-
-  while !(samplepass(unitsets, samp))
-    samp = sample(uid, luid);
-  end
-
-  return samp
-end
-
-function samplepass(checkunitsets, samp)
-  for units in checkunitsets
-    if !_checkunits(units, samp)
-      return false
-    end
-  end
-  return true
-end
-
-function _checkunits(units, samp)
-  for unit in units # at least one must be true
-    if unit ∈ samp # is the unit from a row of checkunitsets in the sample?
-      return true
-      # break # if > 0 units are present, that row is satisfied by the sample
-    end
-  end
-  return false
-end
-
-function _check(unitsets, samp)
-  for units in unitsets
-    for unit in units
-      if unit ∈ samp
-        break
-      else
-        # if last entry of a row does not yield true
-        # (and haven't already skipped out to next row), then exit
-        return false
-      end
-    end
-  end
-  return true # all rows have a treated unit present
-end
-
-# hcat([units .∈ Ref(keys(reuid)) for units in checkunitsets], checkunitsets)
-
-"""
-    _boot!(boots, uid, luid, wout, uinfo, trt, checkset, uslen, iter)
-
-Inner function to bootstrap(), which actually executes the bootstrapping. N.B. that the seed should be set globally.
-"""
-function _boot!(boots, uid, luid, wout, uinfo, trt, checkunitsets, iter)
-  @inbounds Threads.@threads for i in 1:iter
-    reuid = countmemb(
-      sample_check(uid, luid, checkunitsets),
-      length(uid)
-    );
-    for c in eachindex(wout) # fs
-      wo = wout[c]; ufo = uinfo[c]; to = trt[c]
-      # n = stratified ? zeros(Int64, uslen) : zero(Int64)
-      n = zero(Int64)
-      for r in eachindex(wo)
-        boots[c, i] += get(reuid, ufo[r], 0) * wo[r] # adding up to get a single estimate for an f
-        n += get(reuid, ufo[r], 0) * to[r]
-      end
-      if n == 0
-        println("lack of treated unit failure at c = ", c)
-        boots[c, i] = NaN
-        break
-      end
-      boots[c, i] = boots[c, i] / n
-    end
-  end
-  return boots
-end
-
 """
     bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
 
 Format the bootstrap matrix into the results dataframe. Assumes that att() has been executed.
 """
-function bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
+function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
   qnmes = Vector{Symbol}();
   for q in qtiles
-    atts[!, :mean] = Vector{Float64}(undef, nrow(atts))
+    res[!, :mean] = Vector{Float64}(undef, nrow(res))
     qn = Symbol(string(q * 100) * "%");
     push!(qnmes, qn)
-    atts[!, qn] = Vector{Float64}(undef, nrow(atts))
+    res[!, qn] = Vector{Float64}(undef, nrow(res))
   end
   
-  for (c, r) in enumerate(eachrow(atts))
+  for (c, r) in enumerate(eachrow(res))
     r[qnmes] = quantile(boots[c, :], qtiles)
     r[:mean] = mean(boots[c, :])
   end
-  return atts
+  return res
 end
 
 """
-    estimate!(ccr::AbstractCICModel, dat; iterations = 500)
+    estimate!(ccr::AbstractCICModel, dat; iterations = nothing)
 
 Perform ATT estimation, with bootstrapped CIs.
 """
 function estimate!(
-  model::AbstractCICModel,
-  dat::DataFrame;
-  iterations = nothing,
-  qtiles::Union{Float64, Vector{Float64}} = [0.025, 0.5, 0.975]
+    model::AbstractCICModel, dat;
+    iterations = nothing, percentiles = [0.025, 0.5, 0.975]
+)
+    
+    X = processunits(model, dat);
+    @unpack observations, matches, F = model;
+    Flen = length(F);
+
+    if !isnothing(iterations)
+        @reset model.iterations = iterations;
+    else
+        iterations = model.iterations
+    end
+    
+    if nrow(model.results) > 0
+        @reset model.results = DataFrame();
+    end
+
+    boots, tcountmat = setup_bootstrap(Flen, iterations)
+    fblocks = makefblocks(X...)
+    treatdex = treatedmap(observations);
+    bootstrap!(boots, tcountmat, fblocks, treatdex, iterations);
+
+    atts = fill(0.0, Flen);
+    tcounts = fill(0, Flen);
+    att!(atts, tcounts, fblocks)
+
+
+    res = DataFrame(f = F, att = atts)
+    bootinfo!(res, boots; qtiles = percentiles)
+
+    append!(model.results, res)
+
+    applyunitcounts!(model)
+
+    return model
+end
+
+"""
+    estimate!(ccr::AbstractCICModelStratified, dat; iterations = nothing)
+
+Perform ATT estimation, with bootstrapped CIs.
+"""
+function estimate!(
+    model::AbstractCICModelStratified, dat;
+    iterations = nothing, percentiles = [0.025, 0.5, 0.975]
 )
 
-  if !isnothing(iterations)
-    @reset model.iterations = iterations;
-  end
+    multiboots = Dict{Int, Matrix{Float64}}();
+    multiatts = Dict{Int, Vector{Float64}}();
+    
+    res = DataFrame(
+        stratum = Int[], f = Int[], att = Float64[], mean = Float64[]
+    )
 
-  if nrow(model.results) > 0
-    @reset model.results = DataFrame();
-  end
+    for q in percentiles
+        qn = Symbol(string(q * 100) * "%");
+        res[!, qn] = Float64[]
+    end
 
-  @unpack observations, ids, results, iterations = model;
-  
-  c1 = (length(observations) == 0);
-  c2 = sum([isassigned(observations, i) for i in 1:length(observations)]) == 0
-  if c1 | c2
-    return "There are no matches."
-  end
+    X = processunits(model, dat);
+    @unpack observations, matches, F = model;
+    Flen = length(F);
 
-  W = observationweights(model, dat);
-  results = att!(results, W);
-  if typeof(model) <: AbstractCICModelStratified
-    boots = tscsmethods.bootstrap(
-      W, ids, observations, model.strata;
-      iter = iterations
-    );
-  else
-    boots = bootstrap(W, ids, observations, nothing; iter = iterations);
-  end
-  bootinfo!(results, boots; qtiles = qtiles)
-  applyunitcounts!(model)
-  
-  return model
+    if !isnothing(iterations)
+        @reset model.iterations = iterations;
+    else
+        iterations = model.iterations
+    end
+    
+    if (nrow(model.results) > 0) | length(names(model.results)) > 0
+        @reset model.results = DataFrame();
+    end
+
+    for s in sort(unique(model.strata))
+        Xsub = stratifyinputs(X, s, model.strata)
+        multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
+        fblock_sub = makefblocks(Xsub...)
+        treatdex = treatedmap(observations);
+        bootstrap!(multiboots[s], tcountmat, fblock_sub, treatdex, iterations);
+
+        multiatts[s] = fill(0.0, 31);
+        tcounts = fill(0, 31);
+        att!(multiatts[s], tcounts, fblock_sub)
+
+        # add to dataframe
+        for (r, e, f) in zip(eachrow(multiboots[s]), multiatts[s], F)
+            push!(
+                res,
+                [
+                    s, f,
+                    e,
+                    mean(r),
+                    (quantile(r, percentiles))...
+                ]
+            )
+        end
+    end
+
+    append!(model.results, res)
+    
+    applyunitcounts!(model)
+
+    return model
+end
+
+function setup_bootstrap(Flen, iterations)
+    boots = zeros(Float64, Flen, iterations);
+    tcountmat = zeros(Float64, Flen, iterations);
+    return boots, tcountmat
+end
+
+function bootstrap!(boots, tcountmat, fblocks, treatdex, iterations)
+    @inbounds Threads.@threads for b in 1:iterations
+        bootcol = @views boots[:, b]
+        tcountcol = @views tcountmat[:, b]
+        bootatt!(bootcol, tcountcol, fblocks, ids, treatdex);
+    end
+    return boots
+end
+
+function att!(atts, tcounts, fblocks)
+    for φ in 1:length(fblocks)
+        @unpack matchunits, weightedoutcomes,
+        weightedrefoutcomes, treatment = fblocks[φ]
+
+        __att!(
+            atts, tcounts, φ,
+            weightedoutcomes,
+            weightedrefoutcomes, treatment
+        )
+
+        atts[φ] = atts[φ] * inv(tcounts[φ])
+    end
+end
+
+function __att!(
+    atts, tcounts, φ,
+    weightedoutcomes,
+    weightedrefoutcomes, treatments,
+)
+    for (wo, wref, trted) in zip(
+        weightedoutcomes,
+        weightedrefoutcomes, treatments
+    )
+        atts[φ] += (wo + wref);
+        if trted
+            tcounts[φ] += 1;
+        end
+    end
+end
+
+## booting
+
+# all fs, FOR A STRATUM NOT MULTIPLE
+function bootatt!(atts, tcounts, fblocks, ids, treatdex)
+    # b/c two methods w/ diff outputs
+    # will need to separate anyway since atts will be different
+    sampcount = getsample(ids, treatdex) # randomness
+    _boot!(atts, tcounts, fblocks, sampcount)
+end
+
+function _boot!(atts, tcounts, fblocks, sampcount)
+    for φ in 1:length(fblocks)
+        @unpack matchunits, weightedoutcomes,
+        weightedrefoutcomes, treatment = fblocks[φ]
+
+        __boot!(
+            atts, tcounts, φ,
+            matchunits, weightedoutcomes,
+            weightedrefoutcomes, treatment,
+            sampcount
+        )
+
+        atts[φ] = atts[φ] * inv(tcounts[φ])
+    end
+end
+
+function __boot!(
+    atts, tcounts, φ,
+    matchunits, weightedoutcomes,
+    weightedrefoutcomes, treatments,
+    sampcount
+)
+    for (munit, wo, wref, trted) in zip(
+        matchunits, weightedoutcomes,
+        weightedrefoutcomes, treatments
+    )
+        atts[φ] += (wo + wref) * get(sampcount, munit, 0);
+        if trted
+            tcounts[φ] += 1 * get(sampcount, munit, 0);
+        end
+    end
 end
 
 function applyunitcounts!(model)
