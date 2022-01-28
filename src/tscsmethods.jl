@@ -40,7 +40,7 @@ module tscsmethods
     model_pl, plot_modelset,
     # saving
     name_model,
-    modelrecord, save_record, save_records,
+    makerecord,
     default_treatmentcategories,
     showmatches, matchinfo, obsinfo
 end
