@@ -79,17 +79,20 @@ end
     autobalance(
       model, dat;
       refinementnum = 5,
-      calmin = 0.08, step = 0.05, initial_bals = false
+      calmin = 0.08, step = 0.05,
+      initial_bals = nothing
     )
 
 Automatically balance via a simple algorithm. Start with initial caliper of 1.0, and subtract `step` whenever the grand mean balance threshold (0.1) is not met.
+
+initial_bals is specified, work downward from the initial specified caliper for one or more selected variabels. Unspecified variabels start at a caliper of 1.
 """
 function autobalance(
   model, dat;
   threshold = 0.1,
   min_treated_obs = 10,
   refinementnum = 5, calmin = 0.1, step = 0.05,
-  initial_bals = false,
+  initial_bals = nothing,
   doestimate = true,
   verbose = true
 )
@@ -108,7 +111,7 @@ function autobalance(
     Matrix(dat[!, covariates]);
   );
 
-  if !initial_bals
+  if isnothing(initial_bals)
     acaliper = Dict{Symbol, Float64}();
     for c in covariates
       acaliper[c] = 1.0
@@ -116,6 +119,14 @@ function autobalance(
 
     if verbose
       println(acaliper)
+    end
+  else
+    acaliper = Dict{Symbol, Float64}();
+    for c in covariates
+      acaliper[c] = 1.0
+    end
+    for (k, v) in initial_bals
+      acaliper[k] = v
     end
   end
 
