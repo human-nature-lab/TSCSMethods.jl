@@ -30,7 +30,7 @@ function estimate!(
 )
     
     X = processunits(model, dat);
-    @unpack observations, matches, F = model;
+    @unpack observations, matches, F, ids = model;
     Flen = length(F);
 
     if !isnothing(iterations)
@@ -46,7 +46,7 @@ function estimate!(
     boots, tcountmat = setup_bootstrap(Flen, iterations)
     fblocks = makefblocks(X...)
     treatdex = treatedmap(observations);
-    bootstrap!(boots, tcountmat, fblocks, treatdex, iterations);
+    bootstrap!(boots, tcountmat, fblocks, ids, treatdex, iterations);
 
     atts = fill(0.0, Flen);
     tcounts = fill(0, Flen);
@@ -86,7 +86,7 @@ function estimate!(
     end
 
     X = processunits(model, dat);
-    @unpack observations, matches, F = model;
+    @unpack observations, matches, F, ids = model;
     Flen = length(F);
 
     if !isnothing(iterations)
@@ -104,7 +104,9 @@ function estimate!(
         multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
         fblock_sub = makefblocks(Xsub...)
         treatdex = treatedmap(observations);
-        bootstrap!(multiboots[s], tcountmat, fblock_sub, treatdex, iterations);
+        bootstrap!(
+            multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
+        );
 
         multiatts[s] = fill(0.0, 31);
         tcounts = fill(0, 31);
@@ -137,7 +139,7 @@ function setup_bootstrap(Flen, iterations)
     return boots, tcountmat
 end
 
-function bootstrap!(boots, tcountmat, fblocks, treatdex, iterations)
+function bootstrap!(boots, tcountmat, fblocks, ids, treatdex, iterations)
     @inbounds Threads.@threads for b in 1:iterations
         bootcol = @views boots[:, b]
         tcountcol = @views tcountmat[:, b]

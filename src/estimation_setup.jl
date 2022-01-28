@@ -1,7 +1,18 @@
 # estimation_setup.jl
 
-import tscsmethods:getoutcomemap
-using DataFrames, DataFramesMeta, Accessors, Parameters
+"""
+        getoutcomemap(dat, model)
+
+Get dictionary, from specified unit and time to outcome.
+"""
+function getoutcomemap(dat, model)
+    outcomemap = Dict{Tuple{Int, Int}, Float64}();
+    for r in eachrow(dat)
+        outcomemap[(r[model.t], r[model.id])] = r[model.outcome]
+    end
+
+    return outcomemap
+end
 
 function processunits(model, dat)
 
@@ -74,7 +85,11 @@ function processunits(model, dat)
     return (Tus, Mus, Wos, Wrs, Fs)
 end
 
-# then do same for just treated, and append in
+"""
+
+Use the mu matrix to generate vectors of weighted outcomes
+and unit information, as a preprocessing step for estimation.
+"""
 function unitstore!(
     wos, wrs, tux, mux, fux,
     tt, tu,
@@ -82,12 +97,15 @@ function unitstore!(
     reference
 )
 
+    # k is sort of a linear index for the matrix
+    # counts true elements in mu (matches to treated), and
+    # an (additional) an element for every column (for the treated unit)
     k = 0
     for (j, col) in enumerate(eachcol(mus))
         if any(col)
             ow = tt + j + Fmin - 1
             k += 1
-            # treated unit here
+            # treated unit
             wos[k] = outcomemap[(ow, tu)] * 1.0 # treated unit weight, f in outcome window
             wrs[k] = outcomemap[(tt+reference, tu)] * -1.0 # treated unit weight, reference
             tux[k] = tu
@@ -96,7 +114,7 @@ function unitstore!(
             for (i, e) in enumerate(col)
                 if e
                     k += 1
-                    # matches here
+                    # matches to treated
                     wos[k] = outcomemap[(ow, ids[i])] * -inv(matchnums[j])
                     wrs[k] = outcomemap[(tt+reference, ids[i])] * inv(matchnums[j])
                     tux[k] = tu
@@ -107,62 +125,7 @@ function unitstore!(
         end
     end
 
-    # # the two subsequent loops are redundant
-    # # populate two matrices: wo and wo2
-    # # same structure as mus, but with the outcomes
-    # # missing in thse == false in mus
-    # for j in 1:size(mus, 2)
-    #     ow = tt + j + Fmin - 1
-    #     for i in 1:size(mus, 1)
-    #         if mus[i,j] # same length as idx
-    #             id_i = @views ids[i];
-    #             mn_j = @views matchnums[j];
-    #             wo[i,j] = outcomemap[(ow, id_i)] * -inv(matchnums[j])
-    #             # matched unit
-    #             wo2[i, j] = outcomemap[(tt+reference, id_i)] * inv(mn_j)
-    #         end
-    #     end
-    # end
-
-    # # match units
-    # # if the match exists, then the treated is definitely included
-    # # so won't need to remove anything here
-    # for (i, ix) in enumerate(idx)
-    #     (r, c) = Tuple(ix)
-    #     wos[i] = wo[ix]
-    #     wrs[i] = wo2[ix]
-    #     tux[i] = tu
-    #     mux[i] = ids[r]
-    #     fux[i] = c+Fmin-1
-    # end
-
-    # # treated unit (they are not recorded in mus, so do separately)
-    # trtx = length(idx)+1:length(idx)+length(F)
-    # for (g, (tx, mur)) in zenumerate(zip(trtx, eachcol(mus)))
-    #     # do only for Fs with > 1 match
-    #     # (was preallocated with zeros, so just skip)
-    #     if any(mur)
-    #         tux[tx] = tu
-    #         mux[tx] = tu
-    #         ow = tt + g + Fmin - 1
-    #         fux[tx] = g + Fmin - 1
-    #         wos[tx] = outcomemap[(ow, tu)] * 1.0 # treated unit weight, f in outcome window
-    #         wrs[tx] = outcomemap[(tt+reference, tu)] * -1.0 # treated unit weight, reference
-    #     end
-    # end
-
-    # tux[tux .== 0] # find missing treated at F for removal
-
    return wos, wrs, tux, mux, fux
-end
-
-function getoutcomemap(dat, model)
-    outcomemap = Dict{Tuple{Int, Int}, Float64}();
-    for r in eachrow(dat)
-        outcomemap[(r[model.t], r[model.id])] = r[model.outcome]
-    end
-
-    return outcomemap
 end
 
 """
