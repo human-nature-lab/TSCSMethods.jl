@@ -1,5 +1,8 @@
 # estimation_setup.jl
 
+import tscsmethods:getoutcomemap
+using DataFrames, DataFramesMeta, Accessors, Parameters
+
 function processunits(model, dat)
 
     # for quick access to outcomes from unit & time
@@ -12,8 +15,15 @@ function processunits(model, dat)
     # add total number of matches + treated unit
     # every relevant outcome (and reference)
     # over all treated units (and matches therein)
+    mtchsums = Vector{Int}(undef, length(matches));
     for (k, mtch) in enumerate(matches)
-        mtchsums[k] = sum(mtch.mus) + length(F)
+
+        # number of columns with any matches
+        # gives the number of times the treated unit exists
+        Φ = 0
+        for col in eachcol(mus); if any(col); Φ += 1 end end
+
+        mtchsums[k] = sum(mtch.mus) + Φ
     end
 
     # preallocate objects that hold the outcome-level
@@ -26,7 +36,8 @@ function processunits(model, dat)
     Mus = Vector{Vector{Int64}}(undef, obsnum);
     Fs = Vector{Vector{Int64}}(undef, obsnum);
     
-    for (i, ms) in enumerate(mtchsums)
+    Threads.@threads for i in eachindex(mtchsums)
+        ms = mtchsums[i]
         Wos[i] = fill(0.0, ms)
         Wrs[i] = fill(0.0, ms)
         Tus[i] = fill(0, ms)
@@ -42,8 +53,8 @@ function processunits(model, dat)
         (tt, tu) = observations[i]
         mtch = matches[i]
         
-        wo = Matrix{Union{Float64, Missing}}(missing, size(mtch.mus)) # outcomes
-        wo2 = similar(wo) # reference
+        #wo = Matrix{Union{Float64, Missing}}(missing, size(mtch.mus)) # outcomes
+        #wo2 = similar(wo) # reference
 
         wos = Wos[i]
         wrs = Wrs[i]
@@ -51,17 +62,14 @@ function processunits(model, dat)
         mux = Mus[i]
         fux = Fs[i]
 
-        idx = findall(mtch.mus)
         matchnums = vec(sum(mtch.mus, dims = 1))
 
         unitstore!(
             wos, wrs, tux, mux, fux,
-            wo, wo2,
             tt, tu,
-            mtch.mus, ids, Fmin, outcomemap, matchnums, idx,
+            mtch.mus, ids, Fmin, outcomemap, matchnums,
             reference
         )
-
     end
     return (Tus, Mus, Wos, Wrs, Fs)
 end
@@ -69,47 +77,82 @@ end
 # then do same for just treated, and append in
 function unitstore!(
     wos, wrs, tux, mux, fux,
-    wo, wo2,
     tt, tu,
-    mus, ids, Fmin, outcomemap, matchnums, idx,
+    mus, ids, Fmin, outcomemap, matchnums,
     reference
 )
-    for j in 1:size(mus, 2)
-        ow = tt + j + Fmin - 1
-        # treated unit
-        # avals[j] += ((outcomemap[(tt-1, tu)] * -1.0) + (outcomemap[(ow, tu)] * 1.0))# * get(sampcount, tu, 0)
-        for i in 1:size(mus, 1)
-            if mus[i,j]
-                id_i = @views ids[i];
-                mn_j = @views matchnums[j];
-                wo[i,j] = outcomemap[(ow, id_i)] * -inv(matchnums[j]) #* get(sampcount, ids[i], 0)# mult by wght and samp wght
 
-                # matched unit
-                wo2[i, j] = outcomemap[(tt+reference, id_i)] * inv(mn_j) #* get(sampcount, id_i, 0) # mult by wght and samp wght
+    k = 0
+    for (j, col) in enumerate(eachcol(mus))
+        if any(col)
+            ow = tt + j + Fmin - 1
+            k += 1
+            # treated unit here
+            wos[k] = outcomemap[(ow, tu)] * 1.0 # treated unit weight, f in outcome window
+            wrs[k] = outcomemap[(tt+reference, tu)] * -1.0 # treated unit weight, reference
+            tux[k] = tu
+            mux[k] = tu
+            fux[k] = j + Fmin - 1
+            for (i, e) in enumerate(col)
+                if e
+                    k += 1
+                    # matches here
+                    wos[k] = outcomemap[(ow, ids[i])] * -inv(matchnums[j])
+                    wrs[k] = outcomemap[(tt+reference, ids[i])] * inv(matchnums[j])
+                    tux[k] = tu
+                    mux[k] = ids[i]
+                    fux[k] = j + Fmin - 1
+                end
             end
         end
     end
 
-    # match units
-    for (i, ix) in enumerate(idx)
-        (r, c) = Tuple(ix)
-        wos[i] = wo[ix]
-        wrs[i] = wo2[ix]
-        tux[i] = tu
-        mux[i] = ids[r]
-        fux[i] = c+Fmin-1
-    end
+    # # the two subsequent loops are redundant
+    # # populate two matrices: wo and wo2
+    # # same structure as mus, but with the outcomes
+    # # missing in thse == false in mus
+    # for j in 1:size(mus, 2)
+    #     ow = tt + j + Fmin - 1
+    #     for i in 1:size(mus, 1)
+    #         if mus[i,j] # same length as idx
+    #             id_i = @views ids[i];
+    #             mn_j = @views matchnums[j];
+    #             wo[i,j] = outcomemap[(ow, id_i)] * -inv(matchnums[j])
+    #             # matched unit
+    #             wo2[i, j] = outcomemap[(tt+reference, id_i)] * inv(mn_j)
+    #         end
+    #     end
+    # end
 
-    # treated unit
-    trtx = length(idx)+1:length(idx)+length(F)
-    for (g, tx) in enumerate(trtx)
-        tux[tx] = tu
-        mux[tx] = tu
-        ow = tt + g + Fmin - 1
-        fux[tx] = g + Fmin - 1
-        wos[tx] = outcomemap[(ow, tu)] * 1.0 # treated unit weight, f in outcome window
-        wrs[tx] = outcomemap[(tt+reference, tu)] * -1.0 # treated unit weight, reference
-    end
+    # # match units
+    # # if the match exists, then the treated is definitely included
+    # # so won't need to remove anything here
+    # for (i, ix) in enumerate(idx)
+    #     (r, c) = Tuple(ix)
+    #     wos[i] = wo[ix]
+    #     wrs[i] = wo2[ix]
+    #     tux[i] = tu
+    #     mux[i] = ids[r]
+    #     fux[i] = c+Fmin-1
+    # end
+
+    # # treated unit (they are not recorded in mus, so do separately)
+    # trtx = length(idx)+1:length(idx)+length(F)
+    # for (g, (tx, mur)) in zenumerate(zip(trtx, eachcol(mus)))
+    #     # do only for Fs with > 1 match
+    #     # (was preallocated with zeros, so just skip)
+    #     if any(mur)
+    #         tux[tx] = tu
+    #         mux[tx] = tu
+    #         ow = tt + g + Fmin - 1
+    #         fux[tx] = g + Fmin - 1
+    #         wos[tx] = outcomemap[(ow, tu)] * 1.0 # treated unit weight, f in outcome window
+    #         wrs[tx] = outcomemap[(tt+reference, tu)] * -1.0 # treated unit weight, reference
+    #     end
+    # end
+
+    # tux[tux .== 0] # find missing treated at F for removal
+
    return wos, wrs, tux, mux, fux
 end
 
