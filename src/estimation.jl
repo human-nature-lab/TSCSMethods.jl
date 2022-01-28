@@ -1,22 +1,40 @@
-"""
-    bootinfo!(atts, boots; qtiles = [0.025, 0.5, 0.975])
+# estimation.jl
 
-Format the bootstrap matrix into the results dataframe. Assumes that att() has been executed.
 """
-function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
-  qnmes = Vector{Symbol}();
-  for q in qtiles
-    res[!, :mean] = Vector{Float64}(undef, nrow(res))
-    qn = Symbol(string(q * 100) * "%");
-    push!(qnmes, qn)
-    res[!, qn] = Vector{Float64}(undef, nrow(res))
-  end
-  
-  for (c, r) in enumerate(eachrow(res))
-    r[qnmes] = quantile(boots[c, :], qtiles)
-    r[:mean] = mean(boots[c, :])
-  end
-  return res
+        att!(atts, tcounts, fblocks)
+
+Calculate the att for each f, for a the set of treated units and
+matches contained in the fblocks.
+"""
+function att!(atts, tcounts, fblocks)
+    for φ in 1:length(fblocks)
+        @unpack matchunits, weightedoutcomes,
+        weightedrefoutcomes, treatment = fblocks[φ]
+
+        __att!(
+            atts, tcounts, φ,
+            weightedoutcomes,
+            weightedrefoutcomes, treatment
+        )
+
+        atts[φ] = atts[φ] * inv(tcounts[φ])
+    end
+end
+
+function __att!(
+    atts, tcounts, φ,
+    weightedoutcomes,
+    weightedrefoutcomes, treatments,
+)
+    for (wo, wref, trted) in zip(
+        weightedoutcomes,
+        weightedrefoutcomes, treatments
+    )
+        atts[φ] += (wo + wref);
+        if trted
+            tcounts[φ] += 1;
+        end
+    end
 end
 
 """
@@ -26,7 +44,8 @@ Perform ATT estimation, with bootstrapped CIs.
 """
 function estimate!(
     model::AbstractCICModel, dat;
-    iterations = nothing, percentiles = [0.025, 0.5, 0.975]
+    iterations = nothing,
+    percentiles = [0.025, 0.5, 0.975]
 )
     
     X = processunits(model, dat);
@@ -52,7 +71,6 @@ function estimate!(
     tcounts = fill(0, Flen);
     att!(atts, tcounts, fblocks)
 
-
     res = DataFrame(f = F, att = atts)
     bootinfo!(res, boots; qtiles = percentiles)
 
@@ -66,7 +84,7 @@ end
 """
     estimate!(ccr::AbstractCICModelStratified, dat; iterations = nothing)
 
-Perform ATT estimation, with bootstrapped CIs.
+Perform ATT stratified estimation, with bootstrapped CIs.
 """
 function estimate!(
     model::AbstractCICModelStratified, dat;
@@ -117,8 +135,7 @@ function estimate!(
             push!(
                 res,
                 [
-                    s, f,
-                    e,
+                    s, f, e,
                     mean(r),
                     (quantile(r, percentiles))...
                 ]
@@ -133,93 +150,28 @@ function estimate!(
     return model
 end
 
-function setup_bootstrap(Flen, iterations)
-    boots = zeros(Float64, Flen, iterations);
-    tcountmat = zeros(Float64, Flen, iterations);
-    return boots, tcountmat
-end
+# utilities
 
-function bootstrap!(boots, tcountmat, fblocks, ids, treatdex, iterations)
-    @inbounds Threads.@threads for b in 1:iterations
-        bootcol = @views boots[:, b]
-        tcountcol = @views tcountmat[:, b]
-        bootatt!(bootcol, tcountcol, fblocks, ids, treatdex);
-    end
-    return boots
-end
+"""
+    bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
 
-function att!(atts, tcounts, fblocks)
-    for φ in 1:length(fblocks)
-        @unpack matchunits, weightedoutcomes,
-        weightedrefoutcomes, treatment = fblocks[φ]
-
-        __att!(
-            atts, tcounts, φ,
-            weightedoutcomes,
-            weightedrefoutcomes, treatment
-        )
-
-        atts[φ] = atts[φ] * inv(tcounts[φ])
-    end
-end
-
-function __att!(
-    atts, tcounts, φ,
-    weightedoutcomes,
-    weightedrefoutcomes, treatments,
-)
-    for (wo, wref, trted) in zip(
-        weightedoutcomes,
-        weightedrefoutcomes, treatments
-    )
-        atts[φ] += (wo + wref);
-        if trted
-            tcounts[φ] += 1;
-        end
-    end
-end
-
-## booting
-
-# all fs, FOR A STRATUM NOT MULTIPLE
-function bootatt!(atts, tcounts, fblocks, ids, treatdex)
-    # b/c two methods w/ diff outputs
-    # will need to separate anyway since atts will be different
-    sampcount = getsample(ids, treatdex) # randomness
-    _boot!(atts, tcounts, fblocks, sampcount)
-end
-
-function _boot!(atts, tcounts, fblocks, sampcount)
-    for φ in 1:length(fblocks)
-        @unpack matchunits, weightedoutcomes,
-        weightedrefoutcomes, treatment = fblocks[φ]
-
-        __boot!(
-            atts, tcounts, φ,
-            matchunits, weightedoutcomes,
-            weightedrefoutcomes, treatment,
-            sampcount
-        )
-
-        atts[φ] = atts[φ] * inv(tcounts[φ])
-    end
-end
-
-function __boot!(
-    atts, tcounts, φ,
-    matchunits, weightedoutcomes,
-    weightedrefoutcomes, treatments,
-    sampcount
-)
-    for (munit, wo, wref, trted) in zip(
-        matchunits, weightedoutcomes,
-        weightedrefoutcomes, treatments
-    )
-        atts[φ] += (wo + wref) * get(sampcount, munit, 0);
-        if trted
-            tcounts[φ] += 1 * get(sampcount, munit, 0);
-        end
-    end
+Format the bootstrap matrix into the results dataframe. Assumes that att()
+has already been added to res.
+"""
+function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
+  qnmes = Vector{Symbol}();
+  for q in qtiles
+    res[!, :mean] = Vector{Float64}(undef, nrow(res))
+    qn = Symbol(string(q * 100) * "%");
+    push!(qnmes, qn)
+    res[!, qn] = Vector{Float64}(undef, nrow(res))
+  end
+  
+  for (c, r) in enumerate(eachrow(res))
+    r[qnmes] = quantile(boots[c, :], qtiles)
+    r[:mean] = mean(boots[c, :])
+  end
+  return res
 end
 
 function applyunitcounts!(model)
