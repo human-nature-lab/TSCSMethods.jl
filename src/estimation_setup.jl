@@ -21,7 +21,7 @@ function processunits(model, dat)
         # number of columns with any matches
         # gives the number of times the treated unit exists
         Φ = 0
-        for col in eachcol(mus); if any(col); Φ += 1 end end
+        for col in eachcol(mtch.mus); if any(col); Φ += 1 end end
 
         mtchsums[k] = sum(mtch.mus) + Φ
     end
