@@ -132,8 +132,8 @@ function meanbalance!(model::VeryAbstractCICModel, dat)
   @unpack t, id, treatment = model;
   @unpack F, L, reference = model;
 
-  fmin = minimum(F); fmax = maximum(F)
-  mmin = minimum(L); mmax = maximum(L);
+  fmin, fmax = extrema(F);
+  Lmin, Lmax = extrema(L);
 
   tmin = minimum(dat[!, t]);
   
@@ -143,7 +143,7 @@ function meanbalance!(model::VeryAbstractCICModel, dat)
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
-    fmin, fmax, mmin,
+    fmin, fmax, Lmin,
     Matrix(dat[!, covariates]);
   );
 
@@ -152,7 +152,7 @@ function meanbalance!(model::VeryAbstractCICModel, dat)
     observations,
     matches,
     ids,
-    F, mmin, mmax,
+    F, Lmin, Lmax,
     tg, rg,
     covariates, timevary,
     reference, Lσ, tmin
@@ -172,7 +172,7 @@ function meanbalance!(model::VeryAbstractCICModel, dat, tg, rg)
   @unpack t, id, treatment = model;
   @unpack F, L, reference = model;
 
-  mmin = minimum(L); mmax = maximum(L);
+  Lmin, Lmax = extrema(L);
 
   tmin = minimum(dat[!, t]);
   
@@ -184,7 +184,7 @@ function meanbalance!(model::VeryAbstractCICModel, dat, tg, rg)
     observations,
     matches,
     ids,
-    F, mmin, mmax,
+    F, Lmin, Lmax,
     tg, rg,
     covariates, timevary,
     reference, Lσ, tmin
@@ -200,7 +200,7 @@ function _meanbalance!(
   observations,
   matches,
   ids,
-  F, mmin, mmax,
+  F, Lmin, Lmax,
   tg, rg,
   covariates, timevary,
   reference, Lσ, tmin
@@ -250,7 +250,7 @@ function _meanbalance!(
     _addmatches!(
       balrw, tt, Ys, Yt, ids, eachrow(mus),
       Lσ, covariates, timevary,
-      reference, minimum(F), mmin, mmax,
+      reference, minimum(F), Lmin, Lmax,
       tg, tmin
     );
 
@@ -274,7 +274,7 @@ end
 function _addmatches!(
   balrw, tt, Ys, Yt, ids, musrows,
   Lσ, covariates, timevary,
-  reference, fmin, mmin, mmax,
+  reference, fmin, Lmin, Lmax,
   tg, tmin
 )
 
@@ -289,7 +289,7 @@ function _addmatches!(
       _addmatch!(
         balrw, Ys, Xs, Yt, Lσ, murow,
         tt, covariates, timevary, reference,
-        fmin, mmin, mmax, tmin
+        fmin, Lmin, Lmax, tmin
       );
     end
   end
@@ -301,13 +301,18 @@ function _addmatch!(
   murow,
   tt, covariates, timevary,
   reference,
-  fmin, mmin, mmax, tmin
+  fmin, Lmin, Lmax, tmin
 )
+
+  # fmin would be needed for sliding, crossover-
+  # window-based matching
+  # just leave input in place
+
   for (c, (Y, X, covar)) in enumerate(zip(Ys, Xs, covariates))
     addmatch_f!(
       balrw[c+1], Y, X, Yt, Lσ, murow,
       tt, covar, timevary, reference,
-      fmin, mmin, mmax, tmin
+      Lmin, Lmax, tmin
     )
   end
   return balrw
@@ -317,21 +322,24 @@ function addmatch_f!(
   balrwc,
   Y, X, Yt, Lσ, murow,
   tt, covar, timevary, reference,
-  fmin, mmin, mmax, tmin
+  Lmin, Lmax, tmin
 )
   fbcnt = 0 # index balrwc, since it will only have vectors for included fs
-  for (φ, fb) in enumerate(murow)
-    # ANOTHER COUNTING/INDEXING ISSUE
-    # we restrict to the cases where there is at least one f, so we need to index accordingly
-    # efs[bwpres] is the correct object to index
-    
+  for fb in murow  
     if fb
       fbcnt += 1
-      fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+      
+      # sliding
+      # implement later
+      # fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+
+      # static
+      fw = Lmin + tt : Lmax + tt
+
       fwadjustment = minimum(fw) < tmin ? abs(minimum(fw)) : 0;
       if timevary[covar]
         _timevarybalance!(
-          balrwc[fbcnt], # mcounts[c][φ],
+          balrwc[fbcnt],
           Y, X, Yt, fw, Lσ, tt, covar, fwadjustment
         )
       else
@@ -518,34 +526,3 @@ function balance!(model::VeryAbstractCICModel, dat)
 
   return model
 end
-
-#####
-
-#= 
-covar = vn.pd
-covec = model.meanbalances[!, covar];
-
-X = [false for _ in 1:length(covec)];
-for (i, cove) in enumerate(covec)
-  if any(isnan.(cove))
-    X[i] = true
-  end
-end
-
-findall(X)
-
-# this is random
-
- pop density NAN values
-4-element Vector{Int64}:
-  716
- 1951
- 2407
- 2413
-
-corresponding to observations
- (2, 48257)
- (93, 42083)
- (114, 36053)
- (114, 36065)
-=#

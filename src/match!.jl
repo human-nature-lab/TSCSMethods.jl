@@ -43,7 +43,7 @@ function match!(
     tg, rg, trtg = make_groupindices(
       dat[!, t], dat[!, treatment],
       dat[!, id], ids,
-      fmin, fmax, mmin,
+      fmin, fmax, Lmin,
       cdat
     );
     eligiblematches!(
@@ -54,7 +54,7 @@ function match!(
     tg, rg, trtg, exg = make_groupindices(
       dat[!, t], dat[!, treatment],
       dat[!, id], ids,
-      fmin, fmax, mmin,
+      fmin, fmax, Lmin,
       cdat;
       exvec = dat[!, exposure]
     );
