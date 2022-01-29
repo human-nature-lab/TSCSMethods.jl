@@ -10,6 +10,8 @@ module tscsmethods
   include("match!.jl")
   include("ranking.jl")
   include("caliper.jl")
+  include("meanbalancing.jl")
+  include("overallbalancing.jl")
   include("balancing.jl")
   include("estimation_observationweights.jl")
   include("resampling.jl")

@@ -34,7 +34,13 @@ function match!(
   @unpack F, L, id, t, treatment, covariates = model;
   
   flen = length(F);
-  fmin = minimum(F); fmax = maximum(F);
+  
+  # bounds for outcome window
+  fmin, fmax = extrema(F)
+
+  # bounds for covariate matching window
+  Lmin, Lmax = extrema(L)
+
   covnum = length(covariates);
 
   cdat = Matrix(dat[!, covariates]);
@@ -43,7 +49,7 @@ function match!(
     tg, rg, trtg = make_groupindices(
       dat[!, t], dat[!, treatment],
       dat[!, id], ids,
-      fmin, fmax, Lmin,
+      fmax, Lmin,
       cdat
     );
     eligiblematches!(
@@ -54,7 +60,7 @@ function match!(
     tg, rg, trtg, exg = make_groupindices(
       dat[!, t], dat[!, treatment],
       dat[!, id], ids,
-      fmin, fmax, Lmin,
+      fmax, Lmin,
       cdat;
       exvec = dat[!, exposure]
     );
@@ -67,11 +73,6 @@ function match!(
   distances_allocate!(matches, flen, covnum);
 
   Σinvdict = samplecovar(dat, covariates, t, id, treatment);
-  
-  GC.gc();
-
-  # bounds for covariate matching window
-  Lmin, Lmax = extrema(L)
 
   # 193.266173 seconds
   # (2.17 G allocations: 677.980 GiB, 59.13% gc time, 0.01% compilation time)

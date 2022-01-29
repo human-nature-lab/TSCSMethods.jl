@@ -28,7 +28,7 @@ function fullbalance(model::AbstractCICModel, dat::DataFrame)
   tg, rg, trtg = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
-    fmin, fmax, mmin,
+    fmax, mmin,
     cdat
   );
 

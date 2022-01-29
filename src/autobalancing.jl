@@ -107,7 +107,7 @@ function autobalance(
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
-    fmin, fmax, mmin,
+    fmax, mmin,
     Matrix(dat[!, covariates]);
   );
 
