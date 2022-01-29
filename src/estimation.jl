@@ -126,8 +126,8 @@ function estimate!(
             multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
         );
 
-        multiatts[s] = fill(0.0, 31);
-        tcounts = fill(0, 31);
+        multiatts[s] = fill(0.0, length(F));
+        tcounts = fill(0, length(F));
         att!(multiatts[s], tcounts, fblock_sub)
 
         # add to dataframe
