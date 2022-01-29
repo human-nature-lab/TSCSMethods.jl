@@ -18,6 +18,7 @@ struct CICRecord
   outcome::Symbol
   covariates::Vector{Symbol}
   ids::Vector{Int}
+  observations::Vector{Tuple{Int, Int}}
   t::Symbol
   id::Symbol
   stratifier::Symbol
@@ -71,6 +72,7 @@ function makerecord(m::VeryAbstractCICModel)
     m.outcome,
     m.covariates,
     m.ids,
+    m.observations,
     m.t,
     m.id,
     stratifier,
@@ -86,9 +88,11 @@ end
 function makerecords(savepath, models...)
 
   mr = nothing; mr2 = nothing; mr3 = nothing; mr4 = nothing
+  m1 = []; mrf = []
   for model in models
     if typeof(model) <: Union{CIC, CICStratified}
       mr = makerecord(model)
+      m1 = model
     end
     if typeof(model) <: Union{RefinedCIC, RefinedCICStratified}
       mr2 = makerecord(model)
@@ -98,15 +102,16 @@ function makerecords(savepath, models...)
     end
     if typeof(model) <: Union{RefinedCaliperCIC, RefinedCaliperCICStratified}
       mr4 = makerecord(model)
+      mrf = model
     end
   end
   
   if !isnothing(mr) & !isnothing(mr4)
-    rcinfo = matchinfo(mr4, mr);
+    rcinfo = matchinfo(mrf, m1);
     obinfo = obsinfo(
-      rcinfo, dat, mr.covariates;
-      fullmodobs = mr.observations,
-      t = mr.t, id = mr.id
+      rcinfo, dat, m1.covariates;
+      fullmodobs = m1.observations,
+      t = m1.t, id = m1.id
     );
   else
     rcinfo = nothing
