@@ -85,7 +85,7 @@ function makerecord(m::VeryAbstractCICModel)
   return mrecord
 end
 
-function makerecords(savepath, models...)
+function makerecords(dat, savepath, models...)
 
   mr = nothing; mr2 = nothing; mr3 = nothing; mr4 = nothing
   m1 = []; mrf = []
@@ -105,6 +105,8 @@ function makerecords(savepath, models...)
       mrf = model
     end
   end
+
+  # models = [model, refinedmodel, calmodel, refcalmodel]
   
   if !isnothing(mr) & !isnothing(mr4)
     rcinfo = matchinfo(mrf, m1);
