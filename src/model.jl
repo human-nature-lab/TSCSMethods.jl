@@ -76,7 +76,7 @@ function makerecord(m::VeryAbstractCICModel)
     m.ids,
     m.observations,
     m.F,
-    m.L
+    m.L,
     m.t,
     m.id,
     stratifier,
