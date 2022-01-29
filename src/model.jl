@@ -114,10 +114,10 @@ function makerecords(savepath, models...)
   end
   
   records = CICRecords(
-    model = mr, refinedmodel = mr2,
-    calmodel = mr3, refcalmodel = mr4,
-    matchinfo = rcinfo,
-    obsinfo = obinfo
+    mr, mr2,
+    mr3, mr4,
+    rcinfo,
+    obinfo
   );
 
   if !isnothing(savepath)
