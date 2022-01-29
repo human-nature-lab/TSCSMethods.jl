@@ -121,7 +121,8 @@ function estimate!(
         Xsub = stratifyinputs(X, s, model.strata)
         multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
         fblock_sub = makefblocks(Xsub...)
-        treatdex = treatedmap(observations);
+        obsub = @views observations[model.strata .== s]
+        treatdex = treatedmap(obsub);
         bootstrap!(
             multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
         );
