@@ -10,27 +10,131 @@ function name_model(model::VeryAbstractCICModel)
   return model.title * "_" * string(model.outcome) * "_" * strat
 end
 
-
-@with_kw struct CICTrace
+struct CICRecord
   title::String
-  observationsinfo::Dict{String, DataFrame}
-  matchinginfo = Dict{String, DataFrame}
-  results::Dict{String, DataFrame}
-  balances::Dict{String, Union{GrandDictStrat, GrandDictNoStrat}}
+  type::DataType
+  results::DataFrame
+  balances::Union{GrandDictStrat, GrandDictNoStrat}
   outcome::Symbol
   covariates::Vector{Symbol}
   ids::Vector{Int}
   t::Symbol
   id::Symbol
-  stratifier::Symbol = Symbol()
+  stratifier::Symbol
+  strata::Vector{Int}
   iterations::Int
   refinementnum::Int
+  labels::Dict{Int, String}
 end
 
+struct CICRecords
+  model::Union{CICRecord, Nothing}
+  refinedmodel::Union{CICRecord, Nothing}
+  calmodel::Union{CICRecord, Nothing}
+  refcalmodel::Union{CICRecord, Nothing}
+  matchinfo::Union{DataFrame, Nothing}
+  obsinfo::Union{DataFrame, Nothing}
+end
+
+function makerecord(m::VeryAbstractCICModel)
+
+  if typeof(m) .∈ Ref(
+    [
+      CICStratified, RefinedCICStratified,
+      CaliperCICStratified, RefinedCaliperCICStratified
+    ])
+    stratifier = m.stratifier
+    strata = m.strata
+    labels = m.labels
+  else
+    stratifier = Symbol()
+    strata = Vector{Int}()
+    labels = Dict{Int, String}()
+  end
+
+  if typeof(m) .∈ Ref(
+    [
+      RefinedCIC,
+      RefinedCICStratified,
+      RefinedCaliperCIC,
+      RefinedCaliperCICStratified
+      ])
+    refinementnum = m.refinementnum
+  else refinementnum = length(m.ids)
+  end
+    
+  mrecord = CICRecord(
+    m.title,
+    typeof(m),
+    m.results,
+    m.grandbalances,
+    m.outcome,
+    m.covariates,
+    m.ids,
+    m.t,
+    m.id,
+    stratifier,
+    strata,
+    m.iterations,
+    refinementnum,
+    labels
+  )
+
+  return mrecord
+end
+
+function makerecords(savepath, models...)
+
+  mr = nothing; mr2 = nothing; mr3 = nothing; mr4 = nothing
+  for model in models
+    if typeof(model) <: Union{CIC, CICStratified}
+      mr = makerecord(model)
+    end
+    if typeof(model) <: Union{RefinedCIC, RefinedCICStratified}
+      mr2 = makerecord(model)
+    end
+    if typeof(model) <: Union{CaliperCIC, CaliperCICStratified}
+      mr3 = makerecord(model)
+    end
+    if typeof(model) <: Union{RefinedCaliperCIC, RefinedCaliperCICStratified}
+      mr4 = makerecord(model)
+    end
+  end
+  
+  if !isnothing(mr) & !isnothing(mr4)
+    rcinfo = matchinfo(mr4, mr);
+    obinfo = obsinfo(
+      rcinfo, dat, mr.covariates;
+      fullmodobs = mr.observations,
+      t = mr.t, id = mr.id
+    );
+  else
+    rcinfo = nothing
+    obinfo = nothing
+  end
+  
+  records = CICRecords(
+    model = mr, refinedmodel = mr2,
+    calmodel = mr3, refcalmodel = mr4,
+    matchinfo = rcinfo,
+    obsinfo = obinfo
+  );
+
+  if !isnothing(savepath)
+    save_object(
+      savepath * name_model(model) * ".jld2",
+      records
+    )
+  end
+
+  return records
+end
+
+#=
 function makerecord(
-  model::Union{AbstractCICModel, AbstractCICModelStratified},
-  models;
-  matchinfos = nothing, obsinfos = nothing,
+  model::VeryAbstractCICModel,
+  matchinfos = nothing,
+  obsinfos = nothing,
   savepath = nothing
 )
   
@@ -280,3 +384,4 @@ function modelrecord(model::RefinedCaliperCICStratified)
     refinementnumber = refinementnum
   )
 end
+=#
