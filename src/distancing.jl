@@ -104,7 +104,7 @@ end
 
 function distances_calculate!(
   matches, observations, ids,
-  tg, rg, fmin, mmin, mmax, Σinvdict; sliding = false
+  tg, rg, fmin, Lmin, Lmax, Σinvdict; sliding = false
 )
   @inbounds Threads.@threads for i in eachindex(observations)
     ob = observations[i];
@@ -129,7 +129,7 @@ function distances_calculate!(
       eachrow(validmus), validunits,
       ob[1], Σinvdict,
       γcs, γrs, γtimes, tg,
-      fmin, mmin, mmax;
+      fmin, Lmin, Lmax;
       sliding = sliding
     );
   end
@@ -145,16 +145,11 @@ function distantiate!(
   validmuscols, validunits,
   tt, Σinvdict,
   γcs, γrs, γtimes, tg,
-  fmin, mmin, mmax;
+  fmin, Lmin, Lmax;
   sliding = false
 )
 
-
-# (m, (unit, muscol)) = collect(enumerate(
-#     zip(
-#       validunits, validmuscols
-#       )
-#     ))[1]
+  # the sliding method would be for the pretreatment matching period ONLY
 
   for (m, (unit, muscol)) in enumerate(
     zip(
@@ -171,7 +166,7 @@ function distantiate!(
     __distantiate!(
       distances, m,
       muscol,
-      mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, mmin, mmax;
+      mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, Lmin, Lmax;
       sliding = sliding
     )
 
@@ -183,7 +178,7 @@ end
 function __distantiate!(
   distances, m,
   muscol,
-  mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, mmin, mmax;
+  mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, Lmin, Lmax;
   sliding = false
 )
 
@@ -196,11 +191,13 @@ function __distantiate!(
       # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
 
       if sliding
-        # based on PO for f
-        fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+        error("unfinished")
+        # this should grab the pretreatment crossover window
+        fw = matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
       else
-        # based on PO for fmin
-        fw = matchwindow(fmin, tt, mmin, mmax);
+        # fixed window that ought to be based on the crossover definition
+        # but is selected manually
+        fw = Lmin + tt : tt + Lmax;
       end
 
       distances[1][φ, m] = mahaveraging(mahas, γtimes, fw)

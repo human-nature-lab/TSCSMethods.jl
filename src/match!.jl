@@ -35,7 +35,6 @@ function match!(
   
   flen = length(F);
   fmin = minimum(F); fmax = maximum(F);
-  mmin = minimum(L); mmax = maximum(L);
   covnum = length(covariates);
 
   cdat = Matrix(dat[!, covariates]);
@@ -71,10 +70,13 @@ function match!(
   
   GC.gc();
 
+  # bounds for covariate matching window
+  Lmin, Lmax = extrema(L)
+
   # 193.266173 seconds
   # (2.17 G allocations: 677.980 GiB, 59.13% gc time, 0.01% compilation time)
   distances_calculate!(
-    matches, observations, ids, tg, rg, fmin, mmin, mmax, Σinvdict
+    matches, observations, ids, tg, rg, fmin, Lmin, Lmax, Σinvdict
   );
 
   rank!(matches, flen);
