@@ -19,6 +19,8 @@ struct CICRecord
   covariates::Vector{Symbol}
   ids::Vector{Int}
   observations::Vector{Tuple{Int, Int}}
+  F::UnitRange{Int}
+  L::UnitRange{Int}
   t::Symbol
   id::Symbol
   stratifier::Symbol
@@ -73,6 +75,8 @@ function makerecord(m::VeryAbstractCICModel)
     m.covariates,
     m.ids,
     m.observations,
+    m.F,
+    m.L
     m.t,
     m.id,
     stratifier,
