@@ -94,13 +94,26 @@ end
 
 # common inner functions
 
+covec = mb_s[!, covar];
+
 function _grandbalance(covec, Len)
   reduced = reduce(vcat, covec);
-  means = Vector{Union{Missing, Float64}}(undef, Len);
-  lnct = 0
+  # means = Vector{Union{Missing, Float64}}(undef, Len);
+  means = Vector{Float64}(undef, Len);
+
+  # handling missing periods
+  # where no units have a value within the matching period
+  # output an NaN
+  # for now, this is fine, but better to use missing,
+  # and then convert to NaN where needed (e.g. Makie plotting)
+
   for l in eachindex(1:Len)
-    lnct += 1
-    means[l] = mean(skipmissing([vec[l] for vec in reduced]))
+    vecs = [vec[l] for vec in reduced]
+    if !all(ismissing.(vecs))
+      means[l] = mean(skipmissing(vecs))
+    else 
+      means[l] = NaN
+    end
   end
   return means
 end
