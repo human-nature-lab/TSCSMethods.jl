@@ -94,8 +94,6 @@ end
 
 # common inner functions
 
-covec = mb_s[!, covar];
-
 function _grandbalance(covec, Len)
   reduced = reduce(vcat, covec);
   # means = Vector{Union{Missing, Float64}}(undef, Len);
