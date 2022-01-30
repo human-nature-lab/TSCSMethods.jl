@@ -1,11 +1,11 @@
 # model.jl
 
 """
-    name_model(cc)
+    name_model(model::VeryAbstractCICModel)
 
 Generate the filename for a set of models.
 """
-function name_model(model)
+function name_model(model::VeryAbstractCICModel)
   strat = typeof(model) <: AbstractCICModelStratified ? string(model.stratifier) : ""
   return model.title * "_" * string(model.outcome) * "_" * strat
 end
@@ -133,7 +133,7 @@ function makerecords(dat, savepath, models)
 
   if !isnothing(savepath)
     save_object(
-      savepath * name_model(mr) * ".jld2",
+      savepath * name_model(m1) * ".jld2",
       records
     )
   end
