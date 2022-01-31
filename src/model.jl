@@ -10,6 +10,7 @@ function name_model(model::VeryAbstractCICModel)
   return model.title * "_" * string(model.outcome) * "_" * strat
 end
 
+# should add treatment
 struct CICRecord
   title::String
   type::DataType
@@ -89,7 +90,7 @@ function makerecord(m::VeryAbstractCICModel)
   return mrecord
 end
 
-function makerecords(dat, savepath, models)
+function makerecords(dat, savepath, models; obscovars = nothing)
 
   mr = nothing; mr2 = nothing; mr3 = nothing; mr4 = nothing
   m1 = []; mrf = []
@@ -111,11 +112,16 @@ function makerecords(dat, savepath, models)
   end
 
   # models = [model, refinedmodel, calmodel, refcalmodel]
+
+  covarset = if isnothing(obscovars)
+    m1.covariates
+  else union(m1.covariates, obscovars)
+  end
   
   if !isnothing(mr) & !isnothing(mr4)
     rcinfo = matchinfo(mrf, m1);
     obinfo = obsinfo(
-      rcinfo, dat, m1.covariates;
+      rcinfo, dat, covarset;
       fullmodobs = m1.observations,
       t = m1.t, id = m1.id
     );
