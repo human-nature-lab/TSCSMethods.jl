@@ -45,4 +45,6 @@ module tscsmethods
     makerecords,
     default_treatmentcategories,
     showmatches, matchinfo, obsinfo
+    # utilities
+    matchprocess, quick_att
 end
