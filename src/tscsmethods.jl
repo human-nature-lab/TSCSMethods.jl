@@ -1,4 +1,4 @@
-module tscsmethods
+module TSCSMethods
 
   include("dependencies.jl")
   include("types.jl")
