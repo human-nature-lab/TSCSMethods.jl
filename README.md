@@ -1,4 +1,4 @@
-# tscsmethods
+# TSCSMethods
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://emfeltham.github.io/tscsmethods.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://emfeltham.github.io/tscsmethods.jl/dev)
