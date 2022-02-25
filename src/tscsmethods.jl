@@ -25,6 +25,7 @@ module TSCSMethods
   include("plotting.jl")
   include("information.jl")
 
+  #
   export
     # types
     VeryAbstractCICModel, AbstractCICModel, AbstractCICModelStratified,
