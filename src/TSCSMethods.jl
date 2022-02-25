@@ -47,5 +47,5 @@ module TSCSMethods
     default_treatmentcategories,
     showmatches, matchinfo, obsinfo,
     # utilities
-    matchprocess, quick_att, variable_filter
+    matchprocess, quick_att, variable_filter, treatedinfo
 end

@@ -190,6 +190,41 @@ function variable_filter(
   return model
 end
 
+"""
+    function treatedinfo(
+      model, variables, dat;
+    )
+
+Gives variable values for treated observations present in the model, for
+the chosen set of variables. Order is the same as model.observations.
+"""
+function treatedinfo(
+  model, variables, dat;
+)
+
+  @unpack t, id, treatment = model
+
+  # remove elections prior to March 10
+
+  dt = @subset(dat, $treatment .== 1);
+
+  tple = [(dt[i, t], dt[i, id]) for i in eachindex(dt[!, t])];
+  
+  obout = DataFrame(
+    obs = model.observations,    
+    )
+    
+    for variable in variables
+      obout[!, variable] = Vector{eltype(dat[!, variable])}(undef, nrow(obout))
+      dict = Dict(tple .=> dt[!, variable]);
+      
+      for (i, e) in enumerate(obout.obs)
+        obout[i, variable] = dict[e]
+      end
+    end
+  return obout
+end
+
 #=
 function makerecord(
   model::VeryAbstractCICModel,
