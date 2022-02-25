@@ -147,6 +147,49 @@ function makerecords(dat, savepath, models; obscovars = nothing)
   return records
 end
 
+"""
+    variable_filter(
+      model, variable, dat;
+      mn = nothing, mx = nothing
+    )
+
+Remove treated observations according to some variable values.
+"""
+function variable_filter(
+  model, variable, dat;
+  mn = nothing, mx = nothing
+)
+
+  @unpack t, id, treatment = model
+
+  # remove elections prior to March 10
+
+  dt = @subset(dat, $treatment .== 1);
+
+  tple = [(dt[i, t], dt[i, id]) for i in eachindex(dt[!, t])];
+  dict = Dict(tple .=> dt[!, variable]);
+
+  obinclude = fill(false, length(model.observations));
+  for (i, ob) in enumerate(model.observations)
+    cond = true
+    if !isnothing(mn)
+      cond = cond & (dict[ob] >= mn)
+    end
+    if !isnothing(mx)
+      cond = cond & (dict[ob] <= mx)
+    end
+      obinclude[i] = cond
+  end
+
+  @reset model.observations = model.observations[obinclude];
+  @reset model.matches = model.matches[obinclude];
+  # @reset model.results = tscsmethods.DataFrame();
+
+  @reset model.treatednum = length(model.observations)
+  
+  return model
+end
+
 #=
 function makerecord(
   model::VeryAbstractCICModel,
