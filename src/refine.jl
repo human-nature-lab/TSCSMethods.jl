@@ -82,7 +82,7 @@ function refine(
     treatednum = length(tobscr),
     estimator = estimator,
     fullmod = Ref(model),
-    labels = labels
+    labels = deepcopy(labels)
   );
 
   if dobalance
@@ -179,7 +179,7 @@ function refine(
     estimator = estimator,
     caliper = caliper,
     fullmod = Ref(calmodel),
-    labels = labels
+    labels = deepcopy(labels)
   );
 
   if dobalance

@@ -76,7 +76,7 @@ function caliper(model::CICStratified, acaliper, dat; dobalance = true)
     estimator = estimator,
     caliper = acaliper,
     fullmod = Ref(model),
-    labels = labels
+    labels = deepcopy(labels)
   );
 
   if dobalance
