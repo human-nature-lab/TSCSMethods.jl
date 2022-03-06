@@ -235,23 +235,43 @@ function relabel!(
     stratifier
   end
 
-  stratout = Dict(dat[!, refcalmodel.id] .=> dat[!, stratifier]);
+  # the cal model and refcalmodel have the same stratum ranges
+  calinfo = treatedinfo(
+    calmodel, [stratifier], dat;
+  )
+  calinfo[!, :stratum] = calmodel.strata
+
+  calinfo = @chain calinfo begin
+    groupby(:stratum)
+    combine(stratifier => extrema => stratifier)
+  end
+
+  exts = Dict(calinfo.stratum .=> calinfo[!, stratifier])
+
   relabels = Dict{Int, String}();
-  for s in sort(unique(refcalmodel.strata))
-    sobs = refcalmodel.observations[refcalmodel.strata .== s]
-    mn, mx = extrema([stratout[sob[2]] for sob in sobs])
-    mn = round(mn; digits = digits)
-    mx = round(mx; digits = digits)
+  for s in sort(collect(keys(exts)))
+    mn, mx = exts[s]
+    if typeof(mn) == Float64
+      mn = round(mn; digits = digits)
+      mx = round(mx; digits = digits)
+    end
     relabels[s] = if ismissing(mn) & ismissing(mx)
-      "missing values"
+      "Missing Values"
     else
-      string(mn) * " to " * string(mx)
+      if mn < mx
+        string(mn) * " to " * string(mx)
+      elseif mn == mx
+        string(mn)
+      end
     end
   end
 
-  # for (k,v) in labels; model.labels[k] = v end # add labels
-  for (k,v) in relabels; calmodel.labels[k] = v end # add labels
-  for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
+  @reset refcalmodel.labels = deepcopy(relabels)
+  @reset calmodel.labels = deepcopy(relabels)
+
+  # for (k,v) in relabels; calmodel.labels[k] = v end # add labels
+  # for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
+  return calmodel, refcalmodel
 end
 
 #=
