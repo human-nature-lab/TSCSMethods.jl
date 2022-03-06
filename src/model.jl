@@ -228,7 +228,7 @@ end
 function relabel!(calmodel, refcalmodel, dat; stratifier = nothing, digits = 2)
 
   stratifier = if isnothing(stratifier)
-    model.stratifier
+    calmodel.stratifier
   else
     stratifier
   end
