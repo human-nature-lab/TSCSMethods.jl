@@ -240,7 +240,7 @@ function relabel!(calmodel, refcalmodel, dat; stratifier = nothing, digits = 2)
     sobs = refcalmodel.observations[refcalmodel.strata .== s]
     mn, mx = extrema([stratout[sob[2]] for sob in sobs])
     mn = round(mn; digits = digits)
-    mx = round(mn; digits = digits)
+    mx = round(mx; digits = digits)
     relabels[s] = if ismissing(mn) & ismissing(mx)
       "missing values"
     else
