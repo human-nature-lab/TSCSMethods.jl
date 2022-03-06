@@ -274,6 +274,54 @@ function relabel!(
   return calmodel, refcalmodel
 end
 
+function relabel!(
+  m, dat; stratifier = nothing, digits = 2
+)
+
+  stratifier = if isnothing(stratifier)
+    m.stratifier
+  else
+    stratifier
+  end
+
+  # the cal model and refcalmodel have the same stratum ranges
+  calinfo = treatedinfo(
+    m, [stratifier], dat;
+  )
+  calinfo[!, :stratum] = m.strata
+
+  calinfo = @chain calinfo begin
+    groupby(:stratum)
+    combine(stratifier => extrema => stratifier)
+  end
+
+  exts = Dict(calinfo.stratum .=> calinfo[!, stratifier])
+
+  relabels = Dict{Int, String}();
+  for s in sort(collect(keys(exts)))
+    mn, mx = exts[s]
+    if typeof(mn) == Float64
+      mn = round(mn; digits = digits)
+      mx = round(mx; digits = digits)
+    end
+    relabels[s] = if ismissing(mn) & ismissing(mx)
+      "Missing Values"
+    else
+      if mn < mx
+        string(mn) * " to " * string(mx)
+      elseif mn == mx
+        string(mn)
+      end
+    end
+  end
+
+  @reset m.labels = deepcopy(relabels)
+
+  # for (k,v) in relabels; calmodel.labels[k] = v end # add labels
+  # for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
+  return m
+end
+
 #=
 function makerecord(
   model::VeryAbstractCICModel,
