@@ -266,11 +266,8 @@ function relabel!(
     end
   end
 
-  @reset refcalmodel.labels = deepcopy(relabels)
-  @reset calmodel.labels = deepcopy(relabels)
-
-  # for (k,v) in relabels; calmodel.labels[k] = v end # add labels
-  # for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
+  for (k,v) in relabels; calmodel.labels[k] = v end # add labels
+  for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
   return calmodel, refcalmodel
 end
 
@@ -315,10 +312,7 @@ function relabel!(
     end
   end
 
-  @reset m.labels = deepcopy(relabels)
-
-  # for (k,v) in relabels; calmodel.labels[k] = v end # add labels
-  # for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
+  for (k,v) in relabels; m.labels[k] = v end # add labels
   return m
 end
 
