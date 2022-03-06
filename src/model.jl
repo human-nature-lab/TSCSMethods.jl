@@ -225,6 +225,34 @@ function treatedinfo(
   return obout
 end
 
+function relabel!(calmodel, refcalmodel, dat; stratifier = nothing, digits = 2)
+
+  stratifier = if isnothing(stratifier)
+    model.stratifier
+  else
+    stratifier
+  end
+
+  vn = VariableNames()
+  stratout = Dict(dat[!, vn.id] .=> dat[!, stratifier]);
+  relabels = Dict{Int, String}();
+  for s in sort(unique(refcalmodel.strata))
+    sobs = refcalmodel.observations[refcalmodel.strata .== s]
+    mn, mx = extrema([stratout[sob[2]] for sob in sobs])
+    mn = round(mn; digits = digits)
+    mx = round(mn; digits = digits)
+    relabels[s] = if ismissing(mn) & ismissing(mx)
+      "missing values"
+    else
+      string(mn) * " to " * string(mx)
+    end
+  end
+
+  # for (k,v) in labels; model.labels[k] = v end # add labels
+  for (k,v) in relabels; calmodel.labels[k] = v end # add labels
+  for (k,v) in relabels; refcalmodel.labels[k] = v end # add labels
+end
+
 #=
 function makerecord(
   model::VeryAbstractCICModel,
