@@ -226,7 +226,7 @@ function treatedinfo(
 end
 
 function relabel!(
-  calmodel, refcalmodel, id, dat; stratifier = nothing, digits = 2
+  calmodel, refcalmodel, dat; stratifier = nothing, digits = 2
 )
 
   stratifier = if isnothing(stratifier)
@@ -235,7 +235,7 @@ function relabel!(
     stratifier
   end
 
-  stratout = Dict(dat[!, id] .=> dat[!, stratifier]);
+  stratout = Dict(dat[!, refcalmodel.id] .=> dat[!, stratifier]);
   relabels = Dict{Int, String}();
   for s in sort(unique(refcalmodel.strata))
     sobs = refcalmodel.observations[refcalmodel.strata .== s]
