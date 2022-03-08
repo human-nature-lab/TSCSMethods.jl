@@ -1,29 +1,36 @@
 module TSCSMethods
 
-  include("dependencies.jl")
-  include("types.jl")
-  include("construction.jl")
-  include("matching_setup.jl")
-  include("make_groupindices.jl")
-  include("getmatches!.jl")
-  include("distancing.jl")
-  include("match!.jl")
-  include("ranking.jl")
-  include("caliper.jl")
-  include("meanbalancing.jl")
-  include("overallbalancing.jl")
-  include("balancing.jl")
-  include("estimation_observationweights.jl")
-  include("resampling.jl")
-  include("bootstrapping.jl")
-  include("estimation_setup.jl")
-  include("estimation.jl")
-  include("stratification.jl")
-  include("refine.jl")
-  include("autobalancing.jl")
-  include("model.jl")
-  include("plotting.jl")
-  include("information.jl")
+  funlist = [
+    "dependencies.jl",
+    "types.jl",
+    "construction.jl",
+    "matching_setup.jl",
+    "make_groupindices.jl",
+    "getmatches!.jl",
+    "distancing.jl",
+    "match!.jl",
+    "ranking.jl",
+    "caliper.jl",
+    "meanbalancing.jl",
+    "overallbalancing.jl",
+    "balancing.jl",
+    "estimation_observationweights.jl",
+    "resampling.jl",
+    "bootstrapping.jl",
+    "estimation_setup.jl",
+    "estimation.jl",
+    "stratification.jl",
+    "refine.jl",
+    "autobalancing.jl",
+    "model.jl",
+    "plotting.jl",
+    "information.jl",
+  ];
+
+  for file in funlist
+    include(file)
+  end
+
 
   #
   export
