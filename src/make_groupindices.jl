@@ -1,5 +1,14 @@
 # _makegroup_indices.jl
 
+# types for group indices object
+STypeMat = SubArray{Float64, 2, Matrix{Float64}, Tuple{Vector{Int64}, Base.Slice{Base.OneTo{Int64}}}, false};
+
+STypeMatMis = SubArray{Union{Missing, Float64}, 2, Matrix{Union{Missing, Float64}}, Tuple{Vector{Int64}, Base.Slice{Base.OneTo{Int64}}}, false}
+
+STypeVec = SubArray{Int64, 1, Vector{Int64}, Tuple{Vector{Int64}}, false}
+STypeVecBool = SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{eltype(treatvec)}}, false}
+# last entry probably depends on original datatype before conversion
+
 """
     make_groupindices(tvec, treatvec, idvec, uid, fmax, Lmin, cdat)
 
@@ -9,18 +18,18 @@ function make_groupindices(
   tvec, treatvec, idvec, uid, fmax, Lmin, cdat;
   exvec = nothing
 )
-  #  14.354192 seconds
-  # (3.11 M allocations: 283.229 MiB, 14.99% gc time, 7.10% compilation time)
-
-  STypeMat = SubArray{Float64, 2, Matrix{Float64}, Tuple{Vector{Int64}, Base.Slice{Base.OneTo{Int64}}}, false};
-  STypeVec = SubArray{Int64, 1, Vector{Int64}, Tuple{Vector{Int64}}, false}
-  STypeVecBool = SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{eltype(treatvec)}}, false}
-  # last entry probably depends on original datatype before conversion
 
   treatvecbool = convert(Vector{Bool}, treatvec);
   tts = sort(unique(tvec[treatvecbool]));
   
-  tidx = Dict{Tuple{Int, Int}, STypeMat}();
+  XT = if Missing <: eltype(cdat)
+    STypeMatMis
+  else
+    STypeMat
+  end
+
+  tidx = Dict{Tuple{Int, Int}, XT}()
+
   ridx = Dict{Tuple{Int, Int}, STypeVec}();
   tridx = Dict{Tuple{Int, Int}, STypeVecBool}();
   exidx = Dict{Tuple{Int, Int}, STypeVec}();
@@ -57,6 +66,8 @@ function _makegroupindices(
   tidx, ridx, tridx, tts, uid, fmax, Lmin, tvec, idvec, treatvecbool,
   cdat
 )
+
+  # (tt, unit) = collect(Iterators.product(tts, uid))[1]
   @floop for (tt, unit) in Iterators.product(tts, uid)
     @init yesrows = Vector{Bool}(undef, length(tvec))
     getyes!(yesrows, tvec, idvec, tt, fmax, Lmin, unit)
