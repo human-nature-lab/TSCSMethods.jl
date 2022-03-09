@@ -6,7 +6,7 @@ STypeMat = SubArray{Float64, 2, Matrix{Float64}, Tuple{Vector{Int64}, Base.Slice
 STypeMatMis = SubArray{Union{Missing, Float64}, 2, Matrix{Union{Missing, Float64}}, Tuple{Vector{Int64}, Base.Slice{Base.OneTo{Int64}}}, false}
 
 STypeVec = SubArray{Int64, 1, Vector{Int64}, Tuple{Vector{Int64}}, false}
-STypeVecBool = SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{eltype(treatvec)}}, false}
+STypeVecBool = SubArray{Bool, 1, Vector{Bool}, Tuple{Vector{Bool}}, false}
 # last entry probably depends on original datatype before conversion
 
 """
