@@ -20,14 +20,18 @@ function default_treatmentcategories(x)
 end
 
 """
-    match!(cic::cicmodel, dat::DataFrame; treatcat = nothing)
+    match!(
+      model::AbstractCICModel, dat::DataFrame;
+      treatcat = nothing, exposure = nothing
+    )
   
 Perform matching for treatment events, using Mahalanobis distance matching. Additionally, calculate standardized Euclidean distances for the individual covariates are specified.
 """
 function match!(
   model::AbstractCICModel, dat;
   treatcat::Function = default_treatmentcategories,
-  exposure = nothing
+  exposure = nothing,
+  variancesonly = true
 )
 
   @unpack observations, matches, ids = model;
@@ -43,8 +47,36 @@ function match!(
 
   covnum = length(covariates);
 
+  # outcome should be column one
   cdat = Matrix(dat[!, covariates]);
 
+  # eligibility handling
+  tg, rg = eligibility!(
+    matches, observations, cdat,
+    ids, treatcat,
+    fmin, fmax, Lmin, treatment, t, id; exposure = exposure
+  )
+
+  # distance between matches and treated
+  distances_allocate!(matches, flen, covnum);
+
+  Σinvdict = samplecovar(dat_t, cdat; variancesonly = variancesonly);
+
+  distances_calculate!(
+    matches, observations, ids, tg, rg, fmin, Lmin, Lmax, Σinvdict
+  );
+
+  rank!(matches, flen);
+
+  return model
+end
+
+function eligibility!(
+  matches, observations, cdat::Matrix{Float64},
+  ids, treatcat,
+  fmin, fmax, Lmin, treatment, t, id; exposure = nothing
+)
+  # eligibility handling
   if isnothing(exposure)
     tg, rg, trtg = make_groupindices(
       dat[!, t], dat[!, treatment],
@@ -52,6 +84,12 @@ function match!(
       fmax, Lmin,
       cdat
     );
+    
+    # tvec = dat[!, t];
+    # treatvec = dat[!, treatment];
+    # idvec = dat[!, id];
+    # uid = ids; fmax, Lmin, cdat;
+
     eligiblematches!(
       observations, matches,
       rg, trtg, ids, fmin, fmax, treatcat
@@ -64,74 +102,53 @@ function match!(
       cdat;
       exvec = dat[!, exposure]
     );
+
     eligiblematches!(
       observations, matches,
       rg, trtg, ids, fmin, fmax, treatcat, exg = exg
     );
   end
 
-  distances_allocate!(matches, flen, covnum);
-
-  Σinvdict = samplecovar(dat, covariates, t, id, treatment);
-
-  # 193.266173 seconds
-  # (2.17 G allocations: 677.980 GiB, 59.13% gc time, 0.01% compilation time)
-  distances_calculate!(
-    matches, observations, ids, tg, rg, fmin, Lmin, Lmax, Σinvdict
-  );
-
-  rank!(matches, flen);
-
-  return model
+  return tg, rg
 end
 
-function samplecovar(
-  dat, covariates, t, id, treatment;
-  variancesonly = true
+function eligibility!(
+  matches, observations, cdat::Matrix{Union{Missing, Float64}},
+  ids, treatcat,
+  fmin, fmax, Lmin, treatment, t, id; exposure = nothing
 )
+  # eligibility handling
+  if isnothing(exposure)
+    tg, rg, trtg = make_groupindices(
+      dat[!, t], dat[!, treatment],
+      dat[!, id], ids,
+      fmax, Lmin,
+      cdat
+    );
+    
+    # tvec = dat[!, t];
+    # treatvec = dat[!, treatment];
+    # idvec = dat[!, id];
+    # uid = ids; fmax, Lmin, cdat;
 
-  sdat = dat[!, vcat(t, covariates, id, treatment)]
+    eligiblematches!(
+      observations, matches,
+      tg, rg, trtg, ids, fmin, fmax, treatcat
+    );
+  else
+    tg, rg, trtg, exg = make_groupindices(
+      dat[!, t], dat[!, treatment],
+      dat[!, id], ids,
+      fmax, Lmin,
+      cdat;
+      exvec = dat[!, exposure]
+    );
 
-  ut = unique(sdat[:, t])
-  cmat = Matrix(sdat[!, covariates])
-
-  # c_treatment = sdat[!, id] .∈ Ref(uid)
-
-  Σinvdict = Dict{Int64, Matrix{Float64}}();
-  # σdict = Dict{Int64, Vector{Float64}}();
-
-  calculate_sample_Σs!(
-    ut, Σinvdict, sdat[!, t], cmat,
-    variancesonly
-  )
-  return Σinvdict
-end
-
-"""
-inverted covariance matrix for mahalanobis distance (all units at t)
-
-inverted sqrt(vars) for balance score calculations (treated units at t)
-"""
-function calculate_sample_Σs!(
-  ut, Σinvdict, dt, cmat,
-  variancesonly::Bool
-)
-  
-  for i = eachindex(ut)
-    uti = ut[i]
-    c_t = dt .== uti
-    Σ = cov(cmat[c_t, :])
-
-    if variancesonly
-      Σ[Not(diagind(Σ))] .= 0
-    end
-
-    # c2 = c_t .& c_treatment;
-    # if (sum(c2) > 1)
-    #   Σ_treated = cov(cmat[c2, :])
-    #   σdict[uti] = 1 ./ sqrt.(diag(Σ_treated)) # for balance score
-    # end
-    Σinvdict[uti] = pinv(Σ)
+    eligiblematches!(
+      observations, matches,
+      tg, rg, trtg, ids, fmin, fmax, treatcat, exg = exg
+    );
   end
-  return Σinvdict
+
+  return tg, rg
 end

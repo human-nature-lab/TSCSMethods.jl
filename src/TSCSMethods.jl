@@ -6,7 +6,10 @@ module TSCSMethods
     "construction.jl",
     "matching_setup.jl",
     "make_groupindices.jl",
+    "get_matches_utilities.jl",
     "getmatches!.jl",
+    "getmatches!_missing.jl",
+    "distancing_utilitites.jl",
     "distancing.jl",
     "match!.jl",
     "ranking.jl",
@@ -31,8 +34,6 @@ module TSCSMethods
     include(file)
   end
 
-
-  #
   export
     # types
     VeryAbstractCICModel, AbstractCICModel, AbstractCICModelStratified,
