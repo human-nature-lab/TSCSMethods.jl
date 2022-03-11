@@ -88,7 +88,7 @@ function distances_calculate!(
     accums = Vector{Int}(undef, length(dtots));
     ##
 
-    @time window_distances!(
+    window_distances!(
       distances,
       dtots, accums,
       eachrow(validmus), validunits,
@@ -97,6 +97,12 @@ function distances_calculate!(
       fmin, Lmin, Lmax;
       sliding = sliding
     );
+
+    # (this will only work, as-is, for non-sliding window)
+    # get the matches for which mahalanobis distance cannot be calculated
+    # -- due to missingness.
+    @views(mus[valids, :][isinf.(distances[:, 1]), :]) .= false;
+    
   end
   return matches
 end
@@ -126,7 +132,7 @@ function window_distances!(
   #   zip(
   #     validunits, validmuscols
   #     )
-  #   ))[1994-2]
+  #   ))[6]
 
   for (m, (unit, muscol)) in enumerate(
     zip(
@@ -137,9 +143,10 @@ function window_distances!(
     # cc += 1
     g = tg[(tt, unit)];
 
+    alldistances!(dtots, Σinvdict, γrs, eachrow(g), γtimes);
+
     if sliding
       # MISSING DONE
-      alldistances!(dtots, Σinvdict, γrs, eachrow(g), γtimes);
 
       # @time mahadistancing!(
       #   mahas, Σinvdict, γrs, eachrow(g), γtimes
@@ -156,7 +163,13 @@ function window_distances!(
 
     else
       # NOT SLIDING
-
+      _window_distances!(
+        distances, m,
+        muscol,
+        dtots, accums,
+        tt, γtimes, fmin, Lmin, Lmax;
+        sliding = sliding
+      );
     end
   end
 
@@ -193,6 +206,8 @@ function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
     for (j, (xj, yj)) in enumerate(zip(xr, yr))
       if !ismissing(xj) & !ismissing(yj)
         dtotals[j+1][i] = weuclidean(xj, yj, Σ[j, j])
+      else
+        dtotals[j+1][i] = missing
       end
     end
 
@@ -208,30 +223,44 @@ function _window_distances!(
   sliding = false
 )
 
-  for (φ, fb) in enumerate(muscol)
-    if fb # if the specific f (for the given match) is valid
+  if !sliding
+    fw = Lmin + tt : tt + Lmax;
+    drow = @views distances[m, :];
+    ## recycling
+    drow .= 0.0
+    accums .= 0
+    ##
+    distaveraging!(drow, dtots, accums, γtimes, fw);
 
-      # mahalanobis distance
-      # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
+  else
+    error("optioned method is unfinished")
+    for (φ, fb) in enumerate(muscol)
+      if fb # if the specific f (for the given match) is valid
 
-      # an alternative would be to use looping to find the indices
-      # and then just use mean with skipmissing on the appropriate
-      # portion of mahas...
+        # mahalanobis distance
+        # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
 
-      fw = if sliding
-        error("unfinished")
-        # this should grab the pretreatment crossover window
-        matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
-      else
-        # This is a gixed window that ought to be based
-        # on the crossover definition.
-        # It is selected manually.
-        Lmin + tt : tt + Lmax;
+        # an alternative would be to use looping to find the indices
+        # and then just use mean with skipmissing on the appropriate
+        # portion of mahas...
+        
+        fw = matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
+        # fw = if sliding
+        #   error("unfinished")
+        #   # this should grab the pretreatment crossover window
+        #   matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
+        # else
+        #   # This is a gixed window that ought to be based
+        #   # on the crossover definition.
+        #   # It is selected manually.
+        #   Lmin + tt : tt + Lmax;
+        # end
+        
+
+        distaveraging!(distances, dtots, accums, γtimes, fw, φ, m);
       end
 
-      distaveraging!(distances, dtots, accums, γtimes, fw, φ, m);
     end
-
   end
 
   return distances

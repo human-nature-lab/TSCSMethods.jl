@@ -83,13 +83,6 @@ function distaveraging!(
   accums, γtimes, fw, φ, m
 )
 
-  ## setup and recycling
-  for ι in eachindex(dtots)
-    distances[ι][φ, m] = 0.0
-    accums[ι] = 0
-  end
-  ##
-
   for (l, τ) in enumerate(γtimes)
     if τ > maximum(fw) # don't bother with the rest
       break
@@ -112,6 +105,36 @@ function distaveraging!(
     end
   end
 end
+
+
+function distaveraging!(
+  drow, dtots::Vector{Vector{Union{Float64, Missing}}},
+  accums, γtimes, fw
+)
+
+  for (l, τ) in enumerate(γtimes)
+    if τ > maximum(fw) # don't bother with the rest
+      break
+    elseif (τ >= minimum(fw)) & !ismissing(m) # if at or above bottom (above ruled out already)
+      # accum += 1
+      for u in eachindex(drow)
+        if !ismissing(dtots[u][l])
+          drow[u] += dtots[u][l]
+          accums[u] += 1
+        end
+      end
+    end
+  end
+
+  for ι in eachindex(dtots)
+    drow[ι] = if accums[ι] == 0
+      Inf
+    else
+      drow[ι] * inv(accums[ι])
+    end
+  end
+end
+
 
 function distaveraging!(
   distances, dtots::Vector{Vector{Float64}}, accums, γtimes, fw, φ, m
@@ -141,6 +164,39 @@ function distaveraging!(
       Inf
     else
       distances[ι][φ, m] * inv(accums[ι])
+    end
+  end
+end
+
+function distaveraging!(
+  drow,
+  dtots::Vector{Vector{Float64}}, accums, γtimes, fw
+)
+
+  ## setup and recycling
+  for ι in eachindex(dtots)
+    drow[ι] = 0.0
+    accums[ι] = 0
+  end
+  ##
+
+  for (l, τ) in enumerate(γtimes)
+    if τ > maximum(fw) # don't bother with the rest
+      break
+    elseif (τ >= minimum(fw)) # if at or above bottom (above ruled out already)
+      # accum += 1
+      for u in eachindex(drow)
+        drow[u] += dtots[u][l]
+        accums[u] += 1
+      end
+    end
+  end
+
+  for ι in eachindex(dtots)
+    drow[ι] = if accums[ι] == 0
+      Inf
+    else
+      drow[ι] * inv(accums[ι])
     end
   end
 end

@@ -34,6 +34,10 @@ function match!(
   variancesonly = true
 )
 
+  # using Parameters
+  # import TSCSMethods:eligibility!,distances_allocate!,samplecovar
+  # treatcat = default_treatmentcategories
+
   @unpack observations, matches, ids = model;
   @unpack F, L, id, t, treatment, covariates = model;
   
@@ -66,6 +70,8 @@ function match!(
   distances_calculate!(
     matches, observations, ids, tg, rg, fmin, Lmin, Lmax, Σinvdict
   );
+
+  distances
 
   rank!(matches, flen);
 
