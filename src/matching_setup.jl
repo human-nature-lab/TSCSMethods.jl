@@ -20,7 +20,7 @@ function make_matches(obslen, idlen, flen)
   return matches
 end
 
-function _make_matches!(matches, obslen, idlen, flen; sliding = false)
+function _make_matches!(matches, obslen, idlen, flen)
   for i in 1:obslen
     matches[i] = Tob(
       mus = fill(true, idlen, flen), # DEFAULT TRUE -- ACTIVELY REMOVE MATCHES
