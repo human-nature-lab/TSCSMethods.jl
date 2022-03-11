@@ -115,7 +115,7 @@ function distaveraging!(
   for (l, τ) in enumerate(γtimes)
     if τ > maximum(fw) # don't bother with the rest
       break
-    elseif (τ >= minimum(fw)) & !ismissing(m) # if at or above bottom (above ruled out already)
+    elseif (τ >= minimum(fw)) & !ismissing(dtots[1][l]) # if at or above bottom (above ruled out already)
       # accum += 1
       for u in eachindex(drow)
         if !ismissing(dtots[u][l])
