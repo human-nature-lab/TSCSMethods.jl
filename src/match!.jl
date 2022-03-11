@@ -34,9 +34,11 @@ function match!(
   variancesonly = true
 )
 
-  # using Parameters
-  # import TSCSMethods:eligibility!,distances_allocate!,samplecovar,distances_calculate!,window_distances!,distaveraging!
-  # treatcat = default_treatmentcategories
+  using Parameters
+  import TSCSMethods:eligibility!,distances_allocate!,samplecovar,distances_calculate!,window_distances!,distaveraging!,rank!
+  treatcat = default_treatmentcategories
+  exposure = nothing
+  variancesonly = true
 
   @unpack observations, matches, ids = model;
   @unpack F, L, id, t, treatment, covariates = model;
@@ -71,9 +73,14 @@ function match!(
     matches, observations, ids, covariates, tg, rg, fmin, Lmin, Lmax, Σinvdict
   );
 
-  distances
+  # make distances dimensions match the updated mus, by dropping
+  # ineligible units
+  for i in eachindex(matches)
+    tob = @views matches[i]
+    matches[i] = @set tob.distances = tob.distances[.!isinf.(tob.distances[:, 1]), :];
+  end
 
-  rank!(matches, flen);
+  @time rank!(matches, flen);
 
   return model
 end

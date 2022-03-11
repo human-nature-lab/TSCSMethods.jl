@@ -42,7 +42,7 @@ end
 # pollution = trtg[tmu]; gt = rg[tmu]; tt = ob[1];
 
 function distances_calculate!(
-  matches, observations, ids,
+  matches, observations, ids, covariates,
   tg, rg, fmin, Lmin, Lmax, Σinvdict; sliding = false
 )
 
@@ -101,7 +101,11 @@ function distances_calculate!(
     # (this will only work, as-is, for non-sliding window)
     # get the matches for which mahalanobis distance cannot be calculated
     # -- due to missingness.
+
     @views(mus[valids, :][isinf.(distances[:, 1]), :]) .= false;
+    # @views(mus[valids, :][.!isinf.(distances[:, 1]), :])
+    # @set matches[i].distances = distances[.!isinf.(distances[:, 1]), :];
+    # @reset matches[i].distances = distances[.!isinf.(distances[:, 1]), :];
     
   end
   return matches
