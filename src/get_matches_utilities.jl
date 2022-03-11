@@ -81,3 +81,21 @@ function exposure_assign!(
     end
     return rmus
 end
+
+"""
+    trim_model(model)
+  
+Remove treated observations that do not have any valid matches. This copies!
+"""
+function trim_model(model2)
+  # remove treated observations with no valid mus
+  anymatches = fill(true, length(model2.observations));
+  for (i, e) in enumerate(model2.matches)
+    anymatches[i] = any(e.mus)
+  end
+
+  model2 = @set model2.observations = model2.observations[anymatches];
+  model2 = @set model2.matches = model2.matches[anymatches];
+  model2 = @set model2.treatednum = length(model2.observations);
+  return model2
+end
