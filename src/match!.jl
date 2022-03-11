@@ -35,7 +35,7 @@ function match!(
 )
 
   # using Parameters
-  # import TSCSMethods:eligibility!,distances_allocate!,samplecovar
+  # import TSCSMethods:eligibility!,distances_allocate!,samplecovar,distances_calculate!,window_distances!,distaveraging!
   # treatcat = default_treatmentcategories
 
   @unpack observations, matches, ids = model;
@@ -67,8 +67,8 @@ function match!(
 
   Σinvdict = samplecovar(dat[!, t], cdat; variancesonly = variancesonly);
 
-  distances_calculate!(
-    matches, observations, ids, tg, rg, fmin, Lmin, Lmax, Σinvdict
+  @time distances_calculate!(
+    matches, observations, ids, covariates, tg, rg, fmin, Lmin, Lmax, Σinvdict
   );
 
   distances
