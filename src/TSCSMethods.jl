@@ -15,6 +15,7 @@ module TSCSMethods
     "ranking.jl",
     "caliper.jl",
     "meanbalancing.jl",
+    "balancing_utilities.jl",
     "overallbalancing.jl",
     "balancing.jl",
     "estimation_observationweights.jl",
