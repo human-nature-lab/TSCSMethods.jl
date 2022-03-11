@@ -6,9 +6,19 @@
 Get dictionary, from specified unit and time to outcome.
 """
 function getoutcomemap(dat, model)
-    outcomemap = Dict{Tuple{Int, Int}, Float64}();
+
+    outcomemap = Dict{Tuple{Int, Int}, Float64}()
+
+    # there shouldn't be any missing outcomes actually pulled
+    # outcomemap = if Missing <: eltype(dat[!, model.outcome])
+    #     Dict{Tuple{Int, Int}, Union{Float64, Missing}}()
+    # else
+    #     Dict{Tuple{Int, Int}, Float64}()
+    # end
     for r in eachrow(dat)
-        outcomemap[(r[model.t], r[model.id])] = r[model.outcome]
+        if !ismissing(r[model.outcome])
+            outcomemap[(r[model.t], r[model.id])] = r[model.outcome]
+        end
     end
 
     return outcomemap

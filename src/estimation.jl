@@ -47,7 +47,9 @@ function estimate!(
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975]
 )
-    
+
+    import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!,applyunitcounts!
+
     X = processunits(model, dat);
     @unpack observations, matches, F, ids = model;
     Flen = length(F);
