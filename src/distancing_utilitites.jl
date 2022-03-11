@@ -78,8 +78,6 @@ function mahaveraging(mahas::Vector{Float64}, T, fw)
   return mdist * inv(accum)
 end
 
-T = γtimes;
-
 function distaveraging!(
   distances, dtots::Vector{Vector{Union{Float64, Missing}}},
   accums, γtimes, fw, φ, m
