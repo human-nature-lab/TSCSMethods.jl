@@ -7,6 +7,10 @@ Calculate the mean balances, for each treated observation from the full set of b
 """
 function meanbalance!(model::VeryAbstractCICModel, dat)
 
+  # # DEV
+  # import TSCSMethods:allocate_meanbalances!,std_treated,make_groupindices,_meanbalance!
+  # using Parameters
+
   @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
   @unpack t, id, treatment = model;
   @unpack F, L, reference = model;
@@ -16,8 +20,6 @@ function meanbalance!(model::VeryAbstractCICModel, dat)
 
   tmin = minimum(dat[!, t]);
   
-  # import TSCSMethods:allocate_meanbalances!,std_treated
-
   allocate_meanbalances!(model);
   Lσ = std_treated(model, dat);
 

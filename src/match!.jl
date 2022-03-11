@@ -89,10 +89,6 @@ function match!(
     anymatches[i] = any(e.mus)
   end
 
-  model = @set model.observations = observations[anymatches];
-  model = @set model.matches = matches[anymatches];
-  model = @set model.treatednum = length(model.observations);
-
   return model
 end
 
