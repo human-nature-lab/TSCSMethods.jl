@@ -16,6 +16,8 @@ function meanbalance!(model::VeryAbstractCICModel, dat)
 
   tmin = minimum(dat[!, t]);
   
+  # import TSCSMethods:allocate_meanbalances!,std_treated
+
   allocate_meanbalances!(model);
   Lσ = std_treated(model, dat);
 
@@ -70,95 +72,6 @@ function meanbalance!(model::VeryAbstractCICModel, dat, tg, rg)
   );
 
   return model
-end
-
-"""
-gives (1 / (std of treated units)) for each l in the matching period
-
-outputs dict[t-l, covariate] where t-l is l days prior to the treatment
-
-(adjust this for f, in sliding window F-defined match period case, which is the case...)
-"""
-function std_treated(model::VeryAbstractCICModel, dat::DataFrame)
-
-  trtobs = unique(dat[dat[!, model.treatment] .== 1, [model.t, model.id]])
-  sort!(trtobs, [model.t, model.id])
-  idx = Int[];
-  L = Int[];
-
-  mmin = model.L[begin]
-  fmax = model.F[end]
-
-  for i in 1:nrow(trtobs)
-    to = trtobs[i, :]
-
-    c1 = dat[!, model.id] .== to[2];
-    ct = (dat[!, model.t] .>= (to[1] - 1 + mmin)) .& (dat[!, model.t] .<= to[1] + fmax);
-
-    append!(idx, findall((c1 .& ct)))
-    # L relative to tt, not the actual time
-    append!(L, dat[c1 .& ct, model.t] .- to[1])
-  end
-
-  allvals = @view dat[idx, model.covariates];
-
-  Lset = unique(L);
-  Lstd = zeros(Float64, length(Lset));
-  Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
-  for l in Lset
-    lvals = @view allvals[L .== l, :]
-    for covar in model.covariates
-      Lstd[(l, covar)] = inv(std(lvals[!, covar]; corrected = true))
-    end
-  end
-  return Lstd 
-end
-
-# setup meanbalances
-
-"""
-    allocate_meanbalances!(model)
-
-Prepare the meanbalances DataFrame for a model. Meanbalances has number of rows == observations.
-"""
-function allocate_meanbalances!(model)
-
-  @unpack observations, matches, ids, meanbalances = model;
-  @unpack covariates, timevary = model;
-  @unpack t, id, treatment = model;
-  @unpack F, L = model;
-
-  Len = length(L); Flen = length(F);
-
-  # meanbalances = DataFrame(
-  #   treattime = [ob[1] for ob in model.observations],
-  #   treatunit = [ob[2] for ob in model.observations],
-  #   matchunitsets = [mm for mm in model.matchunits]
-  # )
-
-  # need to check observations to see if there are any matches left
-
-  meanbalances[!, :fs] = Vector{Vector{Bool}}(undef, length(matches));
-
-  for covar in covariates
-    if timevary[covar]
-      meanbalances[!, covar] = Vector{Vector{Vector{Union{Float64, Missing}}}}(undef, length(matches))
-    else 
-      meanbalances[!, covar] = Vector{Vector{Union{Float64, Missing}}}(undef, length(matches))
-    end
-  end
-
-  _fill_meanbalances!(
-    meanbalances, matches, Len, covariates, timevary, Flen
-  );
-
-  return model
-end
-
-function getfunion!(funion, matches_i_mus)
-  for j in eachindex(funion)
-    funion[j] = any(matches_i_mus[:, j])
-  end
 end
 
 function _fill_meanbalances!(

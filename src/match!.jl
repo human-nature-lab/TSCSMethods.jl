@@ -83,6 +83,16 @@ function match!(
 
   rank!(matches, flen);
 
+  # remove treated observations with no valid mus
+  anymatches = fill(true, length(observations));
+  for (i, e) in enumerate(matches)
+    anymatches[i] = any(e.mus)
+  end
+
+  model = @set model.observations = observations[anymatches];
+  model = @set model.matches = matches[anymatches];
+  model = @set model.treatednum = length(model.observations);
+
   return model
 end
 
