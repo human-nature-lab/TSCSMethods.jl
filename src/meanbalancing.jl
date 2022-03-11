@@ -7,7 +7,7 @@ Calculate the mean balances, for each treated observation from the full set of b
 """
 function meanbalance!(model::VeryAbstractCICModel, dat)
 
-  # # DEV
+  # DEV
   # import TSCSMethods:allocate_meanbalances!,std_treated,make_groupindices,_meanbalance!
   # using Parameters
 
@@ -76,39 +76,6 @@ function meanbalance!(model::VeryAbstractCICModel, dat, tg, rg)
   return model
 end
 
-function _fill_meanbalances!(
-  meanbalances, matches, Len, covariates, timevary, Flen
-)
-
-  # (i, balrw) = collect(enumerate(eachrow(meanbalances)))[1]
-
-  for (i, balrw) in enumerate(eachrow(meanbalances))
-    
-    # we want to create a vector for f, so long as at least one match unit allows it
-    balrw[:fs] = Vector{Bool}(undef, Flen);
-    getfunion!(balrw[:fs], matches[i].mus);
-    fpresent = sum(balrw[:fs]);
-  
-    __fill_meanbalances!(
-      balrw, fpresent, Len, covariates, timevary
-    )
-  end
-  return meanbalances
-end
-
-function __fill_meanbalances!(
-  balrw, fpresent, Len, covariates, timevary
-)
-  for covar in covariates
-    if timevary[covar]
-      balrw[covar] = [Vector{Union{Missing, Float64}}(missing, Len) for _ in 1:fpresent]
-    else
-      balrw[covar] = Vector{Union{Missing, Float64}}(missing, fpresent)
-    end
-  end
-  return balrw
-end
-
 ## calculation
 
 function _meanbalance!(
@@ -122,6 +89,7 @@ function _meanbalance!(
   reference, Lσ, tmin
 )
 
+  # import TSCSMethods:getfunion!
   # for i in eachindex(observations)
   @inbounds Threads.@threads for i in eachindex(observations)
   
@@ -135,6 +103,7 @@ function _meanbalance!(
     balrw = @view meanbalances[i, :];
     ob = (tt, _) = observations[i];
   
+    # this should be recycled with @init and floops
     bwpres = Vector{Bool}(undef, length(F));
     getfunion!(bwpres, mus);
 
@@ -195,7 +164,7 @@ function _addmatches!(
 )
 
   # musrows = eachrow(mus)
-  # (m, murow) = collect(enumerate(musrows))[229];
+  # (m, murow) = collect(enumerate(musrows))[327];
   for (m, murow) in enumerate(musrows)
     if any(murow)
       mu = ids[m]; # matches[1].mus
@@ -224,9 +193,11 @@ function _addmatch!(
   # window-based matching
   # just leave input in place
 
+  # (c, (Y, X, covar)) = collect(enumerate(zip(Ys, Xs, covariates)))[1]
   for (c, (Y, X, covar)) in enumerate(zip(Ys, Xs, covariates))
     addmatch_f!(
-      balrw[c+1], Y, X, Yt, Lσ, murow,
+      balrw[c+1], # first col is fs
+      Y, X, Yt, Lσ, murow,
       tt, covar, timevary, reference,
       Lmin, Lmax, tmin
     )
@@ -240,8 +211,11 @@ function addmatch_f!(
   tt, covar, timevary, reference,
   Lmin, Lmax, tmin
 )
+  # balrwc = balrw[c+1]
   fbcnt = 0 # index balrwc, since it will only have vectors for included fs
-  for fb in murow  
+
+  # fb = true
+  for fb in murow
     if fb
       fbcnt += 1
       
@@ -274,7 +248,12 @@ end
 function _timevarybalance!(
   balrwcφ, Y, X, Yt, fw, Lσ, tt, covar, fwadjustment
 )
+  # balrwcφ = balrwc[fbcnt]
+
   downcount = 0 # when the thing is longer, we need to adjust the other way
+
+  # (l, (y, x, τ)) = collect(enumerate(zip(Y, X, Yt)))[1]
+
   for (l, (y, x, τ)) in enumerate(zip(Y, X, Yt))
   # (l, (y, x, τ)) = collect(enumerate(zip(Y, X, Yt)))[1]
     # timepoint must exist and be in window

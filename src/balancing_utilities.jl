@@ -32,22 +32,32 @@ function std_treated(model::VeryAbstractCICModel, dat::DataFrame)
   if any([Missing <: eltype(c) for c in eachcol(allvals)])
     Lset = unique(L);
     Lstd = zeros(Float64, length(Lset));
-    Lstd = Dict{Tuple{Int64, Symbol}, Union{Float64, Missing}}()
+    # Lstd = Dict{Tuple{Int64, Symbol}, Union{Float64, Missing}}()
+    Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
+
+    for l in Lset
+      lvals = @view allvals[L .== l, :]
+      for covar in model.covariates
+        Lstd[(l, covar)] = inv(std(
+          skipmissing(lvals[!, covar]); corrected = true)
+        )
+      end
+    end
   else
     Lset = unique(L);
     Lstd = zeros(Float64, length(Lset));
     Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
-  end
-  
-  for l in Lset
-    lvals = @view allvals[L .== l, :]
-    for covar in model.covariates
-      Lstd[(l, covar)] = inv(std(lvals[!, covar]; corrected = true))
+    
+    for l in Lset
+      lvals = @view allvals[L .== l, :]
+      for covar in model.covariates
+        Lstd[(l, covar)] = inv(std(lvals[!, covar]; corrected = true))
+      end
     end
   end
+  
   return Lstd 
 end
-
 
 """
     allocate_meanbalances!(model)
@@ -86,6 +96,39 @@ function allocate_meanbalances!(model)
   );
 
   return model
+end
+
+function _fill_meanbalances!(
+  meanbalances, matches, Len, covariates, timevary, Flen
+)
+
+  # (i, balrw) = collect(enumerate(eachrow(meanbalances)))[1]
+
+  for (i, balrw) in enumerate(eachrow(meanbalances))
+    
+    # we want to create a vector for f, so long as at least one match unit allows it
+    balrw[:fs] = Vector{Bool}(undef, Flen);
+    getfunion!(balrw[:fs], matches[i].mus);
+    fpresent = sum(balrw[:fs]);
+  
+    __fill_meanbalances!(
+      balrw, fpresent, Len, covariates, timevary
+    )
+  end
+  return meanbalances
+end
+
+function __fill_meanbalances!(
+  balrw, fpresent, Len, covariates, timevary
+)
+  for covar in covariates
+    if timevary[covar]
+      balrw[covar] = [Vector{Union{Missing, Float64}}(missing, Len) for _ in 1:fpresent]
+    else
+      balrw[covar] = Vector{Union{Missing, Float64}}(missing, fpresent)
+    end
+  end
+  return balrw
 end
 
 function getfunion!(funion, matches_i_mus)
