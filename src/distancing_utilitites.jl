@@ -14,7 +14,7 @@ function samplecovar(
 
   ## handle missingness
   cdat2, dat_t2 = if Missing <: eltype(typeof(cdat))
-    samplecovar_missingness(cdat)
+    samplecovar_missingness(cdat, dat_t)
   else
     cdat, dat_t
   end
@@ -27,7 +27,7 @@ function samplecovar(
   return Σinvdict
 end
 
-function samplecovar_missingness(cdat)
+function samplecovar_missingness(cdat, dat_t)
   nomis = fill(true, size(cdat)[1]);
   for (k, r) in enumerate(eachrow(cdat))
     if ismissing(sum(r))
@@ -78,28 +78,109 @@ function mahaveraging(mahas::Vector{Float64}, T, fw)
   return mdist * inv(accum)
 end
 
+T = γtimes;
+
+function distaveraging!(
+  distances, dtots::Vector{Vector{Union{Float64, Missing}}},
+  accums, γtimes, fw, φ, m
+)
+
+  ## setup and recycling
+  for ι in eachindex(dtots)
+    distances[ι][φ, m] = 0.0
+    accums[ι] = 0
+  end
+  ##
+
+  for (l, τ) in enumerate(γtimes)
+    if τ > maximum(fw) # don't bother with the rest
+      break
+    elseif (τ >= minimum(fw)) & !ismissing(m) # if at or above bottom (above ruled out already)
+      # accum += 1
+      for u in eachindex(dists)
+        if !ismissing(dtots[u][l])
+          distances[u][φ, m] += dtots[u][l]
+          accums[u] += 1
+        end
+      end
+    end
+  end
+
+  for ι in eachindex(dtots)
+    distances[ι][φ, m] = if accums[ι] == 0
+      Inf
+    else
+      distances[ι][φ, m] * inv(accums[ι])
+    end
+  end
+end
+
+function distaveraging!(
+  distances, dtots::Vector{Vector{Float64}}, accums, γtimes, fw, φ, m
+)
+
+  ## setup and recycling
+  for ι in eachindex(dtots)
+    distances[ι][φ, m] = 0.0
+    accums[ι] = 0
+  end
+  ##
+
+  for (l, τ) in enumerate(γtimes)
+    if τ > maximum(fw) # don't bother with the rest
+      break
+    elseif (τ >= minimum(fw)) # if at or above bottom (above ruled out already)
+      # accum += 1
+      for u in eachindex(dists)
+        distances[u][φ, m] += dtots[u][l]
+        accums[u] += 1
+      end
+    end
+  end
+
+  for ι in eachindex(dtots)
+    distances[ι][φ, m] = if accums[ι] == 0
+      Inf
+    else
+      distances[ι][φ, m] * inv(accums[ι])
+    end
+  end
+end
+
 function mahaveraging(mahas::Vector{Union{Float64, Missing}}, T, fw)
   mdist = 0.0
   accum = 0
   for (m, τ) in zip(mahas, T)
-    if (τ ∈ fw) & !ismissing(m)
+    if τ > maximum(fw) # don't bother with the rest
+      break
+    elseif (τ >= minimum(fw)) & !ismissing(m) # if at or above bottom (above ruled out already)
       accum += 1
       mdist += m
     end
   end
-  return mdist * inv(accum)
+
+  return if accum == 0
+    Inf
+  else
+    mdist * inv(accum)
+  end
 end
 
 function caldistancing(Σinvdict, X, Y, T, fw, c)
   caldist = 0.0
-  accum = 1
+  accum = 0
   for (x, y, τ) in zip(X, Y, T)
-    if (τ ∈ fw) & (!ismissing(x)) & (!ismissing(y))
+    if (τ > maximum(fw)) & (!ismissing(x)) & (!ismissing(y))
       accum += 1
       Σ = get(Σinvdict, τ, nothing);
       caldist += weuclidean(x, y, Σ[c, c])
     end
   end
-  return caldist * inv(accum)
+
+  return if accum == 0
+    Inf
+  else
+    caldist * inv(accum)
+  end
 end
 ##

@@ -54,13 +54,14 @@ function match!(
   tg, rg = eligibility!(
     matches, observations, cdat,
     ids, treatcat,
-    fmin, fmax, Lmin, treatment, t, id; exposure = exposure
+    dat[!, t], dat[!, id], dat[!, treatment],
+    fmin, fmax, Lmin; exposure = exposure
   )
 
   # distance between matches and treated
   distances_allocate!(matches, flen, covnum);
 
-  Σinvdict = samplecovar(dat_t, cdat; variancesonly = variancesonly);
+  Σinvdict = samplecovar(dat[!, t], cdat; variancesonly = variancesonly);
 
   distances_calculate!(
     matches, observations, ids, tg, rg, fmin, Lmin, Lmax, Σinvdict
@@ -74,13 +75,14 @@ end
 function eligibility!(
   matches, observations, cdat::Matrix{Float64},
   ids, treatcat,
-  fmin, fmax, Lmin, treatment, t, id; exposure = nothing
+  dat_t, dat_id, dat_trt,
+  fmin, fmax, Lmin; exposure = nothing
 )
   # eligibility handling
   if isnothing(exposure)
     tg, rg, trtg = make_groupindices(
-      dat[!, t], dat[!, treatment],
-      dat[!, id], ids,
+      dat_t, dat_trt,
+      dat_id, ids,
       fmax, Lmin,
       cdat
     );
@@ -96,11 +98,11 @@ function eligibility!(
     );
   else
     tg, rg, trtg, exg = make_groupindices(
-      dat[!, t], dat[!, treatment],
-      dat[!, id], ids,
+      dat_t, dat_trt,
+      dat_id, ids,
       fmax, Lmin,
       cdat;
-      exvec = dat[!, exposure]
+      exvec = exposure
     );
 
     eligiblematches!(
@@ -115,13 +117,19 @@ end
 function eligibility!(
   matches, observations, cdat::Matrix{Union{Missing, Float64}},
   ids, treatcat,
-  fmin, fmax, Lmin, treatment, t, id; exposure = nothing
+  dat_t, dat_id, dat_trt,
+  fmin, fmax, Lmin; exposure = nothing
 )
+
+  # dat_t = dat[!, t]
+  # dat_id = dat[!, id]
+  # dat_trt = dat[!, treatment]
+
   # eligibility handling
   if isnothing(exposure)
     tg, rg, trtg = make_groupindices(
-      dat[!, t], dat[!, treatment],
-      dat[!, id], ids,
+      dat_t, dat_trt,
+      dat_id, ids,
       fmax, Lmin,
       cdat
     );
@@ -137,11 +145,11 @@ function eligibility!(
     );
   else
     tg, rg, trtg, exg = make_groupindices(
-      dat[!, t], dat[!, treatment],
-      dat[!, id], ids,
+      dat_t, dat_trt,
+      dat_id, ids,
       fmax, Lmin,
       cdat;
-      exvec = dat[!, exposure]
+      exvec = exposure
     );
 
     eligiblematches!(

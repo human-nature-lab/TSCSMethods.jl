@@ -1,6 +1,6 @@
 ## distancing.jl
 
-function distances_allocate!(matches, flen, covnum)
+function distances_allocate!(matches, flen, covnum; sliding = false)
   Threads.@threads for i in eachindex(matches)
   # for (i, tob) in enumerate(tobsvec)
     
@@ -9,10 +9,13 @@ function distances_allocate!(matches, flen, covnum)
     # at least one f is valid
     valids = vec(sum(tob.mus, dims = 2) .> 0);
 
-    matches[i] = @set tob.distances = [
-      fill(Inf, flen, sum(valids)) for _ in 1:covnum + 1
-    ];
-
+    if sliding
+      matches[i] = @set tob.distances = [
+        fill(Inf, flen, sum(valids)) for _ in 1:covnum + 1
+      ];
+    else
+      matches[i] = @set tob.distances = fill(Inf, sum(valids), covnum+1)
+    end
   end
   return matches
 end
@@ -60,22 +63,37 @@ function distances_calculate!(
     ##
 
     ## setup up for distance calculations
-    γcs = eachcol(tg[ob]);
+    # γcs = eachcol(tg[ob]);
     γrs = eachrow(tg[ob]);
     γtimes = rg[ob];
     
-    mahas = if Missing <: eltype(tg[ob])
-      Vector{Union{Float64, Missing}}(missing, length(γtimes));
+    # mahas = if Missing <: eltype(tg[ob])
+    #   Vector{Union{Float64, Missing}}(missing, length(γtimes));
+    # else
+    #   Vector{Float64}(undef, length(γtimes));
+    # end
+    
+    if Missing <: eltype(tg[ob])
+      dtots = Vector{Vector{Union{Float64, Missing}}}(undef, length(covariates)+1)
+      for h in eachindex(dtots)
+        dtots[h] = Vector{Union{Float64, Missing}}(missing, length(γtimes));
+      end
     else
-      Vector{Float64}(undef, length(γtimes));
+      dtots = Vector{Vector{Float64}}(undef, length(covariates)+1)
+      for h in eachindex(dtots)
+        dtots[h] = Vector{Float64}(missing, length(γtimes));
+      end
     end
+
+    accums = Vector{Int}(undef, length(dtots));
     ##
 
-    distantiate!(
-      distances, mahas,
+    @time window_distances!(
+      distances,
+      dtots, accums,
       eachrow(validmus), validunits,
       ob[1], Σinvdict,
-      γcs, γrs, γtimes, tg,
+      γrs, γtimes, tg,
       fmin, Lmin, Lmax;
       sliding = sliding
     );
@@ -87,120 +105,134 @@ end
 
 matchwindow(f, tt, pomin, pomax) = (tt + f) + pomin : (tt + f) + pomax;
 
-function distantiate!(
-  distances, mahas,
+"""
+Assign distances for each window. This could be massively
+simplified for a non-sliding window.
+"""
+function window_distances!(
+  distances, dtots, accums,
   validmuscols, validunits,
   tt, Σinvdict,
-  γcs, γrs, γtimes, tg,
+  γrs, γtimes, tg,
   fmin, Lmin, Lmax;
   sliding = false
 )
 
   # the sliding method would be for the pretreatment matching period ONLY
-
   # cc = 0
 
+  # validmuscols = eachrow(validmus)
   # (m, (unit, muscol)) = collect(enumerate(
   #   zip(
   #     validunits, validmuscols
   #     )
-  #   ))[1]
+  #   ))[1994-2]
 
   for (m, (unit, muscol)) in enumerate(
     zip(
       validunits, validmuscols
       )
     )
+
     # cc += 1
     g = tg[(tt, unit)];
 
-    # MISSING DONE
-    mahadistancing!(
-      mahas, Σinvdict, γrs, eachrow(g), γtimes
-    );
+    if sliding
+      # MISSING DONE
+      alldistances!(dtots, Σinvdict, γrs, eachrow(g), γtimes);
 
-    # cnt: since φ will track 1:31, and we will have only those that exist 
-    __distantiate!(
-      distances, m,
-      muscol,
-      mahas, tt, γcs, eachcol(g), γtimes, Σinvdict, fmin, Lmin, Lmax;
-      sliding = sliding
-    )
+      # @time mahadistancing!(
+      #   mahas, Σinvdict, γrs, eachrow(g), γtimes
+      # );
 
+      # cnt: since φ will track 1:31, and we will have only those that exist 
+      _window_distances!(
+        distances, m,
+        muscol,
+        dtots, accums,
+        tt, γtimes, fmin, Lmin, Lmax;
+        sliding = sliding
+      )
+
+    else
+      # NOT SLIDING
+
+    end
   end
 
   return distances
 end
 
+# """
+# N.B. if any of the input xr or yr (the covariate values for the treated and match at some day in the covariate matching window) are missing, then the 
+# maha distance is missing.
+# """
+# function mahadistancing!(mahas, Σinvdict, xrows, yrows, T)
+#   for (xr, yr, τ, i) in zip(xrows, yrows, T, 1:length(T))
+#     Σ = get(Σinvdict, τ, nothing);
+
+#     mahas[i] = sqrt((xr - yr)' * Σ * (xr - yr));
+#     # function from Distances.jl is really slow?
+#     # mahadist += @time mahalanobis(xr, yr, Σ);
+#   end
+#   return mahas
+# end
+
 """
 N.B. if any of the input xr or yr (the covariate values for the treated and match at some day in the covariate matching window) are missing, then the 
 maha distance is missing.
 """
-function mahadistancing!(mahas, Σinvdict, xrows, yrows, T)
-  for (xr, yr, τ, i) in zip(xrows, yrows, T, 1:length(T))
+function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
+  for (xr, yr, τ, i) in zip(xrows, yrows, γtimes, 1:length(γtimes))
     Σ = get(Σinvdict, τ, nothing);
 
-    mahas[i] = sqrt((xr - yr)' * Σ * (xr - yr));
-    # function from Distances.jl is really slow?
-    # mahadist += @time mahalanobis(xr, yr, Σ);
+    # mahalanobis distance
+    dtotals[1][i] = sqrt((xr - yr)' * Σ * (xr - yr));
+
+    # individuals covariate distances (for calipers)
+    for (j, (xj, yj)) in enumerate(zip(xr, yr))
+      if !ismissing(xj) & !ismissing(yj)
+        dtotals[j+1][i] = weuclidean(xj, yj, Σ[j, j])
+      end
+    end
+
   end
-  return mahas
+  return dtotals
 end
 
-function __distantiate!(
+function _window_distances!(
   distances, m,
   muscol,
-  mahas, tt, γcs, gcs, γtimes, Σinvdict, fmin, Lmin, Lmax;
+  dtots, accums,
+  tt, γtimes, fmin, Lmin, Lmax;
   sliding = false
 )
 
-  # (φ, fb) = collect(enumerate(muscol))[1]
-
-  cc = 0
   for (φ, fb) in enumerate(muscol)
-    cc += 1
-    if fb
+    if fb # if the specific f (for the given match) is valid
 
       # mahalanobis distance
       # each mahalanobis() call is costly, so do calculations in outer look and average (better to preallocate mahas vector...)
 
-      if sliding
+      # an alternative would be to use looping to find the indices
+      # and then just use mean with skipmissing on the appropriate
+      # portion of mahas...
+
+      fw = if sliding
         error("unfinished")
         # this should grab the pretreatment crossover window
-        fw = matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
+        matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
       else
-        # fixed window that ought to be based on the crossover definition
-        # but is selected manually
-        fw = Lmin + tt : tt + Lmax;
+        # This is a gixed window that ought to be based
+        # on the crossover definition.
+        # It is selected manually.
+        Lmin + tt : tt + Lmax;
       end
 
-      distances[1][φ, m] = mahaveraging(mahas, γtimes, fw)
-
-      # caliper distances
-      for (c, (γc, gc)) in enumerate(zip(γcs, gcs))
-        # this is the match distance for an f, for a covar
-        distances[c + 1][φ, m] = caldistancing(
-            Σinvdict, γc, gc, γtimes, fw, c
-        );
-      end
+      distaveraging!(distances, dtots, accums, γtimes, fw, φ, m);
     end
 
   end
 
   return distances
 end
-
-# function mahadistancing(Σinvdict, xrows, yrows, T, fw)
-#   mahadist = 0.0
-#   accum = 0
-#   for (xr, yr, τ) in zip(xrows, yrows, T)
-#     if τ ∈ fw
-#       accum += 1
-#       Σ = get(Σinvdict, τ, nothing);
-#       mahadist += sqrt((xr - yr)' * Σ * (xr - yr));
-#       # function from Distances.jl is really slow?
-#       # mahadist += @time mahalanobis(xr, yr, Σ);
-#     end
-#   end
-#   return mahadist * inv(accum)
-# end

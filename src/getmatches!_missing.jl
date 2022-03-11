@@ -33,6 +33,7 @@ function eligiblematches!(
   tg, rg, trtg, ids, fmin, fmax, treatcat; exg = nothing
 )
   
+  # (ob, tob) = collect(zip(observations, matches))[1]
   for (ob, tob) in zip(observations, matches)
     (tt, tu) = ob;
     @unpack mus = tob;
@@ -64,6 +65,7 @@ function matchespossible!(
   exg = nothing
 )
 
+  # (mu, rmus) = collect(zip(uid, eachrow(mus)))[3]
   for (mu, rmus) in zip(uid, eachrow(mus)) # over pot. matches
 
     # clearly, if same unit, match is not allowed
@@ -142,7 +144,8 @@ function fpossible_mis!(
     # we now additionally check if that f is not valid
     # from the missingness check
     # if either the tu or mu is not valid at that f, skip
-    if !mu_validfs[φ] | !validfs[φ]
+    if (mu_validfs[φ] == false) | (validfs[φ] == false)
+      rmus[φ] = false
       continue
     else
     
@@ -199,7 +202,8 @@ function fpossible_mis!(
     # we now additionally check if that f is not valid
     # from the missingness check
     # if either the tu or mu is not valid at that f, skip
-    if !mu_validfs[φ] | !validfs[φ]
+    if (mu_validfs[φ] == false) | (validfs[φ] == false)
+      rmus[φ] = false
       continue
     else
 
