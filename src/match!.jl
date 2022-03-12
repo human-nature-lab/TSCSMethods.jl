@@ -34,11 +34,12 @@ function match!(
   variancesonly = true
 )
 
-  # using Parameters
+  # using Parameters, Accessors
   # import TSCSMethods:eligibility!,distances_allocate!,samplecovar,distances_calculate!,window_distances!,distaveraging!,rank!
   # treatcat = default_treatmentcategories
   # exposure = nothing
   # variancesonly = true
+  # sliding = false
 
   @unpack observations, matches, ids = model;
   @unpack F, L, id, t, treatment, covariates = model;
@@ -62,7 +63,7 @@ function match!(
     ids, treatcat,
     dat[!, t], dat[!, id], dat[!, treatment],
     fmin, fmax, Lmin; exposure = exposure
-  )
+  );
 
   # distance between matches and treated
   distances_allocate!(matches, flen, covnum);

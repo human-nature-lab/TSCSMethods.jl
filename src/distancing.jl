@@ -81,7 +81,7 @@ function distances_calculate!(
     else
       dtots = Vector{Vector{Float64}}(undef, length(covariates)+1)
       for h in eachindex(dtots)
-        dtots[h] = Vector{Float64}(missing, length(γtimes));
+        dtots[h] = Vector{Float64}(undef, length(γtimes));
       end
     end
 
