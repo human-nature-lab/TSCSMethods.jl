@@ -29,6 +29,8 @@ function autobalance(
   fmin = minimum(F); fmax = maximum(F);
   mmin = minimum(L);
   
+  # import TSCSMethods:make_groupindices,caliper,refine,calipermatches,calipervars,TobC,_fillcal!,_caliper!,get_anymus!,_inner_caliper!
+
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
