@@ -19,7 +19,7 @@ module TSCSMethods
     "overallbalancing.jl",
     "balancing.jl",
     "estimation_setup.jl",
-    "estimation_utilities.jl"
+    "estimation_utilities.jl",
     "estimation_observationweights.jl",
     "estimation.jl",
     "resampling.jl",
