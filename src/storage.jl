@@ -5,7 +5,14 @@ Generate the filename for a set of models.
 """
 function name_model(model::VeryAbstractCICModel)
   strat = typeof(model) <: AbstractCICModelStratified ? string(model.stratifier) : ""
-  return model.title * "_" * string(model.outcome) * "_" * strat
+
+  nms = if typeof(model.outcome) == Symbol
+    string(model.outcome)
+  else
+    "multiple_" * string(model.outcome[1])
+  end
+
+  return model.title * "_" * nms * "_" * strat
 end
 
 # should add treatment
@@ -14,7 +21,7 @@ struct CICRecord
   type::DataType
   results::DataFrame
   balances::Union{GrandDictStrat, GrandDictNoStrat}
-  outcome::Symbol
+  outcome::Union{Symbol, Vector{Symbol}}
   covariates::Vector{Symbol}
   ids::Vector{Int}
   observations::Vector{Tuple{Int, Int}}
