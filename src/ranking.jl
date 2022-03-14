@@ -11,7 +11,7 @@ function rank!(matches, flen)
 end
 
 function rankmatches!(tob, flen)
-  @unpack mus, fs, distances, ranks = tob;
+  @unpack mus, distances, ranks = tob;
 
   mamat = fill(Inf, flen, size(mus)[1]); # in id order
   valids = vec(sum(mus, dims = 2) .> 0);

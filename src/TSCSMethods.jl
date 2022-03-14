@@ -5,7 +5,7 @@ module TSCSMethods
     "types.jl",
     "construction.jl",
     "matching_setup.jl",
-    "make_groupindices.jl",
+    "groupindices.jl",
     "get_matches_utilities.jl",
     "getmatches!.jl",
     "getmatches!_missing.jl",
