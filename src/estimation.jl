@@ -14,7 +14,7 @@ function estimate!(
     # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!,applyunitcounts!
 
     @unpack results, matches, observations, outcome, F, ids, reference, t, id = model; 
-    modeliters = model.iters;
+    modeliters = model.iterations;
 
     if !isnothing(iterations)
         @reset model.iterations = iterations;
@@ -24,7 +24,7 @@ function estimate!(
 
 
     _estimate!(
-        results, matches, observations, outcome::Symbol,
+        results, matches, observations, outcome,
         F, ids, reference, t, id, iterations, percentiles,
         dat
     );
@@ -92,6 +92,9 @@ function _estimate!(
         after first iter, make it add on to res
         add iter condition to nrow > 0 conditional
     =#
+
+    res = DataFrame()
+
     for (ι, oc) in enumerate(outcome)
 
         X = processunits(
@@ -115,9 +118,12 @@ function _estimate!(
         attsymb = Symbol("att" * "_" * string(oc))
 
         if ι == 1
-            res = DataFrame(
-                :f => F,
-                attsymb => atts
+            append!(
+                res,
+                DataFrame(
+                    :f => F,
+                    attsymb => atts
+                )
             )
         else
             res[!, attsymb] = atts

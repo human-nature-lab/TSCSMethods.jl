@@ -121,11 +121,10 @@ end
 function _fillcal!(tobscr, matches)
   Threads.@threads for i in eachindex(matches)
     tob = @views matches[i]
-    @unpack fs, mus, distances, ranks = tob;
+    @unpack mus, distances, ranks = tob;
 
     tobscr[i] = TobC(
       deepcopy(mus),
-      deepcopy(fs),
       deepcopy(ranks)
     );
   end
