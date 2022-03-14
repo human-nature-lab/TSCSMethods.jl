@@ -1,11 +1,11 @@
 # estimation_setup.jl
 
 """
-        getoutcomemap(dat, model)
+        getoutcomemap(outcome, dat, t, id)
 
 Get dictionary, from specified unit and time to outcome.
 """
-function getoutcomemap(dat, model)
+function getoutcomemap(outcome, dat, t, id)
 
     outcomemap = Dict{Tuple{Int, Int}, Float64}()
 
@@ -16,20 +16,25 @@ function getoutcomemap(dat, model)
     #     Dict{Tuple{Int, Int}, Float64}()
     # end
     for r in eachrow(dat)
-        if !ismissing(r[model.outcome])
-            outcomemap[(r[model.t], r[model.id])] = r[model.outcome]
+        if !ismissing(r[outcome])
+            outcomemap[(r[t], r[id])] = r[outcome]
         end
     end
 
     return outcomemap
 end
 
-function processunits(model, dat)
+function processunits(
+    matches, observations, outcome, F, ids, reference, t, id,
+    dat
+)
 
     # for quick access to outcomes from unit & time
-    outcomemap = getoutcomemap(dat, model);
 
-    @unpack observations, matches, F, ids, reference = model;
+
+    outcomemap = getoutcomemap(outcome, dat, t, id);
+
+    
     Fmin = minimum(F)
     obsnum = length(matches)
 
@@ -136,21 +141,6 @@ function unitstore!(
     end
 
    return wos, wrs, tux, mux, fux
-end
-
-"""
-        Fblock
-
-Holds the relevant information for bootstrapping and estimation,
-for a specific f in the outcome window (an f in a stratum when the model
-is stratified).
-"""
-struct Fblock
-    f::Int
-    matchunits::Vector{Int}
-    weightedoutcomes::Vector{Float64}
-    weightedrefoutcomes::Vector{Float64}
-    treatment::Vector{Bool}
 end
 
 """

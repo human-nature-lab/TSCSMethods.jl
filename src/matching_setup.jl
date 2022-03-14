@@ -24,7 +24,6 @@ function _make_matches!(matches, obslen, idlen, flen)
   for i in 1:obslen
     matches[i] = Tob(
       mus = fill(true, idlen, flen), # DEFAULT TRUE -- ACTIVELY REMOVE MATCHES
-      fs = Vector{Vector{Bool}}(undef, idlen),
       ranks = Dict{Int, Vector{Int}}()
     );
   end;
