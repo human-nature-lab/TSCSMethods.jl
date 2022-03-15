@@ -167,8 +167,6 @@ function estimate!(
         dat
     )
     
-    
-    
     applyunitcounts!(model)
 
     return model
@@ -176,7 +174,7 @@ end
 
 function _estimate_strat!(
     multiatts, multiboots,
-    results, matches, observations, outcome::Symbol,
+    results, matches, observations, outcome::Vector{Symbol},
     F, ids, reference, t, id, iterations, percentiles,
     dat
 )
