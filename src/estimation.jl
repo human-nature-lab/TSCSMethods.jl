@@ -148,62 +148,103 @@ function estimate!(
     iterations = nothing, percentiles = [0.025, 0.5, 0.975]
 )
 
-    multiboots = Dict{Int, Matrix{Float64}}();
-    multiatts = Dict{Int, Vector{Float64}}();
-    
-    res = DataFrame(
-        stratum = Int[], f = Int[], att = Float64[], mean = Float64[]
-    )
-
-    for q in percentiles
-        qn = Symbol(string(q * 100) * "%");
-        res[!, qn] = Float64[]
-    end
-
-    X = processunits(model, dat);
-    @unpack observations, matches, F, ids = model;
-    Flen = length(F);
+    @unpack results, matches, observations, outcome, F, ids, reference, t, id = model; 
+    modeliters = model.iterations;
 
     if !isnothing(iterations)
         @reset model.iterations = iterations;
     else
-        iterations = model.iterations
+        iterations = modeliters
     end
+
+    multiboots = Dict{Int, Matrix{Float64}}();
+    multiatts = Dict{Int, Vector{Float64}}();
+
+    _estimate_strat!(
+        multiatts, multiboots,
+        results, matches, observations, outcome,
+        F, ids, reference, t, id, iterations, percentiles,
+        dat
+    )
     
-    if (nrow(model.results) > 0) | length(names(model.results)) > 0
-        @reset model.results = DataFrame();
-    end
-
-    for s in sort(unique(model.strata))
-        Xsub = stratifyinputs(X, s, model.strata)
-        multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
-        fblock_sub = makefblocks(Xsub...)
-        obsub = @views observations[model.strata .== s]
-        treatdex = treatedmap(obsub);
-        bootstrap!(
-            multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
-        );
-
-        multiatts[s] = fill(0.0, length(F));
-        tcounts = fill(0, length(F));
-        att!(multiatts[s], tcounts, fblock_sub)
-
-        # add to dataframe
-        for (r, e, f) in zip(eachrow(multiboots[s]), multiatts[s], F)
-            push!(
-                res,
-                [
-                    s, f, e,
-                    mean(r),
-                    (quantile(r, percentiles))...
-                ]
-            )
-        end
-    end
-
-    append!(model.results, res)
+    
     
     applyunitcounts!(model)
 
     return model
+end
+
+function _estimate_strat!(
+    multiatts, multiboots,
+    results, matches, observations, outcome::Symbol,
+    F, ids, reference, t, id, iterations, percentiles,
+    dat
+)
+    
+
+    if (nrow(model.results) > 0) | length(names(model.results)) > 0
+        @reset model.results = DataFrame();
+    end
+
+    reses = DataFrame()
+
+    for (ι, oc) in enumerate(outcome)
+
+        X = processunits(
+            matches, observations, oc, F, ids, reference, t, id,
+            dat
+        );
+            
+        res = DataFrame()
+        Flen = length(F);
+
+        for s in sort(unique(model.strata))
+            Xsub = stratifyinputs(X, s, model.strata)
+            multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
+            fblock_sub = makefblocks(Xsub...)
+            obsub = @views observations[model.strata .== s]
+            treatdex = treatedmap(obsub);
+            bootstrap!(
+                multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
+            );
+
+            multiatts[s] = fill(0.0, length(F));
+            tcounts = fill(0, length(F));
+            att!(multiatts[s], tcounts, fblock_sub)
+
+            attsymb = Symbol("att" * "_" * string(oc))
+            prefix = string(oc) * "_"
+            barname = Symbol(prefix * "mean")
+            losymb = Symbol(prefix * string(percentiles[1] * 100) * "%");
+            medsymb = Symbol(prefix * string(percentiles[2] * 100) * "%");
+            hisymb = Symbol(prefix * string(percentiles[3] * 100) * "%");
+
+            # add to dataframe
+            for (r, e, f) in zip(eachrow(multiboots[s]), multiatts[s], F)
+                (lov, miv, hiv) = quantile(r, percentiles)
+                append!(
+                    res,
+                    DataFrame(
+                        :stratum => s,
+                        :f => f,
+                        attsymb => e,
+                        barname => mean(r),
+                        losymb => lov,
+                        medsymb => miv,
+                        hisymb => hiv
+                    )
+                )
+            end
+        end
+
+        if ι == 1
+            append!(reses, res)
+        else
+            reses = leftjoin(reses, res, on = [:stratum, :f])
+        end
+
+    end
+    
+    append!(results, reses)
+
 end
