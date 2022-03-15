@@ -148,7 +148,7 @@ function estimate!(
     iterations = nothing, percentiles = [0.025, 0.5, 0.975]
 )
 
-    @unpack results, matches, observations, outcome, F, ids, reference, t, id = model; 
+    @unpack results, matches, observations, strata, outcome, F, ids, reference, t, id = model; 
     modeliters = model.iterations;
 
     if !isnothing(iterations)
@@ -162,7 +162,7 @@ function estimate!(
 
     _estimate_strat!(
         multiatts, multiboots,
-        results, matches, observations, outcome,
+        results, matches, observations, strata, outcome,
         F, ids, reference, t, id, iterations, percentiles,
         dat
     )
@@ -174,14 +174,13 @@ end
 
 function _estimate_strat!(
     multiatts, multiboots,
-    results, matches, observations, outcome::Vector{Symbol},
+    results, matches, observations, strata, outcome::Vector{Symbol},
     F, ids, reference, t, id, iterations, percentiles,
     dat
 )
     
-
-    if (nrow(model.results) > 0) | length(names(model.results)) > 0
-        @reset model.results = DataFrame();
+    if (nrow(results) > 0) | length(names(results)) > 0
+        @reset results = DataFrame();
     end
 
     reses = DataFrame()
@@ -196,11 +195,11 @@ function _estimate_strat!(
         res = DataFrame()
         Flen = length(F);
 
-        for s in sort(unique(model.strata))
-            Xsub = stratifyinputs(X, s, model.strata)
+        for s in sort(unique(strata))
+            Xsub = stratifyinputs(X, s, strata)
             multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
             fblock_sub = makefblocks(Xsub...)
-            obsub = @views observations[model.strata .== s]
+            obsub = @views observations[strata .== s]
             treatdex = treatedmap(obsub);
             bootstrap!(
                 multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
@@ -244,5 +243,65 @@ function _estimate_strat!(
     end
     
     append!(results, reses)
+end
 
+function _estimate_strat!(
+    multiatts, multiboots,
+    results, matches, observations, strata, outcome::Symbol,
+    F, ids, reference, t, id, iterations, percentiles,
+    dat
+)
+    
+    if (nrow(results) > 0) | length(names(results)) > 0
+        @reset results = DataFrame();
+    end
+
+
+    X = processunits(
+        matches, observations, outcome, F, ids, reference, t, id,
+        dat
+    );
+        
+    res = DataFrame()
+    Flen = length(F);
+
+    for s in sort(unique(strata))
+        Xsub = stratifyinputs(X, s, strata)
+        multiboots[s], tcountmat = setup_bootstrap(Flen, iterations)
+        fblock_sub = makefblocks(Xsub...)
+        obsub = @views observations[strata .== s]
+        treatdex = treatedmap(obsub);
+        bootstrap!(
+            multiboots[s], tcountmat, fblock_sub, ids, treatdex, iterations
+        );
+
+        multiatts[s] = fill(0.0, length(F));
+        tcounts = fill(0, length(F));
+        att!(multiatts[s], tcounts, fblock_sub)
+
+        attsymb = "att"
+        barname = "mean"
+        losymb = Symbol(string(percentiles[1] * 100) * "%");
+        medsymb = Symbol(string(percentiles[2] * 100) * "%");
+        hisymb = Symbol(string(percentiles[3] * 100) * "%");
+
+        # add to dataframe
+        for (r, e, f) in zip(eachrow(multiboots[s]), multiatts[s], F)
+            (lov, miv, hiv) = quantile(r, percentiles)
+            append!(
+                res,
+                DataFrame(
+                    :stratum => s,
+                    :f => f,
+                    attsymb => e,
+                    barname => mean(r),
+                    losymb => lov,
+                    medsymb => miv,
+                    hisymb => hiv
+                )
+            )
+        end
+    end
+
+    append!(results, res)
 end
