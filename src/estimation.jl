@@ -279,8 +279,8 @@ function _estimate_strat!(
         tcounts = fill(0, length(F));
         att!(multiatts[s], tcounts, fblock_sub)
 
-        attsymb = "att"
-        barname = "mean"
+        attsymb = :att
+        barname = :mean
         losymb = Symbol(string(percentiles[1] * 100) * "%");
         medsymb = Symbol(string(percentiles[2] * 100) * "%");
         hisymb = Symbol(string(percentiles[3] * 100) * "%");
