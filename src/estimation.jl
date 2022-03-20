@@ -151,7 +151,9 @@ Perform ATT stratified estimation, with bootstrapped CIs.
 """
 function estimate!(
     model::AbstractCICModelStratified, dat;
-    iterations = nothing, percentiles = [0.025, 0.5, 0.975]
+    iterations = nothing,
+    percentiles = [0.025, 0.5, 0.975],
+    overall = false
 )
 
     @unpack results, matches, observations, strata, outcome, F, ids, reference, t, id = model; 
@@ -175,7 +177,16 @@ function estimate!(
     
     applyunitcounts!(model)
 
-    return model
+    overalls = Dict{Int, Tuple{Float64, Vector{Float64}}}()
+    if overall
+        for s in sort(unique(strata))
+            overalls[s] = (
+                mean(multiatts[s]),
+                quantile(vec(multiboots[s]), percentiles)
+            )
+        end
+        return overalls
+    end
 end
 
 function _estimate_strat!(
