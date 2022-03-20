@@ -8,7 +8,8 @@ Perform ATT estimation, with bootstrapped CIs.
 function estimate!(
     model::AbstractCICModel, dat;
     iterations = nothing,
-    percentiles = [0.025, 0.5, 0.975]
+    percentiles = [0.025, 0.5, 0.975],
+    bootout = false,
 )
 
     # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!,applyunitcounts!
@@ -23,7 +24,7 @@ function estimate!(
     end
 
 
-    _estimate!(
+    boots = _estimate!(
         results, matches, observations, outcome,
         F, ids, reference, t, id, iterations, percentiles,
         dat
@@ -31,7 +32,9 @@ function estimate!(
 
     applyunitcounts!(model)
 
-    return model
+    if bootout
+        return boots
+    end
 end
 
 function _estimate!(
@@ -74,6 +77,7 @@ function _estimate!(
     append!(results, res)
 
     # end lazy loop area for multiple outcomes
+    return boots
 end
 
 """

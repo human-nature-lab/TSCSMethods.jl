@@ -46,7 +46,7 @@ function refine(
   return modelref
 end
 
-# import tscsmethods:_refine,RefinedCaliperCICStratified,@unpack,meanbalance!,grandbalance!,TobR
+# import TSCSMethods:_refine,RefinedCaliperCICStratified,@unpack,meanbalance!,grandbalance!,TobR
 
 function refine(
   model::CICStratified, dat;
