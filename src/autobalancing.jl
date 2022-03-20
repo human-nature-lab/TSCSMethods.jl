@@ -95,10 +95,10 @@ function autobalance(
   meanbalance!(calmodel, dat, tg, rg)
   grandbalance!(calmodel)
 
-  if doestimate & !overall
+  if doestimate & !dooverall
     estimate!(refcalmodel, dat)
     estimate!(calmodel, dat)
-  elseif doestimate & overall
+  elseif doestimate & dooverall
       overall = estimate!(refcalmodel, dat; overall = true)
       estimate!(calmodel, dat)
   end
