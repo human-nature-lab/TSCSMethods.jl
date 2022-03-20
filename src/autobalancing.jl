@@ -101,13 +101,11 @@ function autobalance(
   elseif doestimate & bootout
       boots = estimate!(refcalmodel, dat; bootout = true)
       estimate!(calmodel, dat)
-    end
   end
 
-  if !bootout
-    return calmodel, refcalmodel
-  else
-    return calmodel, refcalmodel, boots
+  if bootout
+    return boots
+  end
 end
 
 """
