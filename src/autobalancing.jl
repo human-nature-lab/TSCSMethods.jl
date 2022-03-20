@@ -103,8 +103,10 @@ function autobalance(
       estimate!(calmodel, dat)
   end
 
-  if bootout
-    return boots
+  if !bootout
+    return calmodel, refcalmodel
+  else
+    return calmodel, refcalmodel, boots
   end
 end
 
