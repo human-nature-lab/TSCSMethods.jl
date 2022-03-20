@@ -20,7 +20,7 @@ function autobalance(
   initial_bals = nothing,
   doestimate = true,
   verbose = true,
-  overall = false
+  dooverall = false
 )
 
   @unpack ids = model;
@@ -103,7 +103,7 @@ function autobalance(
       estimate!(calmodel, dat)
   end
 
-  if !bootout
+  if !dooverall
     return calmodel, refcalmodel
   else
     return calmodel, refcalmodel, overall
