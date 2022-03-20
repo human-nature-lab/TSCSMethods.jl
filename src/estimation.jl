@@ -9,7 +9,7 @@ function estimate!(
     model::AbstractCICModel, dat;
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
-    bootout = false,
+    overall = false,
 )
 
     # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!,applyunitcounts!
@@ -32,8 +32,10 @@ function estimate!(
 
     applyunitcounts!(model)
 
-    if bootout
-        return boots
+    if overall
+        return (
+            mean(results.att), quantile(vec(boots), percentiles)
+        )
     end
 end
 

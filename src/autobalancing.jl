@@ -20,7 +20,7 @@ function autobalance(
   initial_bals = nothing,
   doestimate = true,
   verbose = true,
-  bootout = false
+  overall = false
 )
 
   @unpack ids = model;
@@ -95,18 +95,18 @@ function autobalance(
   meanbalance!(calmodel, dat, tg, rg)
   grandbalance!(calmodel)
 
-  if doestimate & !bootout
+  if doestimate & !overall
     estimate!(refcalmodel, dat)
     estimate!(calmodel, dat)
-  elseif doestimate & bootout
-      boots = estimate!(refcalmodel, dat; bootout = true)
+  elseif doestimate & overall
+      overall = estimate!(refcalmodel, dat; overall = true)
       estimate!(calmodel, dat)
   end
 
   if !bootout
     return calmodel, refcalmodel
   else
-    return calmodel, refcalmodel, boots
+    return calmodel, refcalmodel, overall
   end
 end
 
