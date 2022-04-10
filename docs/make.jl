@@ -1,16 +1,16 @@
-using tscsmethods
+using TSCSMethods
 using Documenter
 
-DocMeta.setdocmeta!(tscsmethods, :DocTestSetup, :(using tscsmethods); recursive=true)
+DocMeta.setdocmeta!(TSCSMethods, :DocTestSetup, :(using TSCSMethods); recursive=true)
 
 makedocs(;
-    modules=[tscsmethods],
+    modules=[TSCSMethods],
     authors="Eric Martin Feltham <eric.feltham@yale.edu> and contributors",
-    repo="https://github.com/emfeltham/tscsmethods.jl/blob/{commit}{path}#{line}",
-    sitename="tscsmethods.jl",
+    repo="https://github.com/emfeltham/TSCSMethods.jl/blob/{commit}{path}#{line}",
+    sitename="TSCSMethods.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://emfeltham.github.io/tscsmethods.jl",
+        canonical="https://emfeltham.github.io/TSCSMethods.jl",
         assets=String[],
     ),
     pages=[
@@ -19,5 +19,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/emfeltham/tscsmethods.jl",
+    repo="github.com/emfeltham/TSCSMethods.jl",
 )
