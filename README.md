@@ -55,7 +55,6 @@ Otherwise, consult the Julia Language website for installation on your system <h
 Users should install the following packages prior to installing `TSCSMethods`, from within a `julia` session:
 
 ```{julia}
-
 pkgs = ["Random", "DataFrames", "Dates", "CSV", "JLD2"]
 
 import Pkg
@@ -200,6 +199,7 @@ calmodel, refcalmodel, overall = autobalance(
   initial_bals = ibs,
   dooverall = true
 );
+```
 
 8. Save a record of the model:
 
