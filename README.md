@@ -77,50 +77,7 @@ The package should take approximately 1 minute to install.
 
 # Vignette
 
-### execution
-
-After installation of the software dependencies, a given model should take anywhere from 10-60 minutes to execute, depending on workstation specifications.
-
-The models for a given scenario may be executed together, by executing the "run" file, e.g., "run_blm.jl", or separately, by executing the file for a specific model (e.g., "base_model.jl"). Each scenario is housed in a specific subdirectory.
-
-The output for each model is saved as a Julia Data Format object
-(https://juliaio.github.io/JLD2.jl/dev/), and the file structure itself
-depends on the above packages.
-
-Executing a "run" file creates output files for each model in the "out", subdirectories for each scenario.
-
-You may inspect model output according to the following:
-
-```{julia}
-using TSCSMethods, JLD2
-
-output = load_object("ga full_death_rte_.jld2")
-```
-
-the output object contains the following fields:
-* model
-* refinedmodel
-* calmodel
-* refcalmodel
-* matchinfo
-* obsinfo
-
-For example, access the results of the refined caliper model as:
-
-```{julia}
-output.refcalmodel.results
-```
-
-Which yields the ATT estimates, confidence intervals, and the
-number of treated units from a given model.
-
-The latter two fields contain information about the matched units and
-the treated observation units.
-
-For a simple program example, to estimate the ATTs for a specific event, in
-a simple context, see "ga-election/base_model.jl" which runs through
-estimation of the overall ATTs for the Georgia special election, each scenario
-has the same overall structure:
+This example runs through the general matching and estimation procedure in a simplified setting, with generic data.
 
 1. Load the packages, data, and set the parameters for estimation:
 
