@@ -11,10 +11,7 @@
 - [Repo Contents](#repo-contents)
 - [System Requirements](#system-requirements)
 - [Installation Guide](#installation-guide)
-- [Demo](#demo)
-- [Results](#results)
-- [License](./LICENSE)
-- [Issues](https://github.com/ebridge2/lol/issues)
+- [Vignette](#demo)
 - [Citation](#citation)
 
 # Overview
@@ -57,7 +54,7 @@ Otherwise, consult the Julia Language website for installation on your system <h
 
 Users should install the following packages prior to installing `TSCSMethods`, from within a `julia` session:
 
-```julia
+```{julia}
 
 pkgs = ["Random", "DataFrames", "Dates", "CSV", "JLD2"]
 
@@ -73,7 +70,7 @@ The `TSCSMethods` package functions with all packages in their latest versions a
 
 From within a `julia` session, type:
 
-```julia
+```{julia}
 import Pkg; Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
 ```
 
@@ -217,4 +214,6 @@ JLD2.save_object(savepath * "overall_estimate.jld2", overall)
 
 # Citation
 
-For usage of the package and associated manuscript, please cite according to the enclosed [citation.bib](./citation.bib).
+For usage of the package and associated manuscript, please cite as:
+
+TSCSMethods
