@@ -39,7 +39,8 @@ module TSCSMethods
 
   # vignette
   function example_data()
-    return load_object("simpledata.jld2")
+    basename = joinpath(@__DIR__, "..", "data/", "simpledata.jld2")
+    return load_object(basename)
   end
 
   export
