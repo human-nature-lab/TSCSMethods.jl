@@ -37,6 +37,11 @@ module TSCSMethods
     include(file)
   end
 
+  # vignette
+  function example_data()
+    return load_object("data/simpledata.jld2")
+  end
+
   export
     # types
     VeryAbstractCICModel, AbstractCICModel, AbstractCICModelStratified,
