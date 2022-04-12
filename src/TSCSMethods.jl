@@ -39,7 +39,7 @@ module TSCSMethods
 
   # vignette
   function example_data()
-    return load_object("data/simpledata.jld2")
+    return load_object("../data/simpledata.jld2")
   end
 
   export
@@ -65,4 +65,6 @@ module TSCSMethods
     # utilities
     matchprocess, quick_att, variable_filter, treatedinfo,
     relabel!, trim_model
+    # vignette
+    example_data
 end
