@@ -121,11 +121,10 @@ end
 function _fillcal!(tobscr, matches)
   Threads.@threads for i in eachindex(matches)
     tob = @views matches[i]
-    @unpack fs, mus, distances, ranks = tob;
+    @unpack mus, distances, ranks = tob;
 
     tobscr[i] = TobC(
       deepcopy(mus),
-      deepcopy(fs),
       deepcopy(ranks)
     );
   end
@@ -145,7 +144,7 @@ function _caliper!(tobscr, matches, calipers)
     get_anymus!(anymus, mus);
     validmus = @views mus[anymus, :];
 
-    _inner_caliper!(validmus, distances, calipers);
+    _inner_caliper!(validmus, permutedims(distances), calipers);
     rerank!(ranks, mus)
 
   end
@@ -160,6 +159,19 @@ function _inner_caliper!(validmus, distances, calipers)
             validmus[j, i] = false
           end
         end
+      end
+    end
+  end
+  return validmus
+end
+
+function _inner_caliper!(validmus, distances_tr::Matrix{Float64}, calipers)
+  # whole rows get blasted, since the covariate window
+  # is fixed
+  for (i, r) in enumerate(eachrow(validmus))
+    for j in eachindex(calipers)
+      if abs(distances_tr[j, i]) > calipers[j]
+        r .= false
       end
     end
   end

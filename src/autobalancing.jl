@@ -19,7 +19,8 @@ function autobalance(
   refinementnum = 5, calmin = 0.1, step = 0.05,
   initial_bals = nothing,
   doestimate = true,
-  verbose = true
+  verbose = true,
+  dooverall = false
 )
 
   @unpack ids = model;
@@ -29,6 +30,8 @@ function autobalance(
   fmin = minimum(F); fmax = maximum(F);
   mmin = minimum(L);
   
+  # import TSCSMethods:make_groupindices,caliper,refine,calipermatches,calipervars,TobC,_fillcal!,_caliper!,get_anymus!,_inner_caliper!
+
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
@@ -92,12 +95,19 @@ function autobalance(
   meanbalance!(calmodel, dat, tg, rg)
   grandbalance!(calmodel)
 
-  if doestimate
+  if doestimate & !dooverall
     estimate!(refcalmodel, dat)
     estimate!(calmodel, dat)
+  elseif doestimate & dooverall
+      overall = estimate!(refcalmodel, dat; overall = true)
+      estimate!(calmodel, dat)
   end
 
-  return calmodel, refcalmodel
+  if !dooverall
+    return calmodel, refcalmodel
+  else
+    return calmodel, refcalmodel, overall
+  end
 end
 
 """

@@ -1,12 +1,12 @@
 ```@meta
-CurrentModule = tscsmethods
+CurrentModule = TSCSMethods
 ```
 
-# tscsmethods
+# TSCSMethods
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [tscsmethods]
+Modules = [TSCSMethods]
 ```

@@ -1,6 +1,6 @@
-using tscsmethods
+using TSCSMethods
 using Test
 
-@testset "tscsmethods.jl" begin
+@testset "TSCSMethods.jl" begin
     # Write your tests here.
 end

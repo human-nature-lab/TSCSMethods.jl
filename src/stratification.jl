@@ -215,7 +215,7 @@ function combostrat(model, vars::Vector{Symbol}, dat; varslabs = nothing)
 
   ### example vars
   # dat[!, :hightrump] = dat[!, vn.ts16] .>= 0.50;
-  # dat[!, :highinc] = dat[!, vn.mil] .>= tscsmethods.mean(dat[!, vn.mil]);
+  # dat[!, :highinc] = dat[!, vn.mil] .>= TSCSMethods.mean(dat[!, vn.mil]);
 
   # vars = [:hightrump, :highinc]
   ###

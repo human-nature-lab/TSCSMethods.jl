@@ -5,24 +5,30 @@ module TSCSMethods
     "types.jl",
     "construction.jl",
     "matching_setup.jl",
-    "make_groupindices.jl",
+    "groupindices.jl",
+    "get_matches_utilities.jl",
     "getmatches!.jl",
+    "getmatches!_missing.jl",
+    "distancing_utilitites.jl",
     "distancing.jl",
     "match!.jl",
     "ranking.jl",
     "caliper.jl",
     "meanbalancing.jl",
+    "balancing_utilities.jl",
     "overallbalancing.jl",
     "balancing.jl",
+    "estimation_setup.jl",
+    "estimation_utilities.jl",
     "estimation_observationweights.jl",
+    "estimation.jl",
     "resampling.jl",
     "bootstrapping.jl",
-    "estimation_setup.jl",
-    "estimation.jl",
     "stratification.jl",
     "refine.jl",
     "autobalancing.jl",
-    "model.jl",
+    "model_utilities.jl",
+    "storage.jl",
     "plotting.jl",
     "information.jl",
   ];
@@ -31,8 +37,12 @@ module TSCSMethods
     include(file)
   end
 
+  # vignette
+  function example_data()
+    basename = joinpath(@__DIR__, "..", "data/", "simpledata.jld2")
+    return load_object(basename)
+  end
 
-  #
   export
     # types
     VeryAbstractCICModel, AbstractCICModel, AbstractCICModelStratified,
@@ -55,5 +65,7 @@ module TSCSMethods
     showmatches, matchinfo, obsinfo,
     # utilities
     matchprocess, quick_att, variable_filter, treatedinfo,
-    relabel!
+    relabel!, trim_model,
+    # vignette
+    example_data
 end

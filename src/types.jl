@@ -7,15 +7,13 @@ MatchDist = Vector{Vector{Vector{Float64}}} # = Vector{Vector{Vector{Float64}}}
 
 @with_kw struct Tob
   mus::Matrix{Bool}
-  fs::Vector{Vector{Bool}}
-  distances::Vector{Matrix{Float64}} = Vector{Matrix{Float64}}(undef, 0)
+  distances::Union{Vector{Matrix{Float64}}, Matrix{Float64}} = Matrix{Float64}(undef, 0, 0)# Vector{Matrix{Float64}}(undef, 0)
   # ranks::Dict{Int, SubArray{Bool, 1, Matrix{Bool}, Tuple{Vector{Int64}, Int64}, false}}
   ranks::Dict{Int, Vector{Int}}
 end
 
 @with_kw struct TobC
   mus::Matrix{Bool}
-  fs::Vector{Vector{Bool}}
   ranks::Dict{Int, Vector{Int}}
 end
 
@@ -39,7 +37,7 @@ abstract type AbstractCICModelStratified <: VeryAbstractCICModel end
   title::String = ""
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
@@ -62,7 +60,7 @@ end
   title::String = ""
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
@@ -88,7 +86,7 @@ end
   title::String = "caliper"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
@@ -112,7 +110,7 @@ end
   title::String = "caliper"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   timevary::Dict{Symbol, Bool}
@@ -139,7 +137,7 @@ end
   title::String = "caliper"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   refinementnum::Int
@@ -163,7 +161,7 @@ end
   title::String = "refined"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   refinementnum::Int
@@ -190,7 +188,7 @@ end
   title::String = "caliper"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   refinementnum::Int
@@ -215,7 +213,7 @@ end
   title::String = "refined"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   refinementnum::Int
@@ -244,7 +242,7 @@ end
   title::String = "model record"
   id::Symbol
   t::Symbol
-  outcome::Symbol
+  outcome::Union{Symbol,Vector{Symbol}}
   treatment::Symbol
   covariates::Vector{Symbol}
   stratifier::Symbol = Symbol()
@@ -262,4 +260,19 @@ end
   caliper::Dict{Symbol, Float64} = Dict{Symbol, Float64}()
   labels::Dict{Int64, String} = Dict{Int64, String}()
   refinementnumber::Int = Int()
+end
+
+"""
+        Fblock
+
+Holds the relevant information for bootstrapping and estimation,
+for a specific f in the outcome window (an f in a stratum when the model
+is stratified).
+"""
+struct Fblock
+    f::Int
+    matchunits::Vector{Int}
+    weightedoutcomes::Vector{Float64}
+    weightedrefoutcomes::Vector{Float64}
+    treatment::Vector{Bool}
 end
