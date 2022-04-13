@@ -29,7 +29,6 @@ Non-parametric generalized differences-in-differences estimation, with covariate
 
 - [src](./src): `julia` package code.
 - [docs](./docs): package documentation, and usage of the `TSCSMethods` package.
-- [test](./tests): `julia` unit tests.
 
 # System Requirements
 
