@@ -7,11 +7,18 @@
 
 ## Contents
 
+- [TSCSMethods](#tscsmethods)
+  - [Contents](#contents)
 - [Overview](#overview)
 - [Repo Contents](#repo-contents)
 - [System Requirements](#system-requirements)
+  - [Hardware Requirements](#hardware-requirements)
+  - [Software Requirements](#software-requirements)
+    - [OS Requirements](#os-requirements)
 - [Installation Guide](#installation-guide)
-- [Vignette](#demo)
+    - [Package dependencies](#package-dependencies)
+    - [Package Installation](#package-installation)
+- [Vignette](#vignette)
 - [Citation](#citation)
 
 # Overview
@@ -77,7 +84,7 @@ The package should take approximately 1 minute to install.
 
 # Vignette
 
-See `vignette.ipynb` in the `data` directory for a simple analysis example as a Jupyter notebook.
+See `vignette.ipynb` in the `vignette` directory for a simple analysis example as a Jupyter notebook.
 
 # Citation
 
