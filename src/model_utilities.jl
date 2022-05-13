@@ -6,7 +6,7 @@
       mn = nothing, mx = nothing
     )
 
-Remove treated observations according to some variable values.
+Remove treated observations according to some variable values. The filtered out treated observations will still left as treated in the data, and will not be allowed to be control units for matching.
 """
 function variable_filter(
   model, variable, dat;

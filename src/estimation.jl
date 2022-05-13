@@ -9,7 +9,7 @@ function estimate!(
     model::AbstractCICModel, dat;
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
-    overall = false,
+    overall = false
 )
 
     # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!,applyunitcounts!
