@@ -11,7 +11,7 @@ end
 """
 Impute Y(0).
 """
-function impute_results(m, matches, dat; stratum = 1)
+function impute_results(m, matches, dat, tvar; stratum = 1)
 
     res = m.results;
     oc = m.outcome;
@@ -42,7 +42,7 @@ function impute_results(m, matches, dat; stratum = 1)
         @subset!(mfo, :stratum .== stratum)
     end
 
-    mfo = @transform(mfo, $(vn.t) = :timetreated + :f);
+    mfo = @transform(mfo, $(tvar) = :timetreated + :f);
     mfo[!, oc] .= 0.0;
     mfo[!, :match_values] .= 0.0;
     for r in eachrow(mfo)
@@ -180,7 +180,7 @@ function figure_6(dm, overall, oc, stratum; msize = 8, plot_pct = false)
     # blue: average for the treated counties
     # black: counterfactual average if they had not been tretaed
     scatter!(
-        ax4, [3.25, 2.75], [br, treated_mean],
+        ax4, [3.25, 2.75], [br, treated_observed_mean],
         color = [:black, :blue], markersize = msize
     )
     # add counterfactual at CI bounds
@@ -282,9 +282,9 @@ function inspection(fpth, fpth_oe)
     return fig, ares, oe, mcd_pre, tcd_pre, d_gb
 end
 
-function inspection(m, matches, overall)
+function inspection(m, matches, overall, dat, tvar)
 
-    ares, mcd_pre, tcd_pre = impute_results(m, matches, dat);
+    ares, mcd_pre, tcd_pre = impute_results(m, matches, dat, tvar);
     if typeof(overall) <: Dict
         overall = overall[1]
     end
