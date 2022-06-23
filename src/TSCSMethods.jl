@@ -31,6 +31,7 @@ module TSCSMethods
     "storage.jl",
     "plotting.jl",
     "information.jl",
+    "inspection.jl"
   ];
 
   for file in funlist
@@ -66,6 +67,8 @@ module TSCSMethods
     # utilities
     matchprocess, quick_att, variable_filter, treatedinfo,
     relabel!, trim_model,
+    # inspection
+    inspection, plot_inspection,
     # vignette
     example_data
 end
