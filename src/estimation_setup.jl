@@ -32,7 +32,6 @@ function processunits(
     # for quick access to outcomes from unit & time
 
     outcomemap = getoutcomemap(outcome, dat, t, id);
-
     
     Fmin = minimum(F)
     obsnum = length(matches)

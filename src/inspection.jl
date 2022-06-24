@@ -98,11 +98,16 @@ function impute_results(m, matches, dat, tvar; stratum = 1)
         r[:pct_hi] = change_pct(r[oc], r[Symbol("97.5%")])
     end
 
+    # variability from day to day
+    d2d = 100 .* diff(augres.match_values) .* inv.(augres.match_values[2:end]);
+    augres[!, :pct_match_daytoday] = Vector{Union{Missing, Float64}}(undef, nrow(augres));
+    augres[2:end, :pct_match_daytoday] = d2d;
+
     return augres, match_outcome_avg_pre, treated_outcome_avg_pre
 end
 
 function change_pct(val, attval)
-    return 100 * attval * inv(val - attval)
+    return 100 * attval * inv(val)
 end
 
 function pctδ(preval, ocval, attval)
@@ -302,4 +307,35 @@ function plot_inspection(
         save(split(spth, ".jld2")[1] * ".svg", fig)
     end
     return fig
+end
+
+function pretreatment(matches, oc)
+    matches[!, :pretreat] = [collect(1:20) for _ in 1:nrow(matches)]
+    for r in eachrow(matches)
+      for i in eachindex(r[:pretreat])
+        r[:pretreat][i] = r[:timetreated] - r[:pretreat][i]
+      end
+    end
+  
+    return @chain matches begin
+      select([:matchunits, :pretreat])
+      flatten(:matchunits)
+      flatten(:pretreat)
+      unique([:matchunits, :pretreat])
+      @subset(:pretreat .>= 0)
+      leftjoin(dat, on = [:matchunits => :fips, :pretreat => :running])
+      groupby(:matchunits)
+      combine(
+        oc => std => :std,
+        oc => var => :var,
+        oc => mean => :mean,
+        oc => median => :median,
+      )
+      combine(
+        :std => mean => :mean_std,
+        :std => median => :median_std,
+        :mean => mean => :mean,
+        :median => median => :median,
+      )
+    end
 end
