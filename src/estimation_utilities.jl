@@ -147,9 +147,7 @@ function applyunitcounts!(model)
   return model
 end
 
-function matchprocess(mfo, dat; ovars = [deathoutcome, caseoutcome])
-
-    vn = VariableNames();
+function matchprocess(mfo, dat, id, t; ovars = [deathoutcome, caseoutcome])
 
     mfo[!, :matchnum] .= 0
     for (i, e) in enumerate(mfo.matchunits)
@@ -181,8 +179,8 @@ function matchprocess(mfo, dat; ovars = [deathoutcome, caseoutcome])
         mu = r[:matchunit]
         tt = r[:timetreated]
     
-        c1 = (dat[!, vn.id] .== mu);
-        ct = (dat[!, vn.t] .>= tt - 30) .& (dat[!, vn.t] .<=  tt + 80);
+        c1 = (dat[!, id] .== mu);
+        ct = (dat[!, t] .>= tt - 30) .& (dat[!, t] .<=  tt + 80);
     
         for o in ovars
             r[o] = dat[c1 .& ct, o]
