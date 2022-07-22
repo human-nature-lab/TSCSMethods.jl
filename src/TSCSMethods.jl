@@ -31,7 +31,7 @@ module TSCSMethods
     "storage.jl",
     "plotting.jl",
     "information.jl",
-    "imputation.jl"
+    "imputation.jl",
     "inspection.jl",
   ];
 
