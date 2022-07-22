@@ -188,8 +188,6 @@ end
 
 function inspection(m, matches, overall, dat, tvar)
 
-    tvar = :running;
-    m = refcalmodel;
     ares, mcd_pre, tcd_pre = impute_results(m, matches, dat, tvar);
     if typeof(overall) <: Dict
         overall = overall[1]
