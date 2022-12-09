@@ -9,7 +9,7 @@ module TSCSMethods
     "get_matches_utilities.jl",
     "getmatches!.jl",
     "getmatches!_missing.jl",
-    "distancing_utilitites.jl",
+    "distancing_utilities.jl",
     "distancing.jl",
     "match!.jl",
     "ranking.jl",
