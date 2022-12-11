@@ -6,7 +6,9 @@ This should probably be integrated into the match! procedure.
 (keep separate for now)
 """
 function filterunits!(m, omap)
-    for (i, (tt, tu)) in enumerate(m.observations)
+    Threads.@threads for i in eachindex(m.observations)
+        (tt, tu) = m.observations[i]
+        (j, f) = collect(enumerate(m.F))[1]
         for (j, f) in enumerate(m.F)
             ot = f + tt # outcome
             if isnan(get(omap, (ot, tu), NaN))
