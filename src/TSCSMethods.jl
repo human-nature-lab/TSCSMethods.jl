@@ -33,6 +33,7 @@ module TSCSMethods
     "information.jl",
     "imputation.jl",
     "inspection.jl",
+    "filterunits!.jl"
   ];
 
   for file in funlist
@@ -71,5 +72,6 @@ module TSCSMethods
     # inspection
     inspection, plot_inspection, pretreatment,
     # vignette
-    example_data
+    example_data,
+    filterunits!
 end

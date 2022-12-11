@@ -166,8 +166,7 @@ function _inner_caliper!(validmus, distances, calipers)
 end
 
 function _inner_caliper!(validmus, distances_tr::Matrix{Float64}, calipers)
-  # whole rows get blasted, since the covariate window
-  # is fixed
+  # whole rows get blasted, since the covariate window is fixed
   for (i, r) in enumerate(eachrow(validmus))
     for j in eachindex(calipers)
       if abs(distances_tr[j, i]) > calipers[j]
