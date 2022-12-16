@@ -10,7 +10,7 @@
 
 Automatically balance via a simple algorithm. Start with initial caliper of 1.0, and subtract `step` whenever the grand mean balance threshold (0.1) is not met.
 
-initial_bals is specified, work downward from the initial specified caliper for one or more selected variabels. Unspecified variabels start at a caliper of 1.
+initial_bals is specified, work downward from the initial specified caliper for one or more selected variables. Unspecified variables start at a caliper of 1.
 """
 function autobalance(
   model, dat;
@@ -27,7 +27,7 @@ function autobalance(
   @unpack t, id, treatment, covariates = model;
   @unpack F, L = model;
 
-  fmin = minimum(F); fmax = maximum(F);
+  fmax = maximum(F);
   mmin = minimum(L);
   
   # import TSCSMethods:make_groupindices,caliper,refine,calipermatches,calipervars,TobC,_fillcal!,_caliper!,get_anymus!,_inner_caliper!

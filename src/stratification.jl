@@ -8,7 +8,7 @@ and append output
 =#
 
 """
-    stratify!(stratfunc::Function, args...; kwargs...)
+    stratify(stratfunc::Function, args...; kwargs...)
 
 Apply a stratification function, its arguments, to apply the stratification, calculate the stratified grandbalances, the treated observations in each group, and return the updated model with plot labels.
 """
