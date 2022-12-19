@@ -1,7 +1,7 @@
 # bayes–factor-t-stat.jl
 
 R"""
-library("BayesFactor")
+require("BayesFactor")
 """
 
 function bayesfactor_tstat(tstat, n)
