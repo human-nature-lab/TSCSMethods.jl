@@ -22,6 +22,7 @@ module TSCSMethods
     "estimation_utilities.jl",
     "estimation_observationweights.jl",
     "estimation.jl",
+    "estimation_stratified.jl",
     "resampling.jl",
     "bootstrapping.jl",
     "stratification.jl",
