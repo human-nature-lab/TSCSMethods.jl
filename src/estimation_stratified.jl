@@ -7,7 +7,8 @@ function estimate!(
     model::AbstractCICModelStratified, dat;
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
-    overall = false
+    overall = false,
+    bayesfactor = true
 )
 
     @unpack results, matches, observations, strata, outcome, F, ids, reference, t, id = model; 
@@ -26,7 +27,7 @@ function estimate!(
         multiatts, multiboots,
         results, matches, observations, strata, outcome,
         F, ids, reference, t, id, iterations, percentiles,
-        dat, true
+        dat, bayesfactor
     )
 
     overalls = Dict{Int, Tuple{Float64, Vector{Float64}}}()
