@@ -20,6 +20,8 @@ function estimate!(
         iterations = modeliters
     end
 
+    Ys, Us = unitcounts(model)
+
     multiboots = Dict{Int, Matrix{Float64}}();
     multiatts = Dict{Int, Vector{Float64}}();
 
@@ -27,7 +29,7 @@ function estimate!(
         multiatts, multiboots,
         results, matches, observations, strata, outcome,
         F, ids, reference, t, id, iterations, percentiles,
-        dat, bayesfactor
+        dat, Ys, Us, bayesfactor
     )
 
     overalls = Dict{Int, Tuple{Float64, Vector{Float64}}}()
@@ -48,7 +50,7 @@ function _estimate_strat!(
     multiatts, multiboots,
     results, matches, observations, strata, outcome::Vector{Symbol},
     F, ids, reference, t, id, iterations, percentiles,
-    dat, bayesfactor
+    dat, Ys, Us, bayesfactor
 )
     
     if (nrow(results) > 0) | length(names(results)) > 0
@@ -66,8 +68,6 @@ function _estimate_strat!(
             
         res = DataFrame()
         Flen = length(F);
-
-        Ys, Us = unitcounts(model)
 
         for s in sort(unique(strata))
             Ysub = Ys[s]
@@ -137,7 +137,7 @@ function _estimate_strat!(
     multiatts, multiboots,
     results, matches, observations, strata, outcome::Symbol,
     F, ids, reference, t, id, iterations, percentiles,
-    dat, bayesfactor
+    dat, Ys, Us, bayesfactor
 )
     
     if (nrow(results) > 0) | length(names(results)) > 0
@@ -152,8 +152,6 @@ function _estimate_strat!(
         
     res = DataFrame()
     Flen = length(F);
-
-    Ys, Us = unitcounts(model)
 
     for s in sort(unique(strata))
         Ysub = Ys[s]
