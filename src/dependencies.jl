@@ -12,3 +12,6 @@ import JLD2:save_object,load_object
 
 using CairoMakie
 using Colors
+
+using RCall
+# R dependencies: BayesFactor
