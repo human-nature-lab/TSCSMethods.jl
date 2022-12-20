@@ -1,28 +1,10 @@
 # bayes–factor-t-stat.jl
 
-R"""
-require("BayesFactor")
-"""
-
 function bayesfactor_tstat(tstat, n)
-    @rput tstat n
+    reval("require(BayesFactor)")
     
-    R"""
-    result <- ttest.tstat(
-        t = tstat,
-        n,
-        nullInterval = NULL,
-        rscale = "medium",
-        complement = FALSE,
-        simple = FALSE
-    )
-    """
-
-    R"""
-    lbf1 <- result[['bf']]
-    """
-
-    return @rget lbf1
+    out = rcall(Symbol("ttest.tstat"), robject(tstat), robject(n))
+    return out[:bf][1]
 end
 
 function bfactor(b1, n)
