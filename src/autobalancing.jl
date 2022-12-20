@@ -20,7 +20,8 @@ function autobalance(
   initial_bals = nothing,
   doestimate = true,
   verbose = true,
-  dooverall = false
+  dooverall = false,
+  bayesfactor = false
 )
 
   @unpack ids = model;
@@ -96,11 +97,11 @@ function autobalance(
   grandbalance!(calmodel)
 
   if doestimate & !dooverall
-    estimate!(refcalmodel, dat)
-    estimate!(calmodel, dat)
+    estimate!(refcalmodel, dat; bayesfactor = bayesfactor)
+    estimate!(calmodel, dat; bayesfactor = bayesfactor)
   elseif doestimate & dooverall
-      overall = estimate!(refcalmodel, dat; overall = true)
-      estimate!(calmodel, dat)
+      overall = estimate!(refcalmodel, dat; overall = true, bayesfactor = bayesfactor)
+      estimate!(calmodel, dat; bayesfactor = bayesfactor)
   end
 
   if !dooverall
