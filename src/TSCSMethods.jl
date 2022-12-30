@@ -31,7 +31,7 @@ module TSCSMethods
     "autobalancing.jl",
     "model_utilities.jl",
     "storage.jl",
-    "plotting.jl",
+    # "plotting.jl",
     "information.jl",
     "imputation.jl",
     "inspection.jl",
@@ -61,8 +61,8 @@ module TSCSMethods
     makemodel,
     caliper, refine,
     # plotting
-    plot_cb, plot_cbs,
-    model_pl, plot_modelset,
+    # plot_cb, plot_cbs,
+    # model_pl, plot_modelset,
     # saving
     name_model,
     makerecords,
@@ -72,7 +72,8 @@ module TSCSMethods
     matchprocess, quick_att, variable_filter, treatedinfo,
     relabel!, trim_model,
     # inspection
-    inspection, plot_inspection, pretreatment,
+    # plot_inspection,
+    inspection, pretreatment,
     # vignette
     example_data,
     filterunits!
