@@ -60,9 +60,6 @@ module TSCSMethods
     stratify, variablestrat, combostrat, customstrat,
     makemodel,
     caliper, refine,
-    # plotting
-    # plot_cb, plot_cbs,
-    # model_pl, plot_modelset,
     # saving
     name_model,
     makerecords,
@@ -72,7 +69,6 @@ module TSCSMethods
     matchprocess, quick_att, variable_filter, treatedinfo,
     relabel!, trim_model,
     # inspection
-    # plot_inspection,
     inspection, pretreatment,
     # vignette
     example_data,
