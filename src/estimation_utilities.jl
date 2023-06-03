@@ -49,6 +49,7 @@ function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
   qnmes = Vector{Symbol}();
   for q in qtiles
     res[!, :mean] = Vector{Float64}(undef, nrow(res))
+    res[!, :pvalue] = Vector{Float64}(undef, nrow(res))
     qn = Symbol(string(q * 100) * "%");
     push!(qnmes, qn)
     res[!, qn] = Vector{Float64}(undef, nrow(res))
@@ -57,6 +58,7 @@ function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
   for (c, r) in enumerate(eachrow(res))
     r[qnmes] = quantile(boots[c, :], qtiles)
     r[:mean] = mean(boots[c, :])
+    r[:pvalue] = pvalue(boots[c, :]; nullval = 0.0)
   end
   return res
 end
@@ -71,6 +73,7 @@ function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
   qnmes = Vector{Symbol}();
   for q in qtiles
     res[!, :mean] = Vector{Float64}(undef, nrow(res))
+    res[!, :pvalue] = Vector{Float64}(undef, nrow(res))
     qn = Symbol(string(q * 100) * "%");
     push!(qnmes, qn)
     res[!, qn] = Vector{Float64}(undef, nrow(res))
@@ -79,6 +82,7 @@ function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
   for (c, r) in enumerate(eachrow(res))
     r[qnmes] = quantile(boots[c, :], qtiles)
     r[:mean] = mean(boots[c, :])
+    r[:pvalue] = pvalue(boots[c, :]; nullval = 0.0)
   end
   return res
 end
@@ -105,6 +109,12 @@ function bootinfo!(res, oc, boots; qtiles = [0.025, 0.5, 0.975])
     r[barname] = mean(boots[c, :])
   end
   return res
+end
+
+function pvalue(boot; nullval = 0.0)
+    
+  hp = mean(boot .> nullval) + 0.5 * mean(boot == nullval)
+  return 2 * min(hp, 1 - hp)
 end
 
 function applyunitcounts!(model)

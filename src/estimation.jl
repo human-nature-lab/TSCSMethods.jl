@@ -41,7 +41,7 @@ function estimate!(
     if overall
         return (
             mean(results.att), quantile(vec(boots), percentiles)
-        ), bfactor(vec(boots), mean(results.treated))
+        ), bfactor(vec(boots), mean(results.treated), pvalue(vec(boots)))
     end
 end
 
