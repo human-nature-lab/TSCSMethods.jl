@@ -64,30 +64,6 @@ function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
 end
 
 """
-    bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
-
-Format the bootstrap matrix into the results dataframe. Assumes that att()
-has already been added to res.
-"""
-function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
-  qnmes = Vector{Symbol}();
-  for q in qtiles
-    res[!, :mean] = Vector{Float64}(undef, nrow(res))
-    res[!, :pvalue] = Vector{Float64}(undef, nrow(res))
-    qn = Symbol(string(q * 100) * "%");
-    push!(qnmes, qn)
-    res[!, qn] = Vector{Float64}(undef, nrow(res))
-  end
-  
-  for (c, r) in enumerate(eachrow(res))
-    r[qnmes] = quantile(boots[c, :], qtiles)
-    r[:mean] = mean(boots[c, :])
-    r[:pvalue] = pvalue(boots[c, :]; nullval = 0.0)
-  end
-  return res
-end
-
-"""
     bootinfo!(res, oc, boots; qtiles = [0.025, 0.5, 0.975])
 
 Format the bootstrap matrix into the results dataframe. Assumes that att()
