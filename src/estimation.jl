@@ -5,7 +5,7 @@
         ccr::AbstractCICModel, dat;
         iterations = nothing,
         percentiles = [0.025, 0.5, 0.975],
-        overall = false,
+        overallestimate = false,
         bayesfactor = true
     )
 
@@ -15,7 +15,7 @@ function estimate!(
     model::AbstractCICModel, dat;
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
-    overall = false,
+    overallestimate = false,
     bayesfactor = true
 )
 
@@ -38,11 +38,37 @@ function estimate!(
         dat, Ys, Us, bayesfactor
     );
 
-    if overall
-        return (
-            mean(results.att), quantile(vec(boots), percentiles)
-        ), bfactor(vec(boots), mean(results.treated), pvalue(vec(boots)))
+    if overallestimate
+        vb = vec(boots)
+
+        return overall(
+            att = mean(results.att),
+            percentiles = quantile(vb, percentiles),
+            bayesfactor = bfactor(vb, mean(results.treated)),
+            ntreatedmean = mean(results.treated),
+            pvalue = pvalue(vb)
+        )
     end
+end
+
+import TSCSMethods:estimate!, _estimate!,bfactor,mean,pvalue,quantile,unitcounts,autobalance, make_groupindices, caliper, refine, meanbalance!, grandbalance!, checkbalances, checkwhile, refine
+
+mutable struct Overall
+    att::Float64
+    percentiles::Vector{Float64}
+    bayesfactor::Float64
+    ntreatedmean::Float64
+    pvalue::Float64
+end
+
+function overall(
+    ; att = NaN, percentiles = Float64[], bayesfactor = NaN,
+    ntreatedmean = 0.0, pvalue = NaN
+)
+
+    return Overall(
+        att, percentiles, bayesfactor, ntreatedmean, pvalue
+    )
 end
 
 function _estimate!(

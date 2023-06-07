@@ -13,102 +13,103 @@ Automatically balance via a simple algorithm. Start with initial caliper of 1.0,
 initial_bals is specified, work downward from the initial specified caliper for one or more selected variables. Unspecified variables start at a caliper of 1.
 """
 function autobalance(
-  model, dat;
-  threshold = 0.1,
-  min_treated_obs = 10,
-  refinementnum = 5, calmin = 0.1, step = 0.05,
-  initial_bals = nothing,
-  doestimate = true,
-  verbose = true,
-  dooverall = false,
-  bayesfactor = false
+    model, dat;
+    threshold = 0.1,
+    min_treated_obs = 10,
+    refinementnum = 5, calmin = 0.1, step = 0.05,
+    initial_bals = nothing,
+    doestimate = true,
+    verbose = true,
+    dooverall = false,
+    bayesfactor = false
 )
 
-  @unpack ids = model;
-  @unpack t, id, treatment, covariates = model;
-  @unpack F, L = model;
+    @unpack ids = model;
+    @unpack t, id, treatment, covariates = model;
+    @unpack F, L = model;
 
-  fmax = maximum(F);
-  mmin = minimum(L);
-  
-  # import TSCSMethods:make_groupindices,caliper,refine,calipermatches,calipervars,TobC,_fillcal!,_caliper!,get_anymus!,_inner_caliper!
+    fmax = maximum(F);
+    mmin = minimum(L);
 
-  tg, rg, _ = make_groupindices(
-    dat[!, t], dat[!, treatment],
-    dat[!, id], ids,
-    fmax, mmin,
-    Matrix(dat[!, covariates]);
-  );
 
-  if isnothing(initial_bals)
-    acaliper = Dict{Symbol, Float64}();
-    for c in covariates
-      acaliper[c] = 1.0
+    tg, rg, _ = make_groupindices(
+        dat[!, t], dat[!, treatment],
+        dat[!, id], ids,
+        fmax, mmin,
+        Matrix(dat[!, covariates]);
+    );
+
+    if isnothing(initial_bals)
+        acaliper = Dict{Symbol, Float64}();
+        for c in covariates
+        acaliper[c] = 1.0
     end
-
+    
     if verbose
-      println(acaliper)
+        println(acaliper)
     end
-  else
-    acaliper = Dict{Symbol, Float64}();
-    for c in covariates
-      acaliper[c] = 1.0
+    else
+        acaliper = Dict{Symbol, Float64}();
+        for c in covariates
+            acaliper[c] = 1.0
+        end
+        for (k, v) in initial_bals
+            acaliper[k] = v
+        end
     end
-    for (k, v) in initial_bals
-      acaliper[k] = v
-    end
-  end
 
-  calmodel = caliper(model, acaliper, dat; dobalance = false);
-  refcalmodel = refine(
-    calmodel, dat;
-    refinementnum = refinementnum, dobalance = false, doestimate = false
-  );
-  meanbalance!(refcalmodel, dat, tg, rg);
-  grandbalance!(refcalmodel)
-
-  bc = checkbalances(refcalmodel; threshold = threshold);
-
-  while checkwhile(refcalmodel, acaliper, min_treated_obs, calmin, bc)
-
-    covset = [k for k in keys(bc)];
-    for covar in sample(covset, length(covset); replace = false)
-      if bc[covar] & (acaliper[covar] > calmin)
-        acaliper[covar] = acaliper[covar] - step
-      end
-    end
     calmodel = caliper(model, acaliper, dat; dobalance = false);
     refcalmodel = refine(
-      calmodel, dat;
-      refinementnum = refinementnum, dobalance = false, doestimate = false
+        calmodel, dat;
+        refinementnum = refinementnum, dobalance = false, doestimate = false
     );
-    
-    meanbalance!(refcalmodel, dat, tg, rg)
+    meanbalance!(refcalmodel, dat, tg, rg);
     grandbalance!(refcalmodel)
 
-    bc = checkbalances(refcalmodel; threshold = threshold)
+    bc = checkbalances(refcalmodel; threshold = threshold);
 
-    if verbose
-      println(refcalmodel.caliper)
+    while checkwhile(refcalmodel, acaliper, min_treated_obs, calmin, bc)
+
+        covset = [k for k in keys(bc)];
+        for covar in sample(covset, length(covset); replace = false)
+            if bc[covar] & (acaliper[covar] > calmin)
+                acaliper[covar] = acaliper[covar] - step
+            end
+        end
+        calmodel = caliper(model, acaliper, dat; dobalance = false);
+        refcalmodel = refine(
+            calmodel, dat;
+            refinementnum = refinementnum, dobalance = false, doestimate = false
+        );
+
+        meanbalance!(refcalmodel, dat, tg, rg)
+        grandbalance!(refcalmodel)
+
+        bc = checkbalances(refcalmodel; threshold = threshold)
+
+        if verbose
+            println(refcalmodel.caliper)
+        end
     end
-  end
 
-  meanbalance!(calmodel, dat, tg, rg)
-  grandbalance!(calmodel)
+    meanbalance!(calmodel, dat, tg, rg)
+    grandbalance!(calmodel)
 
-  if doestimate & !dooverall
-    estimate!(refcalmodel, dat; bayesfactor = bayesfactor)
-    estimate!(calmodel, dat; bayesfactor = bayesfactor)
-  elseif doestimate & dooverall
-      overall = estimate!(refcalmodel, dat; overall = true, bayesfactor = bayesfactor)
-      estimate!(calmodel, dat; bayesfactor = bayesfactor)
-  end
+    if doestimate & !dooverall
+        estimate!(refcalmodel, dat; bayesfactor = bayesfactor)
+        estimate!(calmodel, dat; bayesfactor = bayesfactor)
+    elseif doestimate & dooverall
+        oe = estimate!(
+            refcalmodel, dat; overallestimate = true, bayesfactor = bayesfactor
+        )
+        estimate!(calmodel, dat; bayesfactor = bayesfactor)
+    end
 
-  if !dooverall
-    return calmodel, refcalmodel
-  else
-    return calmodel, refcalmodel, overall
-  end
+    if !dooverall
+        return calmodel, refcalmodel
+    else
+        return calmodel, refcalmodel, oe
+    end
 end
 
 """
@@ -178,34 +179,34 @@ function checkbalances(
 end
 
 function _balancecheck!(chki, v, k, threshold)
-  if any(abs.(v) .> threshold)
-    chki[k] = true
-  else
-    chki[k] = false
-  end
-  return chki
+    if any(abs.(v) .> threshold)
+        chki[k] = true
+    else
+        chki[k] = false
+    end
+    return chki
 end
 
 function checkwhile(
   refcalmodel::RefinedCaliperCIC, acaliper, min_treated_obs, calmin, bc
 )
 
-  treated, _ = unitcounts(refcalmodel);
+    treated, _ = unitcounts(refcalmodel);
 
-  # the minimum no. of treated observations left over all Fs, strata
-  mintreated = minimum(treated);
+    # the minimum no. of treated observations left over all Fs, strata
+    mintreated = minimum(treated);
 
-  return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
+    return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
 end
 
 function checkwhile(
   refcalmodel::RefinedCaliperCICStratified, acaliper, min_treated_obs, calmin, bc
 )
 
-  treated, _ = unitcounts(refcalmodel);
+    treated, _ = unitcounts(refcalmodel);
 
-  # the minimum no. of treated observations left over all Fs, strata
-  mintreated = minimum([minimum(treated[i]) for i in keys(treated)]);
+    # the minimum no. of treated observations left over all Fs, strata
+    mintreated = minimum([minimum(treated[i]) for i in keys(treated)]);
 
-  return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
+    return any(values(bc)) & (mintreated >= min_treated_obs) & all(values(acaliper) .>= calmin)
 end
