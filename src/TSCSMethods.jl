@@ -65,6 +65,7 @@ module TSCSMethods
     makerecords,
     default_treatmentcategories,
     showmatches, matchinfo, obsinfo,
+    save,
     # utilities
     matchprocess, quick_att, variable_filter, treatedinfo,
     relabel!, trim_model,

@@ -151,3 +151,9 @@ function makerecords(dat, savepath, models; obscovars = nothing)
 
   return records
 end
+
+function save(pth, refcalmodel, oe::Overall)
+  JSON3.write(
+    pth * refcalmodel.title * "_" * string(refcalmodel.outcome) * "_overall_" * string(today()) * ".json", oe
+  )
+end
