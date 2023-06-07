@@ -30,9 +30,9 @@ function fill_att!(ax2, t, dm; msize = 8)
     rangebars!(ax2, t, dm[!, Symbol("2.5%")], dm[!, Symbol("97.5%")])
 end
 
-function figure_6(dm, overall, oc, stratum; msize = 8, plot_pct = false)
+function figure_6(dm, overallestimate, oc, stratum; msize = 8, plot_pct = false)
     fig = Figure();
-    oe = overall[stratum];
+    oe = overallestimate[stratum];
 
     treated_observed_mean = mean(dm[!, oc]);
     overall_att = oe[1];
@@ -186,22 +186,22 @@ function inspection(fpth, fpth_oe)
     return fig, ares, oe, mcd_pre, tcd_pre, d_gb
 end
 
-function inspection(m, matches, overall, dat, tvar)
+function inspection(m, matches, overallestimate, dat, tvar)
 
     ares, mcd_pre, tcd_pre = impute_results(m, matches, dat, tvar);
-    if typeof(overall) <: Dict
-        overall = overall[1]
+    if typeof(overallestimate) <: Dict
+        overallestimate = overallestimate[1]
     end
 
     return ares, mcd_pre, tcd_pre
 end
 
 function plot_inspection(
-    ares, overall, outcome;
+    ares, overallestimate, outcome;
     stratum = 1, spth = nothing,
     plot_pct = false
 )
-    fig = figure_6(ares, overall, outcome, stratum; plot_pct = plot_pct)
+    fig = figure_6(ares, overallestimate, outcome, stratum; plot_pct = plot_pct)
     if !isnothing(spth)
         save(split(spth, ".jld2")[1] * ".svg", fig)
     end

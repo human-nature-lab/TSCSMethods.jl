@@ -7,7 +7,7 @@ function estimate!(
     model::AbstractCICModelStratified, dat;
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
-    overall = false,
+    dooverall = false,
     bayesfactor = true
 )
 
@@ -34,7 +34,7 @@ function estimate!(
 
     overalls = Dict{Int, Tuple{Float64, Vector{Float64}}}()
     overalls_bf = Dict{Int, Float64}()
-    if overall
+    if dooverall
         for s in sort(unique(strata))
             overalls_bf[s] = bfactor(vec(multiboots[s]), mean(results.treated))
             overalls[s] = (
