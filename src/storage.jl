@@ -157,3 +157,9 @@ function save(pth, refcalmodel, oe::Overall)
     pth * refcalmodel.title * "_" * string(refcalmodel.outcome) * "_overall_" * string(today()) * ".json", oe
   )
 end
+
+function save(pth, refcalmodel, mr::CICRecord; text = "")
+  JSON3.write(
+    pth * refcalmodel.title * "_" * string(refcalmodel.outcome) * "_modelrecord_" * string(today()) * text * ".json", mr
+  )
+end

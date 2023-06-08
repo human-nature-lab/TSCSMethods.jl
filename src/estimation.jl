@@ -16,7 +16,8 @@ function estimate!(
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
     overallestimate = false,
-    bayesfactor = true
+    dobayesfactor = true,
+    dopvalue = false
 )
 
     # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!
@@ -35,7 +36,7 @@ function estimate!(
     boots = _estimate!(
         results, matches, observations, outcome,
         F, ids, reference, t, id, iterations, percentiles,
-        dat, Ys, Us, bayesfactor
+        dat, Ys, Us, dobayesfactor, pvalue
     );
 
     if overallestimate
@@ -51,30 +52,10 @@ function estimate!(
     end
 end
 
-import TSCSMethods:estimate!, _estimate!,bfactor,mean,pvalue,quantile,unitcounts,autobalance, make_groupindices, caliper, refine, meanbalance!, grandbalance!, checkbalances, checkwhile, refine
-
-mutable struct Overall
-    att::Float64
-    percentiles::Vector{Float64}
-    bayesfactor::Float64
-    ntreatedmean::Float64
-    pvalue::Float64
-end
-
-function overall(
-    ; att = NaN, percentiles = Float64[], bayesfactor = NaN,
-    ntreatedmean = 0.0, pvalue = NaN
-)
-
-    return Overall(
-        att, percentiles, bayesfactor, ntreatedmean, pvalue
-    )
-end
-
 function _estimate!(
     results, matches, observations, outcome::Symbol,
     F, ids, reference, t, id, iterations, percentiles,
-    dat, Ys, Us, bayesfactor
+    dat, Ys, Us, dobayesfactor, dopvalue
 )
 
     #=
@@ -110,10 +91,17 @@ function _estimate!(
     res[!, :treated] = Ys;
     res[!, :matches] = Us;
     
-    if bayesfactor
+    if dobayesfactor
         res[!, :bayesfactor] = fill(0.0, nrow(res))
         for (i, (tc, bot)) in enumerate(zip(Ys, eachrow(boots)))
             res[i, :bayesfactor] = bfactor(bot, tc)
+        end
+    end
+
+    if dopvalue
+        res[!, :pvalue] = fill(0.0, nrow(res))
+        for (i, bot) in enumerate(eachrow(boots))
+            res[i, :pvalue] = pvalue(bot)
         end
     end
 
@@ -125,6 +113,8 @@ end
 
 """
 version for multiple outcomes
+
+does not include p-values, bayesfactor
 """
 function _estimate!(
     results, matches, observations, outcome::Vector{Symbol},
