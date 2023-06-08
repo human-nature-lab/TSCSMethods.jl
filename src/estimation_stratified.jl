@@ -7,7 +7,7 @@ function estimate!(
     model::AbstractCICModelStratified, dat;
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
-    dooverall = false,
+    overallestimate = false,
     dobayesfactor = true,
     dopvalue = false
 
@@ -36,7 +36,7 @@ function estimate!(
 
     stra = sort(unique(strata))
     
-    if dooverall
+    if overallestimate
         oe = overall(
             att = fill(NaN, length(stra)),
             percentiles = Vector{Vector{Float64}}(undef, length(stra)),
