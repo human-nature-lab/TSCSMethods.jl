@@ -8,7 +8,9 @@ function estimate!(
     iterations = nothing,
     percentiles = [0.025, 0.5, 0.975],
     dooverall = false,
-    bayesfactor = true
+    dobayesfactor = true,
+    dopvalue = false
+
 )
 
     @unpack results, matches, observations, strata, outcome, F, ids, reference, t, id = model; 
@@ -29,20 +31,34 @@ function estimate!(
         multiatts, multiboots,
         results, matches, observations, strata, outcome,
         F, ids, reference, t, id, iterations, percentiles,
-        dat, Ys, Us, bayesfactor
+        dat, Ys, Us, dobayesfactor, dopvalue
     )
 
-    overalls = Dict{Int, Tuple{Float64, Vector{Float64}}}()
-    overalls_bf = Dict{Int, Float64}()
+    stra = sort(unique(strata))
+    
     if dooverall
-        for s in sort(unique(strata))
-            overalls_bf[s] = bfactor(vec(multiboots[s]), mean(results.treated))
-            overalls[s] = (
-                mean(multiatts[s]),
-                quantile(vec(multiboots[s]), percentiles)
-            )
+        oe = overall(
+            att = fill(NaN, length(stra)),
+            percentiles = Vector{Vector{Float64}}(undef, length(stra)),
+            bayesfactor = fill(NaN, length(stra)),
+            ntreatedmean = fill(NaN, length(stra)),
+            pvalue = fill(NaN, length(stra)),
+            stratum = stra
+        )
+
+        for (l, s) in enumerate(stra)
+
+            mbs = vec(multiboots[s])
+
+            oe.att[l] = mean(multiatts[s])
+            oe.percentiles[l] = quantile(mbs, percentiles)
+            # CHANGE
+            oe.bayesfactor[l] = bfactor(mbs, mean(results.treated[results.stratum .== s]))
+            oe.ntreatedmean[l] = mean(results.treated[results.stratum .== s])
+            oe.pvalue[l] = pvalue(mbs)
+
         end
-        return overalls, overalls_bf
+        return oe
     end
 end
 
@@ -50,7 +66,8 @@ function _estimate_strat!(
     multiatts, multiboots,
     results, matches, observations, strata, outcome::Vector{Symbol},
     F, ids, reference, t, id, iterations, percentiles,
-    dat, Ys, Us, bayesfactor
+    dat, Ys, Us,
+    dobayesfactor, dopvalue
 )
     
     if (nrow(results) > 0) | length(names(results)) > 0
@@ -111,8 +128,12 @@ function _estimate_strat!(
                     :matches => mc
                 )
 
-                if bayesfactor
+                if dobayesfactor
                     res_add[!, :bayesfactor] = [bfactor(r, tc)]
+                end
+
+                if dopvalue
+                    res_add[!, :pvalue] = [pvalue(r)]
                 end
 
                 append!(
@@ -137,7 +158,8 @@ function _estimate_strat!(
     multiatts, multiboots,
     results, matches, observations, strata, outcome::Symbol,
     F, ids, reference, t, id, iterations, percentiles,
-    dat, Ys, Us, bayesfactor
+    dat, Ys, Us,
+    dobayesfactor, dopvalue
 )
     
     if (nrow(results) > 0) | length(names(results)) > 0
@@ -193,8 +215,12 @@ function _estimate_strat!(
                 :matches => mc
             )
 
-            if bayesfactor
+            if dobayesfactor
                 res_add[!, :bayesfactor] = [bfactor(r, tc)]
+            end
+
+            if dopvalue
+                res_add[!, :pvalue] = [pvalue(r)]
             end
 
             append!(
