@@ -36,7 +36,8 @@ function estimate!(
     boots = _estimate!(
         results, matches, observations, outcome,
         F, ids, reference, t, id, iterations, percentiles,
-        dat, Ys, Us, dobayesfactor, dopvalue
+        dat, Ys, Us,
+        dobayesfactor, dopvalue
     );
 
     if overallestimate
