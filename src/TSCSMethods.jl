@@ -100,8 +100,10 @@ module TSCSMethods
         treated_outcome = (is_treated_unit && day_idx > 30) ? treatment_effect : 0.0
         death_rte = max(0.0, base_outcome + treated_outcome)
         
-        # Government treatment indicator (binary)
-        gub = is_treated_unit ? 1 : 0
+        # Government treatment indicator (binary) - only 1 on treatment event day
+        # For staggered design: treated units get treatment at a specific random day
+        treatment_day = is_treated_unit ? max(1, round(Int, n_days * 0.4)) + (unit % 10) : -1
+        gub = (is_treated_unit && day_idx == treatment_day) ? 1 : 0
         
         push!(data, (
           date = date,

@@ -64,6 +64,8 @@ function estimate!(
             ntreatedmean = mean(results.treated),
             pvalue = pvalue(vb)
         )
+    else
+        return model
     end
 end
 
