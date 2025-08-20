@@ -28,11 +28,12 @@ end
 Perform matching for treatment events, using Mahalanobis distance matching. Additionally, calculate standardized Euclidean distances for the individual covariates are specified.
 """
 function match!(
-  model::AbstractCICModel, dat;
+  model::AbstractCICModel, 
+  dat::DataFrame;
   treatcat::Function = default_treatmentcategories,
-  exposure = nothing,
-  variancesonly = true
-)
+  exposure::Union{Nothing, Symbol} = nothing,
+  variancesonly::Bool = true
+)::AbstractCICModel
 
   # using Parameters, Accessors
   # import TSCSMethods:eligibility!,distances_allocate!,samplecovar,distances_calculate!,window_distances!,distaveraging!,rank!
@@ -41,8 +42,29 @@ function match!(
   # variancesonly = true
   # sliding = false
 
+  # Input validation
+  if nrow(dat) == 0
+    throw(ArgumentError("Input data cannot be empty"))
+  end
+  
   @unpack observations, matches, ids = model;
   @unpack F, L, id, t, treatment, covariates = model;
+  
+  # Validate that required columns exist in data
+  required_cols = [id, t, treatment]
+  append!(required_cols, covariates)
+  if !isnothing(exposure)
+    push!(required_cols, exposure)
+  end
+  
+  missing_cols = setdiff(required_cols, Symbol.(names(dat)))
+  if !isempty(missing_cols)
+    throw(ArgumentError("Missing required columns in data: $(missing_cols)"))
+  end
+  
+  if length(observations) == 0
+    @warn "No treatment observations found - matching may not be meaningful"
+  end
   
   flen = length(F);
   

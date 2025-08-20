@@ -13,18 +13,42 @@ Automatically balance via a simple algorithm. Start with initial caliper of 1.0,
 initial_bals is specified, work downward from the initial specified caliper for one or more selected variables. Unspecified variables start at a caliper of 1.
 """
 function autobalance(
-    model, dat;
-    threshold = 0.1,
-    min_treated_obs = 10,
-    refinementnum = 5, calmin = 0.1, step = 0.05,
-    initial_bals = nothing,
-    doestimate = true,
-    verbose = true,
-    dooverall = false,
-    dobayesfactor = false,
-    dopvalue = false
+    model::VeryAbstractCICModel, 
+    dat::DataFrame;
+    threshold::Float64 = 0.1,
+    min_treated_obs::Int = 10,
+    refinementnum::Int = 5, 
+    calmin::Float64 = 0.1, 
+    step::Float64 = 0.05,
+    initial_bals::Union{Nothing, Dict{Symbol, Float64}} = nothing,
+    doestimate::Bool = true,
+    verbose::Bool = true,
+    dooverall::Bool = false,
+    dobayesfactor::Bool = false,
+    dopvalue::Bool = false
 )
 
+    # Input validation
+    if nrow(dat) == 0
+        throw(ArgumentError("Input data cannot be empty"))
+    end
+    
+    if threshold <= 0 || threshold >= 1
+        throw(ArgumentError("threshold must be between 0 and 1"))
+    end
+    
+    if min_treated_obs <= 0
+        throw(ArgumentError("min_treated_obs must be positive"))
+    end
+    
+    if refinementnum <= 0
+        throw(ArgumentError("refinementnum must be positive"))
+    end
+    
+    if calmin <= 0 || step <= 0
+        throw(ArgumentError("calmin and step must be positive"))
+    end
+    
     @unpack ids = model;
     @unpack t, id, treatment, covariates = model;
     @unpack F, L = model;
