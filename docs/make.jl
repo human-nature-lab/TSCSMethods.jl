@@ -6,11 +6,11 @@ DocMeta.setdocmeta!(TSCSMethods, :DocTestSetup, :(using TSCSMethods); recursive=
 makedocs(;
     modules=[TSCSMethods],
     authors="Eric Martin Feltham <eric.feltham@yale.edu> and contributors",
-    repo=Documenter.Remotes.GitHub("emfeltham", "TSCSMethods.jl"),
+    repo="https://github.com/human-nature-lab/TSCSMethods.jl/blob/{commit}{path}#{line}",
     sitename="TSCSMethods.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://emfeltham.github.io/TSCSMethods.jl",
+        canonical="https://human-nature-lab.github.io/TSCSMethods.jl",
         assets=String[],
     ),
     pages=[
@@ -22,5 +22,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/emfeltham/TSCSMethods.jl",
+    repo="github.com/human-nature-lab/TSCSMethods.jl",
 )
