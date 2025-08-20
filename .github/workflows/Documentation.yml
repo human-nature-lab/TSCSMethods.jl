@@ -33,13 +33,7 @@ jobs:
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
       - name: Build and deploy docs
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Documenter: DocMeta, doctest
-          using TSCSMethods
-          DocMeta.setdocmeta!(TSCSMethods, :DocTestSetup, :(using TSCSMethods); recursive=true)
-          doctest(TSCSMethods)
-          include("docs/make.jl")
+        run: julia --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
