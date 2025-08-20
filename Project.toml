@@ -1,13 +1,13 @@
 name = "TSCSMethods"
 uuid = "a8a44d30-a0ac-4b84-82a6-101be100d738"
+keywords = ["causal-inference", "matching", "time-series", "cross-sectional", "statistics"]
+license = "MIT"
 authors = ["Eric Martin Feltham <eric.feltham@yale.edu>"]
-version = "0.1.0"
+categories = ["Statistics", "Economics"]
 description = "Matching methods for causal inference with time-series cross-sectional data"
 homepage = "https://github.com/emfeltham/TSCSMethods.jl"
 repository = "https://github.com/emfeltham/TSCSMethods.jl"
-license = "MIT"
-keywords = ["causal-inference", "matching", "time-series", "cross-sectional", "statistics"]
-categories = ["Statistics", "Economics"]
+version = "0.1.0"
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -17,6 +17,7 @@ DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FLoops = "cc61a311-1640-44b5-9fba-1b764f453329"
 Fontconfig = "186bb1d3-e1f7-5a2c-a377-96d770f13627"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
@@ -27,6 +28,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
+Documenter = "1.14.1"
 julia = "1.6"
 
 [extras]
