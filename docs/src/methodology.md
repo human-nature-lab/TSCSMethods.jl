@@ -4,26 +4,26 @@ This page explains the statistical methodology implemented in TSCSMethods.jl.
 
 ## Overview
 
-TSCSMethods implements the matching approach for time-series cross-sectional (TSCS) data developed by Imai et al. (2021). This method addresses key challenges in causal inference with panel data:
+TSCSMethod.jl implements the matching approach for time-series cross-sectional (TSCS) data developed by Imai et al. (2021). This method addresses key challenges in causal inference with panel data:
 
-1. **Selection bias**: Units self-select into treatment
-2. **Time-varying confounding**: Confounders change over time
-3. **Temporal correlation**: Outcomes are correlated within units over time
+1. Selection bias: Units self-select into treatment
+2. Time-varying confounding: Confounders change over time
+3. Temporal correlation: Outcomes are correlated within units over time
 
 ## The Matching Framework
 
 ### Problem Setup
 
 Consider panel data with:
-- **Units**: $i = 1, ..., N$ (e.g., counties, countries)
-- **Time periods**: $t = 1, ..., T$
-- **Treatment**: $D_{it} \in \{0, 1\}$ 
-- **Outcome**: $Y_{it}$
-- **Covariates**: $X_{it}$
+- Units: $i = 1, ..., N$ (*e.g.*, counties, countries)
+- Time periods: $t = 1, ..., T$
+- Treatment: $D_{it} \in \{0, 1\}$ 
+- Outcome: $Y_{it}$
+- Covariates: $X_{it}$
 
 ### Staggered Treatment Design
 
-TSCSMethods handles **staggered adoption** where units receive treatment at different times:
+TSCSMethods.jl handles **staggered adoption** where units receive treatment at different times:
 - Unit $i$ receives treatment at time $\tau_i$ (the specific day of the event)
 - $D_{it} = 1$ if $t = \tau_i$, $0$ otherwise (treatment occurs only on event day)
 - Focus on **event studies**: effects relative to treatment timing
@@ -33,10 +33,10 @@ TSCSMethods handles **staggered adoption** where units receive treatment at diff
 
 For each treated unit $i$ at time $\tau_i$:
 
-1. **Define matching window**: Pre-treatment periods $L = \{l_1, ..., l_L\}$ (negative values)
-2. **Find similar controls**: Units $j$ with similar $X_{j,\tau_i+l}$ for $l \in L$
-3. **Calculate distances**: $d(i,j) = \sum_{l \in L} w_l ||X_{i,\tau_i+l} - X_{j,\tau_i+l}||$
-4. **Select matches**: Closest $K$ control units for each treated unit
+1. Define matching window: Pre-treatment periods $L = \{l_1, ..., l_L\}$ (negative values)
+2. Find similar controls: Units $j$ with similar $X_{j,\tau_i+l}$ for $l \in L$
+3. Calculate distances: $d(i,j) = \sum_{l \in L} w_l ||X_{i,\tau_i+l} - X_{j,\tau_i+l}||$
+4. Select matches: Closest $K$ control units for each treated unit
 
 ### Balancing
 
@@ -57,45 +57,46 @@ where $M_i$ is the set of matched controls for unit $i$.
 ### Crossover Windows and Treatment History
 
 The method incorporates sophisticated treatment history matching:
-- **Crossover window**: Period examined for treatment history of potential matches
-- **Pre-treatment crossover**: Matches must have similar treatment histories before the focal treatment
-- **Post-treatment crossover**: Control units cannot be treated during specified periods after the focal treatment
+- Crossover window: Period examined for treatment history of potential matches
+- Pre-treatment crossover: Matches must have similar treatment histories before the focal treatment
+- Post-treatment crossover: Control units cannot be treated during specified periods after the focal treatment
 - This prevents contamination from other events that might confound the estimates
 
 ### Bootstrap Inference
 
 Uncertainty quantification via weighted block-bootstrap:
 
-1. **Block resampling**: Resample entire time series of units to account for within-unit temporal dependence
-2. **Weighted procedure**: Account for units being used as matches multiple times
-3. **Re-estimation**: Calculate ATT for each of 10,000 bootstrap samples
-4. **Confidence intervals**: Derived from 2.5th and 97.5th percentiles of bootstrap distribution
-5. **Bayes factors**: Additional evidence quantification using bootstrap distribution parameters
+1. Block resampling: Resample entire time series of units to account for within-unit temporal dependence
+2. Weighted procedure: Account for units being used as matches multiple times
+3. Re-estimation: Calculate ATT for each of 10,000 bootstrap samples
+4. Confidence intervals: Derived from 2.5th and 97.5th percentiles of bootstrap distribution
+5. Bayes factors: Additional evidence quantification using bootstrap distribution parameters
 
 ## Implementation Details
 
 ### Time Period Specification
 
-- **L periods**: Pre-treatment periods for matching (negative values)
+- L periods: Pre-treatment periods for matching (negative values)
   - Example: `L = -10:-1` uses 10 periods before treatment
-- **F periods**: Post-treatment periods for estimation (positive values)  
+- F periods: Post-treatment periods for estimation (positive values)  
   - Example: `F = 1:5` estimates effects 1-5 periods after treatment
-- **Reference period**: Usually `-1` (period just before treatment)
+- Reference period: Usually `-1` (period just before treatment)
 
 ### Covariate Handling
 
-- **Time-invariant**: Unit characteristics that don't change over the study period
+- Time-invariant: Unit characteristics that don't change over the study period
   - Demographics, geography, institutional features
   - Any baseline characteristics relevant to the outcome
-- **Time-varying**: Variables that change over time during the matching window
+- Time-varying: Variables that change over time during the matching window
   - Outcome history, behavioral indicators, environmental conditions
   - Any time-series covariates relevant to treatment assignment and outcomes
-- **Standardization**: Covariates standardized using treated unit variance
-- **Balance assessment**: Standardized mean differences maintained ≤ 0.1
+- Standardization: Covariates standardized using treated unit variance
+- Balance assessment: Standardized mean differences maintained ≤ 0.1
 
 ### Distance Metrics
 
 Default uses Mahalanobis distance with temporal averaging:
+
 $$d(i,j) = \frac{1}{L} \sum_{l=1}^{L} \sqrt{(V_{i,t-l} - V_{j,t-l})^T \Sigma_{i,t-l}^{-1} (V_{i,t-l} - V_{j,t-l})}$$
 
 where:
@@ -108,30 +109,30 @@ where:
 
 The method relies on several key assumptions:
 
-1. **Unconfoundedness**: $Y_{it}(0), Y_{it}(1) \perp D_{it} | X_{it}, \text{past}$
-2. **Common support**: Sufficient overlap in covariate distributions
-3. **No anticipation**: Units don't change behavior before treatment
-4. **SUTVA**: No spillover effects between units
+1. Unconfoundedness: $Y_{it}(0), Y_{it}(1) \perp D_{it} | X_{it}, \text{past}$
+2. Common support: Sufficient overlap in covariate distributions
+3. No anticipation: Units don't change behavior before treatment
+4. SUTVA: No spillover effects between units
 
 ## Extensions
 
-TSCSMethods supports several extensions:
+TSCSMethods.jl supports several extensions:
 
-- **Calipers**: Restrict matches to units within distance threshold (balance scores ≤ 0.1)
-- **Stratification**: Separate analysis by subgroups (any categorical or binned continuous variables)
-- **Multiple outcomes**: Analyze several dependent variables simultaneously
-- **Refinement**: Iterative improvement of matches (up to 5 best matches per treated unit)
-- **Spillover effects**: Account for geographic spillover (e.g., rally attendees from neighboring counties)
-- **Multiple treatments**: Handle units with repeated treatments over time
+- Calipers: Restrict matches to units within distance threshold (balance scores ≤ 0.1)
+- Stratification: Separate analysis by subgroups (any categorical or binned continuous variables)
+- Multiple outcomes: Analyze several dependent variables simultaneously
+- Refinement: Iterative improvement of matches (up to 5 best matches per treated unit)
+- Spillover effects: Account for geographic spillover (*e.g.*, rally attendees from neighboring counties)
+- Multiple treatments: Handle units with repeated treatments over time
 
 ### Spillover Effects Implementation
 
-For events with potential geographic spillover:
+For events with potential geographic spillover (see Feltham et al. 2023 for a detailed case):
 
-- **Direct treatment**: County hosts the event
-- **First degree**: Counties adjacent to event location
-- **Second degree**: Counties one step away from event location  
-- **Third degree**: Counties two steps away from event location
+- Direct treatment: County hosts the event
+- First degree: Counties adjacent to event location
+- Second degree: Counties one step away from event location  
+- Third degree: Counties two steps away from event location
 - Separate ATT estimation for each exposure level
 
 ## References
