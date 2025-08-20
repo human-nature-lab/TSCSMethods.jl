@@ -6,7 +6,7 @@
 
 **Matching methods for causal inference with time-series cross-sectional data**
 
-TSCSMethods.jl implements non-parametric generalized difference-in-differences estimation with covariate matching for panel data. The package provides tools for causal inference in staggered treatment designs, where units receive treatment at different times.
+TSCSMethods.jl implements the matching methodology developed in Feltham et al. (2023), which extends the framework of Imai et al. (2021) with novel innovations for causal inference in staggered treatment designs. The package provides non-parametric generalized difference-in-differences estimation with covariate matching for panel data, where units receive treatment at different times.
 
 ## Key Features
 
@@ -61,7 +61,7 @@ See the [Jupyter notebook vignette](./vignette/vignette.ipynb) for a complete an
 
 ## Method Overview
 
-The package implements the matching approach from Imai et al. (2021) for time-series cross-sectional data:
+The package implements the extended matching approach developed in Feltham et al. (2023), building on Imai et al. (2021), for time-series cross-sectional data:
 
 1. **Matching**: For each treated unit, find control units with similar covariate histories
 2. **Balancing**: Assess and improve covariate balance between treated and control groups  

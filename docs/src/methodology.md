@@ -4,7 +4,7 @@ This page explains the statistical methodology implemented in TSCSMethods.jl.
 
 ## Overview
 
-TSCSMethod.jl implements the matching approach for time-series cross-sectional (TSCS) data developed by Imai et al. (2021). This method addresses key challenges in causal inference with panel data:
+TSCSMethods.jl implements the extended matching approach for time-series cross-sectional (TSCS) data developed in Feltham et al. (2023), which builds upon and extends the framework of Imai et al. (2021). This method addresses key challenges in causal inference with panel data:
 
 1. Selection bias: Units self-select into treatment
 2. Time-varying confounding: Confounders change over time
@@ -137,5 +137,6 @@ For events with potential geographic spillover (see Feltham et al. 2023 for a de
 
 ## References
 
+- Feltham, E., Forastiere, L., Alexander, M., & Christakis, N. A. (2023). Mass gatherings for political expression had no discernible association with the local course of the COVID-19 pandemic in the USA in 2020 and 2021. *Nature Human Behaviour*.
 - Imai, K., Kim, I. S., & Wang, E. H. (2021). Matching Methods for Causal Inference with Time-Series Cross-Sectional Data. *American Journal of Political Science*.
 - Rosenbaum, P. R., & Rubin, D. B. (1983). The central role of the propensity score in observational studies for causal effects. *Biometrika*, 70(1), 41-55.
