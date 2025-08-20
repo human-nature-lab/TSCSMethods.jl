@@ -12,5 +12,6 @@ using Random
 using Dates
 import JLD2:save_object,load_object
 
-using RCall
+# Optional R dependency for Bayesian factors (disabled by default)
+# using RCall
 # R dependencies: BayesFactor
