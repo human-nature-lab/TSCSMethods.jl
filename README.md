@@ -2,8 +2,7 @@
 
 [![CI](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/CI.yml)
 [![Documentation](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/Documentation.yml/badge.svg)](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/Documentation.yml)
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://human-nature-lab.github.io/TSCSMethods.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://human-nature-lab.github.io/TSCSMethods.jl/dev)
+[![Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://human-nature-lab.github.io/TSCSMethods.jl/)
 
 **Matching methods for causal inference with time-series cross-sectional data**
 
@@ -52,9 +51,9 @@ Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
 
 ## Documentation
 
-- [**Tutorial**](https://human-nature-lab.github.io/TSCSMethods.jl/dev/tutorial/): Step-by-step analysis walkthrough
-- [**Methodology**](https://human-nature-lab.github.io/TSCSMethods.jl/dev/methodology/): Statistical methods and assumptions  
-- [**API Reference**](https://human-nature-lab.github.io/TSCSMethods.jl/dev/api/): Complete function documentation
+- [**Tutorial**](https://human-nature-lab.github.io/TSCSMethods.jl/tutorial/): Step-by-step analysis walkthrough
+- [**Methodology**](https://human-nature-lab.github.io/TSCSMethods.jl/methodology/): Statistical methods and assumptions  
+- [**API Reference**](https://human-nature-lab.github.io/TSCSMethods.jl/api/): Complete function documentation
 
 ## Examples
 
@@ -114,7 +113,7 @@ Please also cite the foundational methodology:
 
 ## Contributing
 
-Contributions are welcome! Please see the [documentation](https://human-nature-lab.github.io/TSCSMethods.jl/dev/) for development guidelines.
+Contributions are welcome! Please see the [documentation](https://human-nature-lab.github.io/TSCSMethods.jl/) for development guidelines.
 
 ## References
 
