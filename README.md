@@ -81,12 +81,42 @@ import Pkg; Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
 
 The package should take approximately 1 minute to install. 
 
-# Vignette
+## Citation
 
-See `vignette.ipynb` in the `vignette` directory for a simple analysis example as a Jupyter notebook.
+If you use TSCSMethods.jl in your research, please cite:
 
-# Citation
+```bibtex
+@article{feltham_mass_2023,
+  title={Mass gatherings for political expression had no discernible association with the local course of the COVID-19 pandemic in the USA in 2020 and 2021},
+  author={Feltham, Eric and Forastiere, Laura and Alexander, Marcus and Christakis, Nicholas A},
+  journal={Nature Human Behaviour},
+  year={2023},
+  publisher={Nature Publishing Group}
+}
 
-For usage of the package and associated manuscript, please cite as:
+@misc{feltham_tscsmethods_2023,
+  title={TSCSMethods.jl: Matching methods for causal inference with time-series cross-sectional data},
+  author={Feltham, Eric Martin},
+  year={2023},
+  url={https://github.com/emfeltham/TSCSMethods.jl}
+}
+```
 
-TSCSMethods
+Please also cite the foundational methodology:
+
+```bibtex
+@article{imai_matching_2021,
+  title={Matching Methods for Causal Inference with Time-Series Cross-Sectional Data},
+  author={Imai, Kosuke and Kim, In Song and Wang, Erik H},
+  journal={American Journal of Political Science},
+  year={2021},
+  publisher={Wiley Online Library}
+}
+```
+
+## References
+
+- Imai, K., Kim, I. S., & Wang, E. H. (2021). Matching Methods for Causal Inference with Time-Series Cross-Sectional Data. *American Journal of Political Science*.
+- Feltham, E., Forastiere, L., Alexander, M., & Christakis, N. A. (2023). Mass gatherings for political expression had no discernible association with the local course of the COVID-19 pandemic in the USA in 2020 and 2021. *Nature Human Behaviour*.
+- Kim, I. S., Ruah, A., Wang, E., & Imai, K. (2020). Insongkim/PanelMatch [R, C]. https://github.com/insongkim/PanelMatch (Original work published 2018)
+
