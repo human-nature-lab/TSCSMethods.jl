@@ -29,8 +29,8 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens],  # Single covariate to reduce complexity
                 Dict(:pop_dens => false),
-                35:40,  # F: Later periods for treatment effect
-                15:20;  # L: Earlier periods for matching
+                5:10,   # F: Later periods for treatment effect  
+                -15:-10; # L: Earlier periods for matching (negative for pre-treatment)
                 title = "basic_workflow_test"
             )
             
@@ -48,7 +48,7 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens],
                 Dict(:pop_dens => false),
-                35:40, 15:20
+                5:10, -15:-10
             )
             
             # Test matching
@@ -72,7 +72,7 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens],
                 Dict(:pop_dens => false), 
-                25:30, 10:15;
+                5:10, -15:-10;
                 title = "basic_test"
             )
             
@@ -137,7 +137,7 @@
             model = makemodel(
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens], Dict(:pop_dens => false),
-                12:15, 5:8
+                5:8, -10:-5
             )
             
             @test_nowarn match!(model, data)

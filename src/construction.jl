@@ -77,9 +77,9 @@ function makemodel(
   estimator::String = "ATT"
 )::CIC
 
-  # Input validation
+  # Input validation with user-friendly error messages
   if nrow(dat) == 0
-    throw(ArgumentError("Input data cannot be empty"))
+    throw(ArgumentError("Input data cannot be empty. Please provide a DataFrame with your panel data."))
   end
   
   required_cols = [t, id, treatment]
@@ -92,20 +92,87 @@ function makemodel(
   
   missing_cols = setdiff(required_cols, Symbol.(names(dat)))
   if !isempty(missing_cols)
-    throw(ArgumentError("Missing required columns: $(missing_cols)"))
+    available_cols = join(string.(names(dat)), ", ")
+    throw(ArgumentError("""
+    Missing required columns in your data: $(join(string.(missing_cols), ", "))
+    
+    Available columns in your DataFrame: $available_cols
+    
+    Make sure your data includes:
+    - Time variable: $t
+    - Unit identifier: $id  
+    - Treatment variable: $treatment
+    - Outcome variable(s): $(outcome isa Symbol ? outcome : join(string.(outcome), ", "))
+    - Covariates: $(join(string.(covariates), ", "))
+    """))
   end
   
   if isempty(F)
-    throw(ArgumentError("F (treatment period) cannot be empty"))
+    throw(ArgumentError("""
+    F (post-treatment periods) cannot be empty. 
+    
+    F specifies which periods after treatment to estimate effects for.
+    Example: F = 1:5 estimates effects 1-5 periods after treatment.
+    """))
   end
   
   if isempty(L)
-    throw(ArgumentError("L (pre-treatment period) cannot be empty"))
+    throw(ArgumentError("""
+    L (pre-treatment periods) cannot be empty.
+    
+    L specifies which pre-treatment periods to use for matching.
+    IMPORTANT: L periods should be NEGATIVE (e.g., L = -10:-1 for 10 periods before treatment).
+    Example: L = -15:-5 uses periods 15-5 before treatment for matching.
+    """))
+  end
+  
+  # Check for common mistake: positive L periods
+  if any(L .> 0)
+    throw(ArgumentError("""
+    L periods should be NEGATIVE (pre-treatment periods).
+    
+    You specified L = $L, but L should represent periods BEFORE treatment.
+    Correct examples:
+    - L = -10:-1  (uses 10 periods before treatment)
+    - L = -20:-5  (uses periods 20-5 before treatment)
+    
+    This is a common mistake when adapting from other software!
+    """))
   end
   
   # Validate timevary dict matches covariates
   if Set(keys(timevary)) != Set(covariates)
-    throw(ArgumentError("timevary dict keys must exactly match covariates"))
+    missing_keys = setdiff(Set(covariates), Set(keys(timevary)))
+    extra_keys = setdiff(Set(keys(timevary)), Set(covariates))
+    
+    error_msg = "The timevary dictionary must specify time-varying status for all covariates.\n\n"
+    
+    if !isempty(missing_keys)
+      error_msg *= "Missing from timevary dict: $(join(string.(missing_keys), ", "))\n"
+    end
+    
+    if !isempty(extra_keys)  
+      error_msg *= "Extra keys in timevary dict: $(join(string.(extra_keys), ", "))\n"
+    end
+    
+    error_msg *= "\nExample: timevary = Dict(:pop_dens => false, :cumul_death_rate => true)"
+    
+    throw(ArgumentError(error_msg))
+  end
+  
+  # Validate treatment variable format
+  treatment_values = unique(dat[!, treatment])
+  if !all(v in [0, 1] for v in treatment_values)
+    throw(ArgumentError("""
+    Treatment variable '$treatment' must contain only 0 and 1 values.
+    
+    Found values: $(sort(unique(treatment_values)))
+    
+    For staggered treatment designs:
+    - Use 1 ONLY on the day treatment occurs for each unit
+    - Use 0 for all other time periods
+    - Do NOT use continuous treatment (1 for all post-treatment periods)
+    """))
   end
   
   observations, ids = observe(dat[!, t], dat[!, id], dat[!, treatment]);
