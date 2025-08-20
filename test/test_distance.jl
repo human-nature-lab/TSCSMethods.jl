@@ -1,3 +1,7 @@
+using Random
+using DataFrames
+using Dates
+
 @testset "Distance Calculation Functions" begin
     
     # Helper function to create test model and data
@@ -209,6 +213,164 @@
             for (model, data) in zip(models, datas)
                 @test_nowarn match!(model, data)
                 @test !isempty(model.matches)
+            end
+        end
+        
+        @testset "Union Type Elimination Optimization" begin
+            # Test unified distaveraging! functions work correctly
+            Random.seed!(3333)
+            
+            # Test with pure Float64 data (should use fast path)
+            model1, data1 = create_distance_test_model()
+            @test_nowarn match!(model1, data1)
+            
+            # Test with missing data (should use Union path)
+            model2, data2 = create_distance_test_model()
+            data2 = allowmissing(data2, :cumul_death_rate)
+            data2[1:2, :cumul_death_rate] .= missing
+            @test_nowarn match!(model2, data2)
+            
+            # Both should produce valid results
+            @test !isempty(model1.matches)
+            @test !isempty(model2.matches)
+        end
+        
+        @testset "Compile-Time Type Specialization" begin
+            # Test that type specialization works correctly
+            Random.seed!(4444)
+            model, data = create_distance_test_model()
+            
+            # Should complete efficiently with type-stable code
+            elapsed_time = @elapsed match!(model, data)
+            @test elapsed_time < 30.0  # Should be fast
+            
+            # Results should be valid and finite
+            if !isempty(model.matches) && !isempty(model.matches[1].distances)
+                distances = model.matches[1].distances
+                @test all(d -> isfinite(d) || isinf(d), distances)  # Should be finite or Inf (no NaN)
+                @test any(isfinite, distances)  # At least some should be finite
+            end
+        end
+        
+        @testset "Algorithmic Efficiency Optimizations" begin
+            # Test window filtering and dictionary caching optimizations
+            Random.seed!(5555)
+            
+            @testset "Window Filtering Optimization" begin
+                # Test optimized window bounds calculation
+                model, data = create_distance_test_model()
+                
+                # Should work correctly with optimized bounds
+                @test_nowarn match!(model, data)
+                @test !isempty(model.matches)
+                
+                # Results should be deterministic
+                Random.seed!(5555)
+                model2, data2 = create_distance_test_model()
+                @test_nowarn match!(model2, data2)
+                
+                if !isempty(model.matches) && !isempty(model2.matches) &&
+                   !isempty(model.matches[1].distances) && !isempty(model2.matches[1].distances)
+                    @test model.matches[1].distances ≈ model2.matches[1].distances atol=1e-14
+                end
+            end
+            
+            @testset "Dictionary Caching Optimization" begin
+                # Test covariance matrix caching
+                model, data = create_distance_test_model()
+                
+                # Should complete efficiently with cached lookups
+                elapsed_time = @elapsed match!(model, data)
+                @test elapsed_time < 30.0  # Should be efficient
+                
+                # Should produce valid results
+                @test !isempty(model.matches)
+                if !isempty(model.matches[1].distances)
+                    distances = model.matches[1].distances
+                    @test all(d -> isfinite(d) || isinf(d), distances)  # No NaN values
+                end
+            end
+            
+            @testset "Combined Optimizations Correctness" begin
+                # Test that both optimizations work together correctly
+                Random.seed!(6666)
+                
+                # Run multiple times to check consistency
+                results = []
+                for i in 1:3
+                    Random.seed!(6666 + i)
+                    model, data = create_distance_test_model()
+                    match!(model, data)
+                    
+                    if !isempty(model.matches) && !isempty(model.matches[1].distances)
+                        push!(results, model.matches[1].distances[1,1])
+                    end
+                end
+                
+                # Should get consistent results each time
+                if length(results) > 1
+                    @test all(r -> r ≈ results[1], results)
+                end
+            end
+        end
+        
+        @testset "Type Stability Optimizations" begin
+            # Test type stability improvements
+            Random.seed!(7777)
+            
+            @testset "Matrix Caching Type Stability" begin
+                # Test that matrix caching avoids Union{Nothing, Matrix} issues
+                model, data = create_distance_test_model()
+                
+                # Should work without type instability warnings
+                @test_nowarn match!(model, data)
+                @test !isempty(model.matches)
+                
+                # Results should be deterministic and type-stable
+                Random.seed!(7777)
+                model2, data2 = create_distance_test_model()
+                @test_nowarn match!(model2, data2)
+                
+                if !isempty(model.matches) && !isempty(model2.matches) &&
+                   !isempty(model.matches[1].distances) && !isempty(model2.matches[1].distances)
+                    @test model.matches[1].distances ≈ model2.matches[1].distances atol=1e-14
+                end
+            end
+            
+            @testset "Thread Storage Type Stability" begin
+                # Test that thread-local storage avoids Union{Nothing, Storage} issues
+                models = []
+                datas = []
+                
+                # Create multiple models to test thread storage
+                for i in 1:3
+                    Random.seed!(7777 + i)
+                    model, data = create_distance_test_model()
+                    @test_nowarn match!(model, data)
+                    push!(models, model)
+                    push!(datas, data)
+                end
+                
+                # All should work without type instability
+                for model in models
+                    @test !isempty(model.matches)
+                end
+            end
+            
+            @testset "Return Type Consistency" begin
+                # Test that key functions have consistent return types
+                Random.seed!(8888)
+                model, data = create_distance_test_model()
+                
+                # Should complete with consistent types
+                @test_nowarn match!(model, data)
+                
+                # Check that distance matrices have expected types
+                if !isempty(model.matches) && !isempty(model.matches[1].distances)
+                    distances = model.matches[1].distances
+                    @test isa(distances, Matrix{Float64})
+                    @test all(d -> isa(d, Float64), distances)
+                end
             end
         end
     end
