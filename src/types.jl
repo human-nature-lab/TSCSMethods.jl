@@ -33,6 +33,45 @@ abstract type AbstractCICModel <: VeryAbstractCICModel end
 
 abstract type AbstractCICModelStratified <: VeryAbstractCICModel end
 
+"""
+    CIC <: AbstractCICModel
+
+Main model type for causal inference with time-series cross-sectional data.
+
+Contains all information needed for matching, balancing, and estimation in TSCS designs.
+Created by `makemodel()` and used throughout the analysis workflow.
+
+# Fields
+- `title::String`: Model title for identification
+- `id::Symbol`: Column name for unit identifier 
+- `t::Symbol`: Column name for time variable
+- `outcome::Union{Symbol,Vector{Symbol}}`: Outcome variable(s)
+- `treatment::Symbol`: Treatment variable (binary 0/1)
+- `covariates::Vector{Symbol}`: Covariates used for matching
+- `timevary::Dict{Symbol, Bool}`: Whether each covariate is time-varying
+- `reference::Int`: Reference time period (default: -1)
+- `F::UnitRange{Int}`: Post-treatment periods for estimation
+- `L::UnitRange{Int}`: Pre-treatment periods for matching (negative values)
+- `observations::Vector{Tuple{Int, Int}}`: Treated observations (time, unit)
+- `ids::Vector{Int}`: All unit identifiers
+- `matches::Vector{Tob}`: Matching results for each treated observation
+- `meanbalances::DataFrame`: Covariate balance statistics
+- `grandbalances::Dict`: Overall balance measures
+- `iterations::Int`: Bootstrap iterations (default: 500)
+- `results::DataFrame`: Treatment effect estimates
+- `treatednum::Int`: Number of treated observations
+- `estimator::String`: Estimator type (default: "ATT")
+
+# Examples
+```julia
+using TSCSMethods, DataFrames
+
+data = example_data()
+model = makemodel(data, :day, :fips, :gub, :death_rte, 
+                 [:pop_dens], Dict(:pop_dens => false),
+                 1:5, -10:-1)
+```
+"""
 @with_kw struct CIC <: AbstractCICModel
   title::String = ""
   id::Symbol
@@ -56,6 +95,47 @@ abstract type AbstractCICModelStratified <: VeryAbstractCICModel end
   estimator::String = "ATT"
 end
 
+"""
+    CICStratified <: AbstractCICModelStratified
+
+Stratified model type for causal inference with time-series cross-sectional data.
+
+Extends the basic CIC model to handle stratified analysis where matching and estimation
+are performed separately within subgroups defined by a stratifying variable.
+
+# Fields
+- `title::String`: Model title for identification
+- `id::Symbol`: Column name for unit identifier
+- `t::Symbol`: Column name for time variable  
+- `outcome::Union{Symbol,Vector{Symbol}}`: Outcome variable(s)
+- `treatment::Symbol`: Treatment variable (binary 0/1)
+- `covariates::Vector{Symbol}`: Covariates used for matching
+- `timevary::Dict{Symbol, Bool}`: Whether each covariate is time-varying
+- `stratifier::Symbol`: Variable used for stratification
+- `strata::Vector{Int}`: Values of stratifying variable
+- `reference::Int`: Reference time period (default: -1)  
+- `F::UnitRange{Int}`: Post-treatment periods for estimation
+- `L::UnitRange{Int}`: Pre-treatment periods for matching (negative values)
+- `observations::Vector{Tuple{Int, Int}}`: Treated observations (time, unit)
+- `ids::Vector{Int}`: All unit identifiers
+- `matches::Vector{Tob}`: Matching results for each treated observation
+- `meanbalances::DataFrame`: Covariate balance statistics by stratum
+- `grandbalances::Dict`: Overall balance measures by stratum
+- `iterations::Int`: Bootstrap iterations (default: 500)
+- `results::DataFrame`: Treatment effect estimates by stratum
+- `treatednum::Dict{Int64, Int64}`: Number of treated observations per stratum
+- `estimator::String`: Estimator type (default: "ATT")
+- `labels::Dict{Int64, String}`: Human-readable labels for strata
+
+# Examples
+```julia
+# Create stratified model
+model = makemodel(data, :day, :fips, :gub, :death_rte,
+                 [:pop_dens], Dict(:pop_dens => false),
+                 1:5, -10:-1)
+strat_model = stratify(model, data, :region)
+```
+"""
 @with_kw struct CICStratified <: AbstractCICModelStratified
   title::String = ""
   id::Symbol
