@@ -1,1 +1,52 @@
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+deps/deps.jl
+deps/build.log
+deps/downloads/
+docs/build/
+docs/site/
+Manifest.toml
+
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment files
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Package build artifacts
+*.so
+*.dll
+*.dylib
+
+# Test coverage
+coverage/
+*.lcov
+
+# Local development
+scratch/
+experiments/
+sandbox/
