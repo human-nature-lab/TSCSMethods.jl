@@ -1,4 +1,8 @@
-## distancing.jl
+# distancing.jl
+
+# Performance configuration constants
+const LARGE_DATASET_WARNING_THRESHOLD = 10_000  # Warn if n_times exceeds this value
+const MAHALANOBIS_DISTANCE_INDEX = 1            # Index for Mahalanobis distance in distance arrays
 
 """
 Thread-local storage system for distance calculation working arrays.
@@ -81,7 +85,7 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
     if n_covariates <= 0
         throw(ArgumentError("n_covariates must be positive, got: $n_covariates"))
     end
-    if n_times > 10_000
+    if n_times > LARGE_DATASET_WARNING_THRESHOLD
         @warn "Large n_times ($n_times) may cause excessive memory usage"
     end
     
@@ -123,6 +127,32 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
     return storage
 end
 
+"""
+    distances_allocate!(matches, flen, covnum; sliding = false)
+
+Pre-allocate distance storage arrays for match calculations.
+
+# Arguments
+- `matches`: Vector of match objects to allocate storage for
+- `flen`: Length of the time dimension (number of time periods)
+- `covnum`: Number of covariates
+- `sliding`: Whether to use sliding windows (default: false)
+
+# Algorithm
+1. For each match object, allocate a matrix with dimensions:
+   - Rows: Number of potential matches for this observation
+   - Columns: Number of distance types (1 Mahalanobis + `covnum` individual covariates)
+2. Initialize all distances to infinity (no matches computed yet)
+
+# Performance
+- **Memory**: Pre-allocates all required storage to avoid allocations during computation
+- **Parallelization**: Thread-safe as each match object gets independent storage
+- **Scalability**: O(n_observations × max_matches × n_covariates) memory usage
+
+# Note
+This function prepares the storage structure but does not compute any distances.
+Actual distance computation is performed by `distances_calculate!`.
+"""
 function distances_allocate!(matches, flen, covnum; sliding = false)
   Threads.@threads :greedy for i in eachindex(matches)
   # for (i, tob) in enumerate(tobsvec)
@@ -324,8 +354,46 @@ end
 matchwindow(f, tt, pomin, pomax) = (tt + f) + pomin : (tt + f) + pomax;
 
 """
-Assign distances for each window. This could be massively
-simplified for a non-sliding window.
+    window_distances!(distances, dtots, accums, validmuscols, validunits, tt, Σinvdict, γrs, γtimes, tg, fmin, Lmin, Lmax; sliding = false)
+
+Assign distance calculations for temporal matching windows.
+
+# Arguments
+- `distances`: Output matrix to store computed distances
+- `dtots`: Pre-allocated arrays for distance calculations per covariate
+- `accums`: Accumulator arrays for counting valid observations
+- `validmuscols`: Valid match columns for each potential match
+- `validunits`: Unit identifiers for valid matches
+- `tt`: Treatment time indicator
+- `Σinvdict`: Dictionary of inverse covariance matrices by time period
+- `γrs`: Treated unit covariate rows over time
+- `γtimes`: Time periods for the treated unit
+- `tg`: Treatment group data structure
+- `fmin`: Minimum relative time offset for matching window
+- `Lmin`: Minimum absolute time for matching
+- `Lmax`: Maximum absolute time for matching
+- `sliding`: Whether to use sliding windows (default: false, not implemented)
+
+# Algorithm
+1. **Window Definition**: Create temporal matching windows based on treatment timing
+2. **Distance Computation**: For each valid match and time window:
+   - Extract control unit data for the same time periods
+   - Calculate Mahalanobis and covariate-specific distances using `alldistances!`
+   - Average distances over the matching window using `distaveraging!`
+3. **Storage**: Store final averaged distances in the `distances` matrix
+
+# Mathematical Foundation
+Implements the temporal windowing approach from Feltham et al. (2023), where matches
+are formed based on distance averages over specified pre-treatment periods.
+
+# Performance Notes
+- **Complexity**: O(n_matches × window_size × n_covariates)
+- **Threading**: Called within threaded loops, uses thread-local storage
+- **Memory**: Reuses pre-allocated arrays to minimize allocations
+
+# Note
+Currently only supports fixed windows. Sliding window implementation would
+allow the matching window to vary by treatment time.
 """
 function window_distances!(
   distances, dtots, accums,

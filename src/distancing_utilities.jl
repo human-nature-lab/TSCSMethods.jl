@@ -222,71 +222,6 @@ Core distance averaging algorithm shared between sliding and fixed window versio
 - `fw`: Matching window specification
 - `T`: Element type (Float64 or Union{Float64, Missing})
 """
-function _distance_averaging_core!(output, dtots::Vector{Vector{T}}, accums, γtimes, fw) where {T}
-    # Type-stable initialization based on data type
-    if T <: Union{Float64, Missing}
-        # For Union types, defer initialization until first valid data
-        accums_initialized = false
-    else
-        # For pure Float64, initialize immediately
-        for ι in eachindex(dtots)
-            output(ι, 0.0)
-            accums[ι] = 0
-        end
-        accums_initialized = true
-    end
-
-    # Optimized window filtering: pre-compute bounds for efficiency  
-    fw_min, fw_max = extrema(fw)
-
-    # Main averaging loop
-    for (l, τ) in enumerate(γtimes)
-        if τ > fw_max # Early termination optimization
-            break
-        elseif (τ >= fw_min)
-            # Handle initialization for Union types on first valid data
-            if !accums_initialized && T <: Union{Float64, Missing}
-                for ι in eachindex(dtots)
-                    output(ι, 0.0)
-                    accums[ι] = 0
-                end
-                accums_initialized = true
-            end
-            
-            # Process data based on type
-            if T <: Union{Float64, Missing}
-                # Need to check for missing values
-                for u in eachindex(dtots)
-                    val = dtots[u][l]
-                    if !_is_value_missing(val)
-                        current = (T <: Union{Float64, Missing}) ? 
-                            (accums[u] == 0 ? 0.0 : output(u)) : output(u)
-                        output(u, current + val)
-                        accums[u] += 1
-                    end
-                end
-            else
-                # Pure Float64 - no missing check needed
-                for u in eachindex(dtots)
-                    current = output(u)
-                    output(u, current + dtots[u][l])
-                    accums[u] += 1
-                end
-            end
-        end
-    end
-
-    # Finalize averages
-    for ι in eachindex(dtots)
-        final_value = if accums[ι] == 0
-            Inf
-        else
-            current = output(ι)
-            current / accums[ι]
-        end
-        output(ι, final_value)
-    end
-end
 
 """
     distaveraging!(distances, dtots, accums, γtimes, fw, φ, m) where {T}
@@ -324,42 +259,17 @@ function distaveraging!(
   distances, dtots::Vector{Vector{T}}, accums, γtimes, fw, φ, m
 ) where {T}
   
-  # Input validation  
-  if isempty(dtots)
-    throw(ArgumentError("dtots cannot be empty"))
-  end
-  
-  if isempty(γtimes)
-    @warn "No time points provided"
+  # Common input validation
+  n_times = _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
+  if n_times == 0  # Early return for empty γtimes
     return
   end
   
-  if isempty(fw)
-    throw(ArgumentError("Matching window fw cannot be empty"))
-  end
-  
-  # Check dimensions consistency
-  n_times = length(γtimes)
-  for (i, dt) in enumerate(dtots)
-    if length(dt) != n_times
-      throw(DimensionMismatch(
-        "dtots[$i] length ($(length(dt))) must match γtimes length ($n_times)"
-      ))
-    end
-  end
-  
-  if length(accums) != length(dtots)
-    throw(DimensionMismatch(
-      "accums length ($(length(accums))) must match dtots length ($(length(dtots)))"
-    ))
-  end
-  
-  # Check array bounds
+  # Sliding window specific validation
   if φ < 1 || m < 1
     throw(BoundsError("Invalid indices: φ=$φ, m=$m (must be ≥ 1)"))
   end
   
-  # Check distances array dimensions
   if length(distances) != length(dtots)
     throw(DimensionMismatch(
       "distances length ($(length(distances))) must match dtots length ($(length(dtots)))"
@@ -473,36 +383,13 @@ function distaveraging!(
   drow, dtots::Vector{Vector{T}}, accums, γtimes, fw
 ) where {T}
   
-  # Input validation  
-  if isempty(dtots)
-    throw(ArgumentError("dtots cannot be empty"))
-  end
-  
-  if isempty(γtimes)
-    @warn "No time points provided"
+  # Common input validation
+  n_times = _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
+  if n_times == 0  # Early return for empty γtimes
     return
   end
   
-  if isempty(fw)
-    throw(ArgumentError("Matching window fw cannot be empty"))
-  end
-  
-  # Check dimensions consistency
-  n_times = length(γtimes)
-  for (i, dt) in enumerate(dtots)
-    if length(dt) != n_times
-      throw(DimensionMismatch(
-        "dtots[$i] length ($(length(dt))) must match γtimes length ($n_times)"
-      ))
-    end
-  end
-  
-  if length(accums) != length(dtots)
-    throw(DimensionMismatch(
-      "accums length ($(length(accums))) must match dtots length ($(length(dtots)))"
-    ))
-  end
-  
+  # Fixed window specific validation
   if length(drow) != length(dtots)
     throw(DimensionMismatch(
       "drow length ($(length(drow))) must match dtots length ($(length(dtots)))"
