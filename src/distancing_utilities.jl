@@ -78,18 +78,63 @@ function mahaveraging(mahas::Vector{Float64}, T, fw)
   return mdist / accum
 end
 
-function distaveraging!(
-  distances, dtots::Vector{Vector{Union{Float64, Missing}}},
-  accums, γtimes, fw, φ, m
-)
+# Unified distance averaging functions that handle both missing and non-missing data
+# efficiently with compile-time specialization
 
+# Helper functions for missing data detection (compile-time optimized)
+@inline _has_missing_data(::Float64) = false
+@inline _has_missing_data(::Missing) = true
+@inline _has_missing_data(::Union{Float64, Missing}) = true  # Runtime check needed
+
+@inline _is_value_missing(::Float64) = false
+@inline _is_value_missing(::Missing) = true
+
+# Version with φ and m parameters (for sliding windows)
+function distaveraging!(
+  distances, dtots::Vector{Vector{T}}, accums, γtimes, fw, φ, m
+) where {T}
+
+  # Setup and recycling - type-stable initialization
+  if T <: Union{Float64, Missing}
+    # For Union types, we don't pre-initialize to avoid missing value issues
+    # accums will be zeroed in the loop when we first encounter valid data
+    accums_initialized = false
+  else
+    # For pure Float64, we can safely initialize
+    for ι in eachindex(dtots)
+      distances[ι][φ, m] = 0.0
+      accums[ι] = 0
+    end
+    accums_initialized = true
+  end
+
+  # Main averaging loop
   for (l, τ) in enumerate(γtimes)
     if τ > maximum(fw) # don't bother with the rest
       break
-    elseif (τ >= minimum(fw)) & !ismissing(m) # if at or above bottom (above ruled out already)
-      # accum += 1
-      for u in eachindex(dists)
-        if !ismissing(dtots[u][l])
+    elseif (τ >= minimum(fw)) 
+      # Handle initialization for Union types on first valid data
+      if !accums_initialized && T <: Union{Float64, Missing}
+        for ι in eachindex(dtots)
+          distances[ι][φ, m] = 0.0
+          accums[ι] = 0
+        end
+        accums_initialized = true
+      end
+      
+      # Process data based on type
+      if T <: Union{Float64, Missing}
+        # Need to check for missing values
+        for u in eachindex(dtots)
+          val = dtots[u][l]
+          if !_is_value_missing(val)
+            distances[u][φ, m] += val
+            accums[u] += 1
+          end
+        end
+      else
+        # Pure Float64 - no missing check needed
+        for u in eachindex(dtots)
           distances[u][φ, m] += dtots[u][l]
           accums[u] += 1
         end
@@ -97,6 +142,7 @@ function distaveraging!(
     end
   end
 
+  # Finalize averages
   for ι in eachindex(dtots)
     distances[ι][φ, m] = if accums[ι] == 0
       Inf
@@ -106,19 +152,51 @@ function distaveraging!(
   end
 end
 
-
+# Version without φ and m parameters (for fixed windows)
 function distaveraging!(
-  drow, dtots::Vector{Vector{Union{Float64, Missing}}},
-  accums, γtimes, fw
-)
+  drow, dtots::Vector{Vector{T}}, accums, γtimes, fw
+) where {T}
 
+  # Setup and recycling - type-stable initialization
+  if T <: Union{Float64, Missing}
+    # For Union types, we don't pre-initialize
+    accums_initialized = false
+  else
+    # For pure Float64, we can safely initialize
+    for ι in eachindex(dtots)
+      drow[ι] = 0.0
+      accums[ι] = 0
+    end
+    accums_initialized = true
+  end
+
+  # Main averaging loop
   for (l, τ) in enumerate(γtimes)
     if τ > maximum(fw) # don't bother with the rest
       break
-    elseif (τ >= minimum(fw)) & !ismissing(dtots[1][l]) # if at or above bottom (above ruled out already)
-      # accum += 1
-      for u in eachindex(drow)
-        if !ismissing(dtots[u][l])
+    elseif (τ >= minimum(fw))
+      # Handle initialization for Union types on first valid data
+      if !accums_initialized && T <: Union{Float64, Missing}
+        for ι in eachindex(dtots)
+          drow[ι] = 0.0
+          accums[ι] = 0
+        end
+        accums_initialized = true
+      end
+      
+      # Process data based on type
+      if T <: Union{Float64, Missing}
+        # Need to check for missing values
+        for u in eachindex(drow)
+          val = dtots[u][l]
+          if !_is_value_missing(val)
+            drow[u] += val
+            accums[u] += 1
+          end
+        end
+      else
+        # Pure Float64 - no missing check needed
+        for u in eachindex(drow)
           drow[u] += dtots[u][l]
           accums[u] += 1
         end
@@ -126,72 +204,7 @@ function distaveraging!(
     end
   end
 
-  for ι in eachindex(dtots)
-    drow[ι] = if accums[ι] == 0
-      Inf
-    else
-      drow[ι] / accums[ι]
-    end
-  end
-end
-
-
-function distaveraging!(
-  distances, dtots::Vector{Vector{Float64}}, accums, γtimes, fw, φ, m
-)
-
-  ## setup and recycling
-  for ι in eachindex(dtots)
-    distances[ι][φ, m] = 0.0
-    accums[ι] = 0
-  end
-  ##
-
-  for (l, τ) in enumerate(γtimes)
-    if τ > maximum(fw) # don't bother with the rest
-      break
-    elseif (τ >= minimum(fw)) # if at or above bottom (above ruled out already)
-      # accum += 1
-      for u in eachindex(dists)
-        distances[u][φ, m] += dtots[u][l]
-        accums[u] += 1
-      end
-    end
-  end
-
-  for ι in eachindex(dtots)
-    distances[ι][φ, m] = if accums[ι] == 0
-      Inf
-    else
-      distances[ι][φ, m] / accums[ι]
-    end
-  end
-end
-
-function distaveraging!(
-  drow,
-  dtots::Vector{Vector{Float64}}, accums, γtimes, fw
-)
-
-  ## setup and recycling
-  for ι in eachindex(dtots)
-    drow[ι] = 0.0
-    accums[ι] = 0
-  end
-  ##
-
-  for (l, τ) in enumerate(γtimes)
-    if τ > maximum(fw) # don't bother with the rest
-      break
-    elseif (τ >= minimum(fw)) # if at or above bottom (above ruled out already)
-      # accum += 1
-      for u in eachindex(drow)
-        drow[u] += dtots[u][l]
-        accums[u] += 1
-      end
-    end
-  end
-
+  # Finalize averages
   for ι in eachindex(dtots)
     drow[ι] = if accums[ι] == 0
       Inf
