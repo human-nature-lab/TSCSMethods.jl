@@ -11,6 +11,7 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://human-nature-lab.github.io/TSCSMethods.jl",
+        edit_link="main",
         assets=String[],
     ),
     pages=[
