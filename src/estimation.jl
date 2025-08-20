@@ -12,16 +12,30 @@
 Perform ATT estimation, with bootstrapped CIs.
 """
 function estimate!(
-    model::AbstractCICModel, dat;
-    iterations = nothing,
-    percentiles = [0.025, 0.5, 0.975],
-    overallestimate = false,
-    dobayesfactor = true,
-    dopvalue = false
-)
+    model::AbstractCICModel, 
+    dat::DataFrame;
+    iterations::Union{Nothing, Int} = nothing,
+    percentiles::Vector{Float64} = [0.025, 0.5, 0.975],
+    overallestimate::Bool = false,
+    dobayesfactor::Bool = true,
+    dopvalue::Bool = false
+)::Union{AbstractCICModel, Overall}
 
     # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!
 
+    # Input validation
+    if nrow(dat) == 0
+      throw(ArgumentError("Input data cannot be empty"))
+    end
+    
+    if !isnothing(iterations) && iterations <= 0
+      throw(ArgumentError("iterations must be positive"))
+    end
+    
+    if !all(0 <= p <= 1 for p in percentiles)
+      throw(ArgumentError("percentiles must be between 0 and 1"))
+    end
+    
     @unpack results, matches, observations, outcome, F, ids, reference, t, id = model; 
     modeliters = model.iterations;
 
@@ -50,6 +64,8 @@ function estimate!(
             ntreatedmean = mean(results.treated),
             pvalue = pvalue(vb)
         )
+    else
+        return model
     end
 end
 

@@ -2,6 +2,54 @@
 
 # construction and execution
 
+"""
+    caliper(
+        model::CIC, 
+        acaliper::Dict{Symbol, Float64}, 
+        dat::DataFrame; 
+        dobalance::Bool = true
+    ) -> CaliperCIC
+
+Apply caliper restrictions to a CIC model by excluding matches beyond specified distance thresholds.
+
+# Arguments
+- `model::CIC`: A matched CIC model
+- `acaliper::Dict{Symbol, Float64}`: Dictionary mapping covariates to maximum allowed distances
+- `dat::DataFrame`: Input data containing all model variables
+- `dobalance::Bool`: Whether to perform balancing on the calipered model (default: true)
+
+# Returns
+- `CaliperCIC`: A calipered version of the input model with restricted matches
+
+# Description
+Caliper restrictions improve match quality by excluding matches where the distance
+on specified covariates exceeds the given thresholds. This helps ensure that
+matched units are similar on the most important dimensions, potentially improving
+balance and reducing bias.
+
+# Examples
+```julia
+# After matching a model
+model = makemodel(data, :time, :id, :treatment, :outcome, covariates, timevary, F, L)
+match!(model, data)
+
+# Apply calipers - exclude matches with distance > 0.25 on covar1 or > 0.5 on covar2
+caliper_specs = Dict(:covar1 => 0.25, :covar2 => 0.5)
+calipered_model = caliper(model, caliper_specs, data)
+
+# Apply calipers without automatic balancing
+calipered_model = caliper(model, caliper_specs, data; dobalance = false)
+```
+
+# Notes
+- Stricter calipers improve match quality but reduce the number of matches
+- Use [`autobalance`](@ref) to automatically determine appropriate caliper values
+
+# See Also
+- [`refine`](@ref): Alternative approach using match ranking
+- [`autobalance`](@ref): Automatic caliper selection
+- [`match!`](@ref): Initial matching procedure
+"""
 function caliper(model::CIC, acaliper, dat; dobalance = true)
 
   @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;

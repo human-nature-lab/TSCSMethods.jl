@@ -1,0 +1,19 @@
+name: Format Check
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.11'
+      - name: Install JuliaFormatter
+        run: julia -e 'using Pkg; Pkg.add("JuliaFormatter")'
+      - name: Check format
+        run: julia -e 'using JuliaFormatter; exit(format(".", verbose=true) ? 0 : 1)'

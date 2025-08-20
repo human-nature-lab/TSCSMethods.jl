@@ -2,6 +2,50 @@
 
 # construction and execution
 
+"""
+    refine(
+        model::CIC, 
+        dat::DataFrame;
+        refinementnum::Int = 5, 
+        dobalance::Bool = true,
+        doestimate::Bool = true
+    ) -> RefinedCIC
+
+Refine a CIC model by keeping only the best `refinementnum` matches for each treated unit.
+
+# Arguments
+- `model::CIC`: A matched CIC model
+- `dat::DataFrame`: Input data containing all model variables
+- `refinementnum::Int`: Number of best matches to retain per treated unit (default: 5)
+- `dobalance::Bool`: Whether to perform balancing on the refined model (default: true)
+- `doestimate::Bool`: Whether to perform estimation on the refined model (default: true)
+
+# Returns
+- `RefinedCIC`: A refined version of the input model with reduced matches
+
+# Description
+Refinement improves match quality by keeping only the closest matches for each treated unit,
+based on the distance metrics computed during the matching stage. This typically improves
+covariate balance and estimation precision at the cost of statistical power.
+
+# Examples
+```julia
+# After matching a model
+model = makemodel(data, :time, :id, :treatment, :outcome, covariates, timevary, F, L)
+match!(model, data)
+
+# Refine to top 3 matches per treated unit
+refined_model = refine(model, data; refinementnum = 3)
+
+# Refine without automatic balancing and estimation
+refined_model = refine(model, data; refinementnum = 5, dobalance = false, doestimate = false)
+```
+
+# See Also
+- [`caliper`](@ref): Alternative approach using distance thresholds
+- [`match!`](@ref): Initial matching procedure
+- [`balance!`](@ref): Balance assessment
+"""
 function refine(
   model::CIC, dat;
   refinementnum = 5, dobalance = true,
