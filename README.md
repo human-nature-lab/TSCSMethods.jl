@@ -1,88 +1,83 @@
 # TSCSMethods.jl
 
-
-[![CI](https://github.com/emfeltham/TSCSMethods.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/emfeltham/TSCSMethods.jl/actions/workflows/CI.yml)
-[![Format Check](https://github.com/emfeltham/TSCSMethods.jl/actions/workflows/Format.yml/badge.svg)](https://github.com/emfeltham/TSCSMethods.jl/actions/workflows/Format.yml)
+[![CI](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/CI.yml)
+[![Documentation](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/Documentation.yml/badge.svg)](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/Documentation.yml)
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://human-nature-lab.github.io/TSCSMethods.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://human-nature-lab.github.io/TSCSMethods.jl/dev)
-[![Build Status](https://travis-ci.com/emfeltham/TSCSMethods.jl.svg?branch=master)](https://travis-ci.com/emfeltham/TSCSMethods.jl)
-[![Coverage](https://codecov.io/gh/emfeltham/TSCSMethods.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/emfeltham/TSCSMethods.jl)
 
-## Contents
+**Matching methods for causal inference with time-series cross-sectional data**
 
-- [TSCSMethods](#tscsmethods)
-  - [Contents](#contents)
-- [Overview](#overview)
-- [Repo Contents](#repo-contents)
-- [System Requirements](#system-requirements)
-  - [Hardware Requirements](#hardware-requirements)
-  - [Software Requirements](#software-requirements)
-    - [OS Requirements](#os-requirements)
-- [Installation Guide](#installation-guide)
-    - [Package dependencies](#package-dependencies)
-    - [Package Installation](#package-installation)
-- [Vignette](#vignette)
-- [Citation](#citation)
+TSCSMethods.jl implements non-parametric generalized difference-in-differences estimation with covariate matching for panel data. The package provides tools for causal inference in staggered treatment designs, where units receive treatment at different times.
 
-# Overview
+## Key Features
 
-Non-parametric generalized differences-in-differences estimation, with covariate matching.
+- **Staggered treatment designs**: Handle units treated at different times
+- **Covariate matching**: Match treated units to similar controls using time-varying covariates  
+- **Flexible time windows**: Specify pre-treatment matching periods and post-treatment estimation periods
+- **Multiple balancing strategies**: Manual and automatic covariate balancing
+- **Bootstrap inference**: Weighted block-bootstrap for uncertainty quantification
+- **Extensions**: Calipers, stratification, refinement, spillover effects
+- **Event studies**: Focus on treatment effects relative to event timing
 
-# Repo Contents
+## Quick Start
 
-- [src](./src): `julia` package code.
-- [docs](./docs): package documentation, and usage of the `TSCSMethods` package.
+```julia
+using TSCSMethods
 
-# System Requirements
+# Load example data
+data = example_data()
 
-## Hardware Requirements
+# Create model: match on 10 pre-treatment periods, estimate 5 post-treatment effects
+model = makemodel(data, :t, :id, :gub, :Y, [:X1, :X2], -10:-1, 1:5)
 
-`TSCSMethods` works on a standard computer, with sufficient RAM and processing power to support the size of the dataset analyzed by the user. This will be a computer with at least 16 GB, and 4 cores.
+# Perform matching and balancing
+match!(model)
+autobalance(model)
 
-The package was tested on a computer with 64 GB of RAM, 16 cores @ 3.4Ghz.
+# Estimate treatment effects
+estimate!(model, dobayesfactor=false)
 
-## Software Requirements
-
-### OS Requirements
-
-This package was tested on on MAC OSX 17.0. All of the underlying dependencies are compatible with Windows, Mac, and Linux systems.
-
-This package has been tested on Julia 1.7.1.
-
-# Installation Guide
-
-Julia may be installed on Mac OSX using homebrew <https://brew.sh> by executing:
-
-```shell
-brew install julia
+# View results
+model.resultsoverall.att  # Average treatment effects
 ```
 
-Otherwise, consult the Julia Language website for installation on your system <https://julialang.org/downloads/>.
+## Installation
 
-### Package dependencies
+TSCSMethods.jl requires Julia 1.9 or later. Install from the Julia REPL:
 
-Users should install the following packages prior to installing `TSCSMethods`, from within a `julia` session:
-
-```{julia}
-pkgs = ["Random", "DataFrames", "Dates", "CSV", "JLD2"]
-
-import Pkg
-for pkg in pkgs; Pkg.add(pkg) end
+```julia
+using Pkg
+Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
 ```
 
-which will install in less than 5 minutes with the recommended specs.
+## Documentation
 
-The `TSCSMethods` package functions with all packages in their latest versions as they appear on `CRAN` on March 08, 2022. The versions of all Julia package dependencies (for TSCSMethods) may be found in the "Manifest.toml" file, and are installed with the package automatically.
+- [**Tutorial**](https://human-nature-lab.github.io/TSCSMethods.jl/dev/tutorial/): Step-by-step analysis walkthrough
+- [**Methodology**](https://human-nature-lab.github.io/TSCSMethods.jl/dev/methodology/): Statistical methods and assumptions  
+- [**API Reference**](https://human-nature-lab.github.io/TSCSMethods.jl/dev/api/): Complete function documentation
 
-### Package Installation
+## Examples
 
-From within a `julia` session, type:
+See the [Jupyter notebook vignette](./vignette/vignette.ipynb) for a complete analysis example with simulated data.
 
-```{julia}
-import Pkg; Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
-```
+## Method Overview
 
-The package should take approximately 1 minute to install. 
+The package implements the matching approach from Imai et al. (2021) for time-series cross-sectional data:
+
+1. **Matching**: For each treated unit, find control units with similar covariate histories
+2. **Balancing**: Assess and improve covariate balance between treated and control groups  
+3. **Estimation**: Calculate average treatment effects using matched controls
+4. **Inference**: Bootstrap resampling for confidence intervals and significance testing
+
+This approach addresses key challenges in panel data analysis: selection bias, time-varying confounding, and temporal correlation.
+
+## System Requirements
+
+- **Julia**: 1.9 or later
+- **Memory**: 8GB+ recommended for large datasets
+- **OS**: Windows, macOS, or Linux
+
+The package automatically installs all required dependencies.
 
 ## Citation
 
@@ -101,7 +96,7 @@ If you use TSCSMethods.jl in your research, please cite:
   title={TSCSMethods.jl: Matching methods for causal inference with time-series cross-sectional data},
   author={Feltham, Eric Martin},
   year={2023},
-  url={https://github.com/emfeltham/TSCSMethods.jl}
+  url={https://github.com/human-nature-lab/TSCSMethods.jl}
 }
 ```
 
@@ -117,9 +112,12 @@ Please also cite the foundational methodology:
 }
 ```
 
+## Contributing
+
+Contributions are welcome! Please see the [documentation](https://human-nature-lab.github.io/TSCSMethods.jl/dev/) for development guidelines.
+
 ## References
 
 - Imai, K., Kim, I. S., & Wang, E. H. (2021). Matching Methods for Causal Inference with Time-Series Cross-Sectional Data. *American Journal of Political Science*.
 - Feltham, E., Forastiere, L., Alexander, M., & Christakis, N. A. (2023). Mass gatherings for political expression had no discernible association with the local course of the COVID-19 pandemic in the USA in 2020 and 2021. *Nature Human Behaviour*.
 - Kim, I. S., Ruah, A., Wang, E., & Imai, K. (2020). Insongkim/PanelMatch [R, C]. https://github.com/insongkim/PanelMatch (Original work published 2018)
-
