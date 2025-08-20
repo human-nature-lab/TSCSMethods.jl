@@ -75,7 +75,7 @@ function mahaveraging(mahas::Vector{Float64}, T, fw)
       mdist += m
     end
   end
-  return mdist * inv(accum)
+  return mdist / accum
 end
 
 function distaveraging!(
@@ -101,7 +101,7 @@ function distaveraging!(
     distances[ι][φ, m] = if accums[ι] == 0
       Inf
     else
-      distances[ι][φ, m] * inv(accums[ι])
+      distances[ι][φ, m] / accums[ι]
     end
   end
 end
@@ -130,7 +130,7 @@ function distaveraging!(
     drow[ι] = if accums[ι] == 0
       Inf
     else
-      drow[ι] * inv(accums[ι])
+      drow[ι] / accums[ι]
     end
   end
 end
@@ -163,7 +163,7 @@ function distaveraging!(
     distances[ι][φ, m] = if accums[ι] == 0
       Inf
     else
-      distances[ι][φ, m] * inv(accums[ι])
+      distances[ι][φ, m] / accums[ι]
     end
   end
 end
@@ -196,7 +196,7 @@ function distaveraging!(
     drow[ι] = if accums[ι] == 0
       Inf
     else
-      drow[ι] * inv(accums[ι])
+      drow[ι] / accums[ι]
     end
   end
 end
@@ -216,7 +216,7 @@ function mahaveraging(mahas::Vector{Union{Float64, Missing}}, T, fw)
   return if accum == 0
     Inf
   else
-    mdist * inv(accum)
+    mdist / accum
   end
 end
 
@@ -234,7 +234,7 @@ function caldistancing(Σinvdict, X, Y, T, fw, c)
   return if accum == 0
     Inf
   else
-    caldist * inv(accum)
+    caldist / accum
   end
 end
 ##

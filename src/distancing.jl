@@ -1,7 +1,42 @@
 ## distancing.jl
 
+# Thread-local storage for distance calculation working arrays
+# This eliminates repeated allocations in the hot path
+mutable struct ThreadLocalDistanceStorage
+    dtots_float::Vector{Vector{Float64}}
+    dtots_missing::Vector{Vector{Union{Float64, Missing}}}
+    accums::Vector{Int}
+    max_times::Int
+    max_covariates::Int
+end
+
+# Global thread-local storage
+const THREAD_DISTANCE_STORAGE = Vector{Union{Nothing, ThreadLocalDistanceStorage}}(nothing, Threads.nthreads())
+
+function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanceStorage
+    thread_id = Threads.threadid()
+    storage = THREAD_DISTANCE_STORAGE[thread_id]
+    
+    # Initialize or resize storage if needed
+    if storage === nothing || storage.max_times < n_times || storage.max_covariates < n_covariates
+        new_max_times = max(n_times, storage === nothing ? 0 : storage.max_times)
+        new_max_covariates = max(n_covariates, storage === nothing ? 0 : storage.max_covariates)
+        
+        storage = ThreadLocalDistanceStorage(
+            [Vector{Float64}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
+            [Vector{Union{Float64, Missing}}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
+            Vector{Int}(undef, new_max_covariates+1),
+            new_max_times,
+            new_max_covariates
+        )
+        THREAD_DISTANCE_STORAGE[thread_id] = storage
+    end
+    
+    return storage
+end
+
 function distances_allocate!(matches, flen, covnum; sliding = false)
-  Threads.@threads for i in eachindex(matches)
+  Threads.@threads :greedy for i in eachindex(matches)
   # for (i, tob) in enumerate(tobsvec)
     
     tob = @views matches[i];
@@ -46,7 +81,7 @@ function distances_calculate!(
   tg, rg, fmin, Lmin, Lmax, Σinvdict; sliding = false
 )
 
-  @inbounds Threads.@threads for i in eachindex(observations)
+  @inbounds Threads.@threads :greedy for i in eachindex(observations)
     ob = observations[i];
 
     @unpack mus, distances = matches[i];
@@ -63,29 +98,35 @@ function distances_calculate!(
     ##
 
     ## setup up for distance calculations
-    # γcs = eachcol(tg[ob]);
     γrs = eachrow(tg[ob]);
     γtimes = rg[ob];
     
-    # mahas = if Missing <: eltype(tg[ob])
-    #   Vector{Union{Float64, Missing}}(missing, length(γtimes));
-    # else
-    #   Vector{Float64}(undef, length(γtimes));
-    # end
+    # Get thread-local pre-allocated storage
+    storage = get_thread_storage(length(γtimes), length(covariates))
     
-    if Missing <: eltype(tg[ob])
-      dtots = Vector{Vector{Union{Float64, Missing}}}(undef, length(covariates)+1)
-      for h in eachindex(dtots)
-        dtots[h] = Vector{Union{Float64, Missing}}(missing, length(γtimes));
+    # Use pre-allocated arrays (resize views if needed)
+    has_missing = Missing <: eltype(tg[ob])
+    dtots = if has_missing
+      # Use missing-compatible arrays, resize to current needs
+      for h in 1:(length(covariates)+1)
+        if length(storage.dtots_missing[h]) < length(γtimes)
+          resize!(storage.dtots_missing[h], length(γtimes))
+        end
+        fill!(view(storage.dtots_missing[h], 1:length(γtimes)), missing)
       end
+      storage.dtots_missing
     else
-      dtots = Vector{Vector{Float64}}(undef, length(covariates)+1)
-      for h in eachindex(dtots)
-        dtots[h] = Vector{Float64}(undef, length(γtimes));
+      # Use Float64 arrays
+      for h in 1:(length(covariates)+1)
+        if length(storage.dtots_float[h]) < length(γtimes)
+          resize!(storage.dtots_float[h], length(γtimes))
+        end
       end
+      storage.dtots_float
     end
-
-    accums = Vector{Int}(undef, length(dtots));
+    
+    # Use pre-allocated accumulator array
+    accums = storage.accums
     ##
 
     window_distances!(
@@ -180,20 +221,6 @@ function window_distances!(
   return distances
 end
 
-# """
-# N.B. if any of the input xr or yr (the covariate values for the treated and match at some day in the covariate matching window) are missing, then the 
-# maha distance is missing.
-# """
-# function mahadistancing!(mahas, Σinvdict, xrows, yrows, T)
-#   for (xr, yr, τ, i) in zip(xrows, yrows, T, 1:length(T))
-#     Σ = get(Σinvdict, τ, nothing);
-
-#     mahas[i] = sqrt((xr - yr)' * Σ * (xr - yr));
-#     # function from Distances.jl is really slow?
-#     # mahadist += @time mahalanobis(xr, yr, Σ);
-#   end
-#   return mahas
-# end
 
 """
 N.B. if any of the input xr or yr (the covariate values for the treated and match at some day in the covariate matching window) are missing, then the 
