@@ -63,7 +63,15 @@ module TSCSMethods
   - Realistic population density and outcome variables with trends
   - Includes both time-invariant (pop_dens) and time-varying (cumul_death_rate) covariates
   """
-  function example_data(; n_units::Int = 100, n_days::Int = 90, seed::Int = 123)
+  function example_data()
+    # Load example data from CSV file
+    csv_path = joinpath(@__DIR__, "..", "vignette", "example_data.csv")
+    data = CSV.read(csv_path, DataFrame)
+    return data
+  end
+  
+  # Keep old function for backward compatibility if needed
+  function example_data_generated(; n_units::Int = 100, n_days::Int = 90, seed::Int = 123)
     Random.seed!(seed)
     
     # Date range (similar to original data)
