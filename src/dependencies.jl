@@ -2,7 +2,7 @@
 
 using LinearAlgebra:permutedims, pinv, diag, diagind
 using DataFrames, DataFramesMeta
-using StatsBase:cov,mean,std,sample
+using StatsBase:cov,mean,std,sample,sample!
 using Statistics:quantile
 using Distances:mahalanobis, weuclidean
 using Parameters

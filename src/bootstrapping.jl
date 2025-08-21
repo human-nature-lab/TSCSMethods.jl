@@ -100,9 +100,11 @@ function __boot!(
         matchunits, weightedoutcomes,
         weightedrefoutcomes, treatments
     )
-        atts[φ] += (wo + wref) * get(sampcount, munit, 0);
+        # Cache dictionary lookup to avoid repeated hash operations
+        sample_weight = get(sampcount, munit, 0)
+        atts[φ] += (wo + wref) * sample_weight
         if trted
-            tcounts[φ] += 1 * get(sampcount, munit, 0);
+            tcounts[φ] += sample_weight
         end
     end
 end
