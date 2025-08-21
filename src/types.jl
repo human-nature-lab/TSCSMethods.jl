@@ -391,3 +391,28 @@ end
 
 Base.length(bd::BalanceData) = length(bd.values)
 Base.eachindex(bd::BalanceData) = eachindex(bd.values)
+
+# Iteration interface for skipmissing and Statistics functions
+Base.iterate(bd::BalanceData) = length(bd) == 0 ? nothing : (bd[1], 1)
+Base.iterate(bd::BalanceData, state::Int) = state >= length(bd) ? nothing : (bd[state + 1], state + 1)
+
+# Size and axes for array-like behavior
+Base.size(bd::BalanceData) = size(bd.values)
+Base.axes(bd::BalanceData) = axes(bd.values)
+
+# Arithmetic operations for balance calculations
+Base.:/(bd::BalanceData, n::Number) = 
+    BalanceData(bd.values ./ n, copy(bd.is_missing))
+
+Base.:+(bd1::BalanceData, bd2::BalanceData) = 
+    BalanceData(bd1.values .+ bd2.values, bd1.is_missing .| bd2.is_missing)
+
+Base.:-(bd1::BalanceData, bd2::BalanceData) = 
+    BalanceData(bd1.values .- bd2.values, bd1.is_missing .| bd2.is_missing)
+
+Base.:*(bd::BalanceData, n::Number) = 
+    BalanceData(bd.values .* n, copy(bd.is_missing))
+
+# Support for Statistics functions
+Base.sum(bd::BalanceData) = 
+    isempty(bd.values) ? 0.0 : sum(bd.values[.!bd.is_missing])
