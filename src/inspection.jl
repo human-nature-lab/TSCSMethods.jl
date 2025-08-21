@@ -9,12 +9,12 @@ function dict_mk(dat, variable)
 end
 
 function change_pct(val, attval)
-    return 100 * attval * inv(val)
+    return 100 * attval / val
 end
 
 function pctδ(preval, ocval, attval)
     impval = ocval - attval
-    return 100 * (impval - preval) * inv(preval + impval)
+    return 100 * (impval - preval) / (preval + impval)
 end
 
 ## plotting
