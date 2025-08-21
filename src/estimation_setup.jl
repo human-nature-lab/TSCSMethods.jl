@@ -128,8 +128,8 @@ function unitstore!(
                 if e
                     k += 1
                     # matches to treated
-                    wos[k] = outcomemap[(ow, ids[i])] * -inv(matchnums[j])
-                    wrs[k] = outcomemap[(tt+reference, ids[i])] * inv(matchnums[j])
+                    wos[k] = outcomemap[(ow, ids[i])] * (-1.0 / matchnums[j])
+                    wrs[k] = outcomemap[(tt+reference, ids[i])] / matchnums[j]
                     tux[k] = tu
                     mux[k] = ids[i]
                     fux[k] = j + Fmin - 1
