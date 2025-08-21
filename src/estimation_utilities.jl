@@ -19,7 +19,7 @@ function att!(atts, tcounts, fblocks)
             weightedrefoutcomes, treatment
         )
 
-        atts[φ] = atts[φ] * inv(tcounts[φ])
+        atts[φ] = atts[φ] / tcounts[φ]
     end
 end
 
@@ -289,7 +289,7 @@ function quick_att(
     end
     
     
-    ln = Int(nrow(x) * inv(length(F)))
+    ln = Int(nrow(x) / length(F))
 
     # add the φ values, in order
     x[!, :φ] = reduce(vcat, fill(collect(F), ln))
