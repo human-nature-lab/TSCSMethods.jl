@@ -197,3 +197,22 @@ function eligibility!(
 
   return tg, rg
 end
+
+# Handle the case where there are no covariates (empty covariates array)
+function eligibility!(
+  matches, observations, cdat::Matrix{Union{}},
+  ids, treatcat,
+  dat_t, dat_id, dat_trt,
+  fmin, fmax, Lmin; exposure = nothing
+)
+  # When no covariates, create proper Float64 matrix with correct row count but 0 columns
+  # The row count should match the data length
+  n_obs = length(dat_t)
+  empty_cdat = Matrix{Float64}(undef, n_obs, 0)
+  return eligibility!(
+    matches, observations, empty_cdat,
+    ids, treatcat,
+    dat_t, dat_id, dat_trt,
+    fmin, fmax, Lmin; exposure = exposure
+  )
+end

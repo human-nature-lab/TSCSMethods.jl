@@ -26,17 +26,22 @@ function match_prexover!(
     ptx,
     h
 )
+    # Pre-compute bounds once outside conditions
+    tu_len = length(tu_trtimes)
+    mu_len = length(mu_trtimes)
+    ptx_min, ptx_max = ptx[1], ptx[2]
+    
     # (if the f wasn't blocked by post-treatment requirements)
     # match on pre-treatment xover: t+F-Fmax to t-1
-    if (h <= length(tu_trtimes)) & (h > 0)
-        if (tu_trtimes[h] >= ptx[1]) & (tu_trtimes[h] <= ptx[2]);
+    if (h <= tu_len) & (h > 0)
+        if (tu_trtimes[h] >= ptx_min) & (tu_trtimes[h] <= ptx_max);
             tu_treatments += 1
         end
     end
         
     # match on pre-treatment xover: t+F-Fmax to t-1
-    if (h <= length(mu_trtimes)) & (h > 0)
-        if (mu_trtimes[h] >= ptx[1]) & (mu_trtimes[h] <= ptx[2])
+    if (h <= mu_len) & (h > 0)
+        if (mu_trtimes[h] >= ptx_min) & (mu_trtimes[h] <= ptx_max)
             mu_treatments += 1
         end
     end
@@ -50,17 +55,22 @@ function match_prexover!(
     ptx,
     h
 )
+    # Pre-compute bounds once outside conditions
+    tu_len = length(tu_trtimes)
+    mu_len = length(mu_trtimes)
+    ptx_min, ptx_max = ptx[1], ptx[2]
+    
     # (if the f wasn't blocked by post-treatment requirements)
     # match on pre-treatment xover: t+F-Fmax to t-1
-    if (h <= length(tu_trtimes)) & (h > 0)
-        if (tu_trtimes[h] >= ptx[1]) & (tu_trtimes[h] <= ptx[2]);
+    if (h <= tu_len) & (h > 0)
+        if (tu_trtimes[h] >= ptx_min) & (tu_trtimes[h] <= ptx_max);
             tu_treatments[tu_exposures[h]] += 1
         end
     end
         
     # match on pre-treatment xover: t+F-Fmax to t-1
-    if (h <= length(mu_trtimes)) & (h > 0)
-        if (mu_trtimes[h] >= ptx[1]) & (mu_trtimes[h] <= ptx[2])
+    if (h <= mu_len) & (h > 0)
+        if (mu_trtimes[h] >= ptx_min) & (mu_trtimes[h] <= ptx_max)
             mu_treatments[mu_exposures[h]] += 1
         end
     end

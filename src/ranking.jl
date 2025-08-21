@@ -3,7 +3,7 @@
 ## ranking for the sliding window
 
 function rank!(matches, flen)
-  Threads.@threads for i in 1:length(matches)
+  Threads.@threads :greedy for i in 1:length(matches)
     tob = @views matches[i];
     rankmatches!(tob, flen)
   end
@@ -13,22 +13,16 @@ end
 function rankmatches!(tob, flen)
   @unpack mus, distances, ranks = tob;
 
-  mamat = fill(Inf, flen, size(mus)[1]); # in id order
+  # Pre-compute validity mask once
   valids = vec(sum(mus, dims = 2) .> 0);
   
   if typeof(distances) <: Matrix
-  
+    # Reuse single buffer instead of creating new one each time
     fulldist = fill(Inf, size(mus)[1]);
     _fixed_rankmatches!(ranks, fulldist, distances, mus, flen, valids);
-
   else
-    mamat[:, valids] = @views distances[1];
-    fbools = sum(mamat .> 0, dims = 2) .> 0;
-
-    _rankmatches!(
-      ranks, fbools,
-      eachrow(mamat),
-    );
+    # Streaming approach: avoid full matrix allocation
+    _streaming_rankmatches!(ranks, distances, mus, flen, valids);
   end
   
   return tob
@@ -40,24 +34,42 @@ function _rankmatches!(ranks, fbools, mamatc)
 
   for (φ, (fbool, ec)) in enumerate(zip(fbools, mamatc))
     if fbool
-      # in-place ranking
-      # ranks[φ] = StatsBase.ordinalrank(ec);
-      # ranks[φ][isinf.(ec)] .= 0; # make zero if not valid
+      # Single-pass ranking: sort indices by distance, stop at first Inf
+      sp = sortperm(ec)
+      
+      # Find first infinite value efficiently
+      last_finite_idx = 0
+      for i in 1:length(sp)
+        if isinf(ec[sp[i]])
+          break
+        end
+        last_finite_idx = i
+      end
+      
+      # Only keep finite distances
+      if last_finite_idx > 0
+        ranks[φ] = sp[1:last_finite_idx]
+      end
+    end
+  end
+  return ranks
+end
 
-      # really, we want to be able to shut off the mus easily
-      # and make it such that we get the mu elements in ranked order
-      # by simple indexing:
-      # ranks[φ] = @views mc[sortperm(ec)];
-  
-      # give indices based on ids
-      # only give valid ones
-      ranks[φ] = sortperm(ec)[1:findfirst(isinf.(ec[sortperm(ec)]))-1]
-
-      # remove impossible mus (for that f)
-      # ranks[φ][findfirst(isinf.(ec[sortperm(ec)])):end] .= 0
-        # Inf values should never be used, in any model
-      # example refinement application:
-      # ormus[1+5:end] .= 0
+function _streaming_rankmatches!(ranks, distances, mus, flen, valids)
+  # Streaming approach: process one f at a time without full matrix
+  for φ in 1:flen
+    valf = @views mus[:, φ]
+    if any(valf)
+      # Get distances for this f, only for valid matches
+      valid_and_allowed = valids .& valf
+      if any(valid_and_allowed)
+        dist_f = @views distances[1][:, 1][valid_and_allowed]  # mahalanobis col 1
+        valid_indices = findall(valid_and_allowed)
+        
+        # Single-pass ranking: sort indices by distance
+        sorted_indices = valid_indices[sortperm(dist_f)]
+        ranks[φ] = sorted_indices
+      end
     end
   end
   return ranks

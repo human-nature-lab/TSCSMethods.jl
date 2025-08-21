@@ -227,7 +227,7 @@ function fpossible_mis!(
         tx, ptx = define_xover_windows(tt, f, fmin, fmax)
         
         # bar on post-treatment match window
-        block_postxover!(rmus, tx, mutrtimes, φ)
+        block_postxover!(rmus, tx, mu_trtimes, φ)
   
         if !rmus[φ]
           # skip to next f if it is cancelled

@@ -134,15 +134,21 @@ function fpossible!(
   treatcat,
   tu_exposures, mu_exposures
 )
+  # Pre-compute exposure set once outside the loop
+  exposures = union(tu_exposures, mu_exposures)
+  
+  # Pre-allocate dictionaries once with known exposures
+  tu_treatments = Dict{Int, Int}()
+  mu_treatments = Dict{Int, Int}()
+  sizehint!(tu_treatments, length(exposures))
+  sizehint!(mu_treatments, length(exposures))
+  
   for φ in eachindex(rmus)
     f = φ + fmin - 1;
     
-    # this needs to be a dictionary now
-    # exposure => # times
-    tu_treatments = Dict{Int, Int}(); # counts for tu
-    mu_treatments = Dict{Int, Int}(); # counts for mu
-
-    exposures = union(tu_exposures, mu_exposures);
+    # Reset counts efficiently (reuse existing dictionaries)
+    empty!(tu_treatments)
+    empty!(mu_treatments)
     for e in exposures
       tu_treatments[e] = 0
       mu_treatments[e] = 0
@@ -155,7 +161,7 @@ function fpossible!(
       tx, ptx = define_xover_windows(tt, f, fmin, fmax)
         
       # bar on post-treatment match window
-      block_postxover!(rmus, tx, mutrtimes, φ)
+      block_postxover!(rmus, tx, mu_trtimes, φ)
 
       if !rmus[φ]
         # skip to next f if it is cancelled

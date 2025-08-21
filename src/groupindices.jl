@@ -67,14 +67,19 @@ function _makegroupindices(
   cdat
 )
 
-  # (tt, unit) = collect(Iterators.product(tts, uid))[1]
-  @floop for (tt, unit) in Iterators.product(tts, uid)
-    @init yesrows = Vector{Bool}(undef, length(tvec))
-    getyes!(yesrows, tvec, idvec, tt, fmax, Lmin, unit)
+  # Pre-compute length once to avoid repeated calls
+  tvec_len = length(tvec)
+  
+  # Pre-allocate thread-local buffers for modern threading
+  let products = collect(Iterators.product(tts, uid))
+    Threads.@threads :greedy for (tt, unit) in products
+      yesrows = Vector{Bool}(undef, tvec_len)
+      getyes!(yesrows, tvec, idvec, tt, fmax, Lmin, unit)
 
-    tidx[(tt, unit)] = @views cdat[yesrows, :];
-    ridx[(tt, unit)] = @views tvec[yesrows];
-    tridx[(tt, unit)] = @views treatvecbool[yesrows];
+      tidx[(tt, unit)] = @views cdat[yesrows, :];
+      ridx[(tt, unit)] = @views tvec[yesrows];
+      tridx[(tt, unit)] = @views treatvecbool[yesrows];
+    end
   end
   return tidx, ridx, tridx
 end
@@ -86,14 +91,20 @@ function _makegroupindices(
   tidx, ridx, tridx, tts, uid, fmax, Lmin, tvec, idvec, treatvecbool,
   cdat, exidx, exvec
 )
-  @floop for (tt, unit) in Iterators.product(tts, uid)
-    @init yesrows = Vector{Bool}(undef, length(tvec))
-    getyes!(yesrows, tvec, idvec, tt, fmax, Lmin, unit)
+  # Pre-compute length once to avoid repeated calls
+  tvec_len = length(tvec)
+  
+  # Pre-allocate thread-local buffers for modern threading
+  let products = collect(Iterators.product(tts, uid))
+    Threads.@threads :greedy for (tt, unit) in products
+      yesrows = Vector{Bool}(undef, tvec_len)
+      getyes!(yesrows, tvec, idvec, tt, fmax, Lmin, unit)
 
-    tidx[(tt, unit)] = @views cdat[yesrows, :];
-    ridx[(tt, unit)] = @views tvec[yesrows];
-    tridx[(tt, unit)] = @views treatvecbool[yesrows];
-    exidx[(tt, unit)] = @views exvec[yesrows];
+      tidx[(tt, unit)] = @views cdat[yesrows, :];
+      ridx[(tt, unit)] = @views tvec[yesrows];
+      tridx[(tt, unit)] = @views treatvecbool[yesrows];
+      exidx[(tt, unit)] = @views exvec[yesrows];
+    end
   end
   return tidx, ridx, tridx, exidx
 end
