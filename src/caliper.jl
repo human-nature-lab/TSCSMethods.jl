@@ -167,7 +167,7 @@ function calipervars(caliper, covariates)
 end
 
 function _fillcal!(tobscr, matches)
-  Threads.@threads for i in eachindex(matches)
+  Threads.@threads :greedy for i in eachindex(matches)
     tob = @views matches[i]
     @unpack mus, distances, ranks = tob;
 
@@ -181,7 +181,7 @@ end
 
 function _caliper!(tobscr, matches, calipers)
   
-  Threads.@threads for m in eachindex(tobscr)
+  Threads.@threads :greedy for m in eachindex(tobscr)
 
     tob = @views tobscr[m];
     @unpack distances = @views matches[m];

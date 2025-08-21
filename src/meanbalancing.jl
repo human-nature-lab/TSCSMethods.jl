@@ -91,7 +91,7 @@ function _meanbalance!(
 
   # import TSCSMethods:getfunion!
   # for i in eachindex(observations)
-  @inbounds Threads.@threads for i in eachindex(observations)
+  @inbounds Threads.@threads :greedy for i in eachindex(observations)
   
     matches_i = @views matches[i]
     @unpack mus = matches_i;

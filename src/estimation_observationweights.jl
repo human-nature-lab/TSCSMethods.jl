@@ -187,7 +187,7 @@ end
 
 function Mprocess(Mt, F, Fmin)
   Mt[!, :f] = Vector{Vector{Int}}(undef, nrow(Mt));
-  @inbounds Threads.@threads for i in 1:nrow(Mt)
+  @inbounds Threads.@threads :greedy for i in 1:nrow(Mt)
     Mt.f[i] = Mt.fbs[i] .* collect(eachindex(F)) # index since F may be 0
   end
 

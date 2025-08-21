@@ -59,7 +59,7 @@ function _balance!(
   Lσ, reference
 )
 
-  @inbounds Threads.@threads for i in eachindex(observations)
+  @inbounds Threads.@threads :greedy for i in eachindex(observations)
     balrwi = @view balances[i, :];
     ob = observations[i];
     emus = matchassignments(tobs[i], ids; returnefsets = false);

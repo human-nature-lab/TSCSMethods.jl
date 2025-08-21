@@ -14,7 +14,7 @@ Does so for the given set of treated units and matches contained
 in the fblocks.
 """
 function bootstrap!(boots, tcountmat, fblocks, ids, treatdex, iterations)
-    @inbounds Threads.@threads for b in 1:iterations
+    @inbounds Threads.@threads :greedy for b in 1:iterations
         bootcol = @views boots[:, b]
         tcountcol = @views tcountmat[:, b]
         bootatt!(bootcol, tcountcol, fblocks, ids, treatdex);

@@ -60,7 +60,7 @@ function processunits(
     Mus = Vector{Vector{Int64}}(undef, obsnum);
     Fs = Vector{Vector{Int64}}(undef, obsnum);
     
-    Threads.@threads for i in eachindex(mtchsums)
+    Threads.@threads :greedy for i in eachindex(mtchsums)
         ms = mtchsums[i]
         Wos[i] = fill(0.0, ms)
         Wrs[i] = fill(0.0, ms)
@@ -73,7 +73,7 @@ function processunits(
     # essentially, use the match.mus information
     # to find the relevant outcomes and restructure them
     # for bootstrapping & estimation
-    Threads.@threads for i in eachindex(observations)
+    Threads.@threads :greedy for i in eachindex(observations)
         (tt, tu) = observations[i]
         mtch = matches[i]
         

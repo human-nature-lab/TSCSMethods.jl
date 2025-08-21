@@ -54,7 +54,7 @@ function _meanbalance!(
 )
   
   # for i in eachindex(balrows)
-  Threads.@threads for i in eachindex(balrows)
+  Threads.@threads :greedy for i in eachindex(balrows)
     br = balrows[i];
     mr = barrows[i];
 

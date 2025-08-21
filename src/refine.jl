@@ -251,7 +251,7 @@ function _refine(model, refinementnum)
 end
 
 function _refine_assign!(tobscr, matches, refinementnum, idlen, flen)
-  Threads.@threads for i in eachindex(tobscr)
+  Threads.@threads :greedy for i in eachindex(tobscr)
     tobscr[i] = TobR(
       mus = fill(false, idlen, flen)
     )

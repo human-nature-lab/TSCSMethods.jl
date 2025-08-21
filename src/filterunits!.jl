@@ -6,7 +6,7 @@ This should probably be integrated into the match! procedure.
 (keep separate for now). (Updates ranks as well.)
 """
 function filterunits!(m, omap)
-    Threads.@threads for i in eachindex(m.observations)
+    Threads.@threads :greedy for i in eachindex(m.observations)
         (tt, tu) = m.observations[i]
 
         _filterunits!(
