@@ -2,8 +2,8 @@
 
 using LinearAlgebra:permutedims, pinv, diag, diagind
 using DataFrames, DataFramesMeta
-using StatsBase:cov,mean,std,sample,sample!
-using Statistics:quantile
+using StatsBase:cov,std,sample,sample!
+using Statistics:quantile,mean
 using Distances:mahalanobis, weuclidean
 using Parameters
 using Accessors:@set,@reset

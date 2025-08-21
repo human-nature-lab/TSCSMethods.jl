@@ -358,36 +358,78 @@ struct Fblock
 end
 
 """
-    BalanceData
+    MissingData{T}
 
-Efficient storage for balance computation data with separate arrays for values and missing indicators.
-This replaces Vector{Union{Missing, Float64}} with better performance and memory pooling capability.
+Efficient storage for data with missing values using separate arrays for values and missing indicators.
+This replaces Vector{Union{Missing, T}} with better performance and memory pooling capability.
 """
-struct BalanceData
-    values::Vector{Float64}
+struct MissingData{T}
+    values::Vector{T}
     is_missing::BitVector
 end
 
-# Constructor that mimics the old Vector{Union{Missing, Float64}} interface
-function BalanceData(size::Int, fill_missing::Bool = true)
-    values = Vector{Float64}(undef, size)
+# Type aliases for clarity
+const BalanceData = MissingData{Float64}
+const DistanceData = MissingData{Float64}
+
+# Constructor that mimics the old Vector{Union{Missing, T}} interface
+function MissingData{T}(size::Int, fill_missing::Bool = true) where T
+    values = Vector{T}(undef, size)
     is_missing = BitVector(undef, size)
     if fill_missing
         fill!(is_missing, true)  # Start with all missing
     end
-    return BalanceData(values, is_missing)
+    return MissingData{T}(values, is_missing)
 end
 
+# Convenience constructors for type aliases (use generic constructor)
+# Note: Using function definitions to avoid method overwriting during precompilation
+
 # Indexing interface to maintain compatibility
-Base.getindex(bd::BalanceData, i::Int) = bd.is_missing[i] ? missing : bd.values[i]
-function Base.setindex!(bd::BalanceData, val::Union{Missing, Float64}, i::Int)
+Base.getindex(md::MissingData{T}, i::Int) where T = md.is_missing[i] ? missing : md.values[i]
+function Base.setindex!(md::MissingData{T}, val::Union{Missing, T}, i::Int) where T
     if ismissing(val)
-        bd.is_missing[i] = true
+        md.is_missing[i] = true
     else
-        bd.is_missing[i] = false
-        bd.values[i] = val
+        md.is_missing[i] = false
+        md.values[i] = val
     end
 end
 
-Base.length(bd::BalanceData) = length(bd.values)
-Base.eachindex(bd::BalanceData) = eachindex(bd.values)
+Base.length(md::MissingData) = length(md.values)
+Base.eachindex(md::MissingData) = eachindex(md.values)
+
+# Iteration interface - critical for skipmissing and other operations
+Base.iterate(md::MissingData) = length(md) == 0 ? nothing : (md[1], 1)
+Base.iterate(md::MissingData, state::Int) = state >= length(md) ? nothing : (md[state + 1], state + 1)
+
+# Size and axes for array-like behavior
+Base.size(md::MissingData) = size(md.values)
+Base.axes(md::MissingData) = axes(md.values)
+
+# Arithmetic operations needed for Statistics functions
+Base.:/(md::MissingData{T}, n::Number) where T = 
+    MissingData{T}(md.values ./ n, copy(md.is_missing))
+
+Base.:+(md1::MissingData{T}, md2::MissingData{T}) where T = 
+    MissingData{T}(md1.values .+ md2.values, md1.is_missing .| md2.is_missing)
+
+Base.:-(md1::MissingData{T}, md2::MissingData{T}) where T = 
+    MissingData{T}(md1.values .- md2.values, md1.is_missing .| md2.is_missing)
+
+Base.:*(md::MissingData{T}, n::Number) where T = 
+    MissingData{T}(md.values .* n, copy(md.is_missing))
+
+Base.zero(::Type{MissingData{T}}) where T = 
+    MissingData{T}(T[], BitVector())
+
+# Support for sum and mean operations
+Base.sum(md::MissingData{T}) where T = 
+    isempty(md.values) ? zero(T) : sum(md.values[.!md.is_missing])
+
+# Mean function (will be extended in overallbalancing.jl where Statistics is available)
+function _missing_data_mean(md::MissingData{T}) where T
+    valid_indices = .!md.is_missing
+    n_valid = sum(valid_indices)
+    n_valid == 0 ? convert(T, NaN) : sum(md.values[valid_indices]) / n_valid
+end

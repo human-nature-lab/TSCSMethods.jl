@@ -117,5 +117,15 @@ function _grandbalance(covec, Len)
 end
 
 function _grandbalance(covec)
-  return mean(skipmissing(reduce(vcat, covec)))
+  # Handle MissingData specially  
+  if eltype(covec) <: MissingData
+    all_values = Float64[]
+    for md in covec
+      valid_indices = .!md.is_missing
+      append!(all_values, md.values[valid_indices])
+    end
+    return isempty(all_values) ? NaN : mean(all_values)
+  else
+    return mean(skipmissing(reduce(vcat, covec)))
+  end
 end

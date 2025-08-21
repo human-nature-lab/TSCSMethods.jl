@@ -1,5 +1,55 @@
 # distancing_utilities.jl
 
+# Buffer pools for DistanceData optimization
+const DISTANCE_FLOAT_POOL = Ref{Union{Nothing, Channel{Vector{Float64}}}}(nothing)
+const DISTANCE_BIT_POOL = Ref{Union{Nothing, Channel{BitVector}}}(nothing)
+
+function __init_distance_pools__()
+    if DISTANCE_FLOAT_POOL[] === nothing
+        pool = Channel{Vector{Float64}}(Threads.nthreads() * 4)
+        for _ in 1:(Threads.nthreads() * 4)
+            put!(pool, Vector{Float64}(undef, 200))  # Conservative max size for distance computation
+        end
+        DISTANCE_FLOAT_POOL[] = pool
+    end
+    
+    if DISTANCE_BIT_POOL[] === nothing
+        pool = Channel{BitVector}(Threads.nthreads() * 4)
+        for _ in 1:(Threads.nthreads() * 4)
+            put!(pool, BitVector(undef, 200))
+        end
+        DISTANCE_BIT_POOL[] = pool
+    end
+end
+
+function get_distance_data(size::Int, fill_missing::Bool = true)
+    __init_distance_pools__()
+    
+    if size > 200 || !isready(DISTANCE_FLOAT_POOL[]) || !isready(DISTANCE_BIT_POOL[])
+        # Pool empty or size too large, allocate directly
+        return DistanceData(size, fill_missing), false
+    end
+    
+    values = take!(DISTANCE_FLOAT_POOL[])
+    is_missing = take!(DISTANCE_BIT_POOL[])
+    
+    resize!(values, size)
+    resize!(is_missing, size)
+    
+    if fill_missing
+        fill!(is_missing, true)
+    end
+    
+    return DistanceData(values, is_missing), true
+end
+
+function return_distance_data(dd::DistanceData, is_pooled::Bool)
+    if is_pooled && length(dd) <= 200
+        put!(DISTANCE_FLOAT_POOL[], dd.values)
+        put!(DISTANCE_BIT_POOL[], dd.is_missing)
+    end
+end
+
 ## covariance calculations for mahalanobis distance matching
 
 function samplecovar(

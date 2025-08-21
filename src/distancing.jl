@@ -44,7 +44,7 @@ The same distance calculations are performed, just using recycled memory.
 # Thread-local storage for distance calculation working arrays
 mutable struct ThreadLocalDistanceStorage
     dtots_float::Vector{Vector{Float64}}           # For pure Float64 data
-    dtots_missing::Vector{Vector{Union{Float64, Missing}}}  # For data with missing values
+    dtots_missing::Vector{DistanceData}            # For data with missing values (optimized)
     accums::Vector{Int}                            # Accumulator array for counting
     max_times::Int                                 # Maximum time periods stored
     max_covariates::Int                           # Maximum covariates stored
@@ -98,7 +98,7 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
         # First time initialization for this task
         TASK_DISTANCE_STORAGE[task_key] = ThreadLocalDistanceStorage(
             [Vector{Float64}(undef, n_times) for _ in 1:(n_covariates+1)],
-            [Vector{Union{Float64, Missing}}(undef, n_times) for _ in 1:(n_covariates+1)],
+            [DistanceData(n_times, true) for _ in 1:(n_covariates+1)],
             Vector{Int}(undef, n_covariates+1),
             n_times,
             n_covariates
@@ -117,7 +117,7 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
         new_key = (current_task(), new_max_times, new_max_covariates)
         TASK_DISTANCE_STORAGE[new_key] = ThreadLocalDistanceStorage(
             [Vector{Float64}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
-            [Vector{Union{Float64, Missing}}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
+            [DistanceData(new_max_times, true) for _ in 1:(new_max_covariates+1)],
             Vector{Int}(undef, new_max_covariates+1),
             new_max_times,
             new_max_covariates
