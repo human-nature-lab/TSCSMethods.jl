@@ -11,6 +11,7 @@ using FLoops
 using Random
 using Dates
 import JLD2:save_object,load_object
+import CSV
 
 # Optional R dependency for Bayesian factors (disabled by default)
 # using RCall
