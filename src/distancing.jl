@@ -50,10 +50,9 @@ mutable struct ThreadLocalDistanceStorage
     max_covariates::Int                           # Maximum covariates stored
 end
 
-# Global thread-local storage - one per thread to avoid contention
-# TYPE STABILITY: Use separate tracking instead of Union{Nothing, ...}
-const THREAD_DISTANCE_STORAGE = Vector{ThreadLocalDistanceStorage}(undef, Threads.nthreads())
-const THREAD_STORAGE_INITIALIZED = Vector{Bool}(fill(false, Threads.nthreads()))
+# Modern task-local storage - avoid deprecated threadid() pattern
+# Each task gets its own storage automatically
+const TASK_DISTANCE_STORAGE = Dict{Any, ThreadLocalDistanceStorage}()
 
 """
     get_thread_storage(n_times::Int, n_covariates::Int) -> ThreadLocalDistanceStorage
@@ -61,8 +60,8 @@ const THREAD_STORAGE_INITIALIZED = Vector{Bool}(fill(false, Threads.nthreads()))
 Get or create thread-local storage for distance calculations.
 
 # Algorithm
-1. **Thread Identification**: Get current thread ID
-2. **Storage Check**: Check if storage exists and is large enough
+1. **Task Identification**: Get current task (modern alternative to deprecated threadid())
+2. **Storage Check**: Check if storage exists and is large enough for this task
 3. **Resize/Create**: If needed, create new storage with sufficient capacity
 4. **Return**: Provide storage for immediate use
 
@@ -73,9 +72,10 @@ Get or create thread-local storage for distance calculations.
 # Returns
 - `ThreadLocalDistanceStorage`: Pre-allocated arrays ready for use
 
-# Thread Safety
-Each thread maintains independent storage, preventing race conditions while
-maximizing memory reuse within each thread.
+# Task Safety
+Uses modern task-local storage instead of deprecated Threads.threadid().
+Each task maintains independent storage, preventing race conditions while
+maximizing memory reuse and providing better composability.
 """
 function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanceStorage
     # Input validation
@@ -89,38 +89,40 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
         @warn "Large n_times ($n_times) may cause excessive memory usage"
     end
     
-    thread_id = Threads.threadid()
+    # Modern task-local storage - avoid deprecated threadid()
+    # Include dimensions in key to avoid size conflicts between different calls
+    task_key = (current_task(), n_times, n_covariates)
     
-    # TYPE STABILITY: Check initialization flag instead of testing for nothing
-    if !THREAD_STORAGE_INITIALIZED[thread_id]
-        # First time initialization for this thread
-        THREAD_DISTANCE_STORAGE[thread_id] = ThreadLocalDistanceStorage(
+    # Get or create storage for this task with these specific dimensions
+    if !haskey(TASK_DISTANCE_STORAGE, task_key)
+        # First time initialization for this task
+        TASK_DISTANCE_STORAGE[task_key] = ThreadLocalDistanceStorage(
             [Vector{Float64}(undef, n_times) for _ in 1:(n_covariates+1)],
             [Vector{Union{Float64, Missing}}(undef, n_times) for _ in 1:(n_covariates+1)],
             Vector{Int}(undef, n_covariates+1),
             n_times,
             n_covariates
         )
-        THREAD_STORAGE_INITIALIZED[thread_id] = true
-        return THREAD_DISTANCE_STORAGE[thread_id]
+        return TASK_DISTANCE_STORAGE[task_key]
     end
     
-    storage = THREAD_DISTANCE_STORAGE[thread_id]
+    storage = TASK_DISTANCE_STORAGE[task_key]
     
     # Resize storage if needed
     if storage.max_times < n_times || storage.max_covariates < n_covariates
         new_max_times = max(n_times, storage.max_times)
         new_max_covariates = max(n_covariates, storage.max_covariates)
         
-        # Update existing storage with larger arrays
-        THREAD_DISTANCE_STORAGE[thread_id] = ThreadLocalDistanceStorage(
+        # Create new storage with larger dimensions and updated key
+        new_key = (current_task(), new_max_times, new_max_covariates)
+        TASK_DISTANCE_STORAGE[new_key] = ThreadLocalDistanceStorage(
             [Vector{Float64}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
             [Vector{Union{Float64, Missing}}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
             Vector{Int}(undef, new_max_covariates+1),
             new_max_times,
             new_max_covariates
         )
-        return THREAD_DISTANCE_STORAGE[thread_id]
+        return TASK_DISTANCE_STORAGE[new_key]
     end
     
     # Storage is adequate, return as-is
