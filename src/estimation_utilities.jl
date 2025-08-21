@@ -55,10 +55,18 @@ function bootinfo!(res, boots; qtiles = [0.025, 0.5, 0.975])
     res[!, qn] = Vector{Float64}(undef, nrow(res))
   end
   
+  # Pre-allocate working array for sorting (reused across rows)
+  sort_buffer = Vector{Float64}(undef, size(boots, 2))
+  
   for (c, r) in enumerate(eachrow(res))
-    r[qnmes] = quantile(boots[c, :], qtiles)
-    r[:mean] = mean(boots[c, :])
-    r[:pvalue] = pvalue(boots[c, :]; nullval = 0.0)
+    # Copy row data to buffer and sort once
+    copyto!(sort_buffer, @view boots[c, :])
+    sort!(sort_buffer)
+    
+    # Compute quantiles from sorted data (faster than quantile())
+    r[qnmes] = _fast_quantiles(sort_buffer, qtiles)
+    r[:mean] = mean(@view boots[c, :])
+    r[:pvalue] = pvalue(@view boots[c, :]; nullval = 0.0)
   end
   return res
 end
@@ -80,9 +88,17 @@ function bootinfo!(res, oc, boots; qtiles = [0.025, 0.5, 0.975])
     res[!, qn] = Vector{Float64}(undef, nrow(res))
   end
   
+  # Pre-allocate working array for sorting (reused across rows)
+  sort_buffer = Vector{Float64}(undef, size(boots, 2))
+  
   for (c, r) in enumerate(eachrow(res))
-    r[qnmes] = quantile(boots[c, :], qtiles)
-    r[barname] = mean(boots[c, :])
+    # Copy row data to buffer and sort once
+    copyto!(sort_buffer, @view boots[c, :])
+    sort!(sort_buffer)
+    
+    # Compute quantiles from sorted data
+    r[qnmes] = _fast_quantiles(sort_buffer, qtiles)
+    r[barname] = mean(@view boots[c, :])
   end
   return res
 end
@@ -91,6 +107,36 @@ function pvalue(boot; nullval = 0.0)
     
   hp = mean(boot .> nullval) + 0.5 * mean(boot == nullval)
   return 2 * min(hp, 1 - hp)
+end
+
+"""
+Fast quantile computation from pre-sorted data
+"""
+function _fast_quantiles(sorted_data::Vector{Float64}, qtiles::Vector{Float64})
+    n = length(sorted_data)
+    result = Vector{Float64}(undef, length(qtiles))
+    
+    for (i, q) in enumerate(qtiles)
+        if q == 0.0
+            result[i] = sorted_data[1]
+        elseif q == 1.0
+            result[i] = sorted_data[end]
+        else
+            # Linear interpolation between indices
+            idx = 1 + (n - 1) * q
+            idx_floor = floor(Int, idx)
+            idx_ceil = min(idx_floor + 1, n)
+            
+            if idx_floor == idx_ceil
+                result[i] = sorted_data[idx_floor]
+            else
+                weight = idx - idx_floor
+                result[i] = (1 - weight) * sorted_data[idx_floor] + weight * sorted_data[idx_ceil]
+            end
+        end
+    end
+    
+    return result
 end
 
 function applyunitcounts!(model)
