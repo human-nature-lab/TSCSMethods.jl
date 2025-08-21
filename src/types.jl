@@ -356,3 +356,38 @@ struct Fblock
     weightedrefoutcomes::Vector{Float64}
     treatment::Vector{Bool}
 end
+
+"""
+    BalanceData
+
+Efficient storage for balance computation data with separate arrays for values and missing indicators.
+This replaces Vector{Union{Missing, Float64}} with better performance and memory pooling capability.
+"""
+struct BalanceData
+    values::Vector{Float64}
+    is_missing::BitVector
+end
+
+# Constructor that mimics the old Vector{Union{Missing, Float64}} interface
+function BalanceData(size::Int, fill_missing::Bool = true)
+    values = Vector{Float64}(undef, size)
+    is_missing = BitVector(undef, size)
+    if fill_missing
+        fill!(is_missing, true)  # Start with all missing
+    end
+    return BalanceData(values, is_missing)
+end
+
+# Indexing interface to maintain compatibility
+Base.getindex(bd::BalanceData, i::Int) = bd.is_missing[i] ? missing : bd.values[i]
+function Base.setindex!(bd::BalanceData, val::Union{Missing, Float64}, i::Int)
+    if ismissing(val)
+        bd.is_missing[i] = true
+    else
+        bd.is_missing[i] = false
+        bd.values[i] = val
+    end
+end
+
+Base.length(bd::BalanceData) = length(bd.values)
+Base.eachindex(bd::BalanceData) = eachindex(bd.values)

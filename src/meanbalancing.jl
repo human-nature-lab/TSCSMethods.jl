@@ -283,21 +283,24 @@ function _meanmatch!(balrw, covariates, efsum)
 end
 
 function __meanmatch!(
-  balrwcovar::Vector{Vector{Union{Missing, Float64}}},
+  balrwcovar::Vector{BalanceData},
   efsum
 )
-
   for (φ, balφ) in enumerate(balrwcovar)
     for μ in eachindex(balφ)
-      balφ[μ] = balφ[μ] / efsum[φ]
+      if !balφ.is_missing[μ]
+        balφ.values[μ] = balφ.values[μ] / efsum[φ]
+      end
     end
   end
   return balrwcovar
 end
 
-function __meanmatch!(balrwcovar::Vector{Union{Missing, Float64}}, efsum)
+function __meanmatch!(balrwcovar::BalanceData, efsum)
   for μ in eachindex(balrwcovar)
-    balrwcovar[μ] = balrwcovar[μ] / efsum[μ]
+    if !balrwcovar.is_missing[μ]
+      balrwcovar.values[μ] = balrwcovar.values[μ] / efsum[μ]
+    end
   end
   return balrwcovar
 end
