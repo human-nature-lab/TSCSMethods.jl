@@ -1,20 +1,58 @@
 # inspection.jl
 
-function dict_mk(dat, variable)
-    odict = Dict{Tuple, Union{Float64, Missing}}();
-    for r in eachrow(dat)
-        odict[(r.running, r.fips)] = r[variable]
-    end
-    return odict
-end
-
 function change_pct(val, attval)
     return 100 * attval / val
 end
 
-function pctδ(preval, ocval, attval)
-    impval = ocval - attval
-    return 100 * (impval - preval) / (preval + impval)
+function inspection(model, fpth_oe)
+    ares, mcd_pre, tcd_pre, d_gb = impute_results(model, dat);
+    oe = load_object(fpth_oe);
+    if typeof(oe) <: Dict
+        oe = oe[1]
+    end
+
+    fig = figure_6(ares, oe, objet.refcalmodel.outcome)
+    return fig, ares, oe, mcd_pre, tcd_pre, d_gb
+end
+
+function inspection(m, matches, overallestimate, dat, tvar)
+    ares, mcd_pre, tcd_pre = impute_results(m, matches, dat, tvar);
+    if typeof(overallestimate) <: Dict
+        overallestimate = overallestimate[1]
+    end
+
+    return ares, mcd_pre, tcd_pre
+end
+
+function pretreatment(matches, oc)
+    matches[!, :pretreat] = [collect(1:20) for _ in 1:nrow(matches)]
+    for r in eachrow(matches)
+      for i in eachindex(r[:pretreat])
+        r[:pretreat][i] = r[:timetreated] - r[:pretreat][i]
+      end
+    end
+  
+    return @chain matches begin
+      select([:matchunits, :pretreat])
+      flatten(:matchunits)
+      flatten(:pretreat)
+      unique([:matchunits, :pretreat])
+      @subset(:pretreat .>= 0)
+      leftjoin(dat, on = [:matchunits => :fips, :pretreat => :running])
+      groupby(:matchunits)
+      combine(
+        oc => std => :std,
+        oc => var => :var,
+        oc => mean => :mean,
+        oc => median => :median,
+      )
+      combine(
+        :std => mean => :mean_std,
+        :std => median => :median_std,
+        :mean => mean => :mean,
+        :median => median => :median,
+      )
+    end
 end
 
 ## plotting
@@ -28,6 +66,14 @@ end
 function fill_att!(ax2, t, dm; msize = 8)
     scatter!(ax2, t, dm[!, :att], color = :black, markersize= msize)
     rangebars!(ax2, t, dm[!, Symbol("2.5%")], dm[!, Symbol("97.5%")])
+end
+
+function plot_inspection(
+    ares, overallestimate, outcome;
+    stratum = 1,
+    plot_pct = false
+)
+    return figure_6(ares, overallestimate, outcome, stratum; plot_pct)
 end
 
 function figure_6(dm, overallestimate, oc, stratum; msize = 8, plot_pct = false)
@@ -136,10 +182,6 @@ function figure_6(dm, overallestimate, oc, stratum; msize = 8, plot_pct = false)
     return fig
 end
 
-## balance
-
-## balance
-
 function fill_baxis!(bax, d_gb, t)
     for (k, v) in sort(d_gb[1])
         bl = if typeof(v) <: Vector
@@ -167,74 +209,4 @@ function model_balance_plot(d_gb)
     bax.xticks = (1:5:30, string.(collect(-30:5:-1)))
 
     return bfig
-end
-
-###
-
-function inspection(fpth, fpth_oe)
-    # fpth = death_rte_models[1]
-    # fpth_oe = oe_death_rte[1]
-    objet = load_object(fpth);
-    ares, mcd_pre, tcd_pre, d_gb = impute_results(objet, dat);
-    oe = load_object(fpth_oe);
-    if typeof(oe) <: Dict
-        oe = oe[1]
-    end
-
-    fig = figure_6(ares, oe, objet.refcalmodel.outcome)
-    save(split(fpth, ".jld2")[1] * ".svg", fig)
-    return fig, ares, oe, mcd_pre, tcd_pre, d_gb
-end
-
-function inspection(m, matches, overallestimate, dat, tvar)
-
-    ares, mcd_pre, tcd_pre = impute_results(m, matches, dat, tvar);
-    if typeof(overallestimate) <: Dict
-        overallestimate = overallestimate[1]
-    end
-
-    return ares, mcd_pre, tcd_pre
-end
-
-function plot_inspection(
-    ares, overallestimate, outcome;
-    stratum = 1, spth = nothing,
-    plot_pct = false
-)
-    fig = figure_6(ares, overallestimate, outcome, stratum; plot_pct = plot_pct)
-    if !isnothing(spth)
-        save(split(spth, ".jld2")[1] * ".svg", fig)
-    end
-    return fig
-end
-
-function pretreatment(matches, oc)
-    matches[!, :pretreat] = [collect(1:20) for _ in 1:nrow(matches)]
-    for r in eachrow(matches)
-      for i in eachindex(r[:pretreat])
-        r[:pretreat][i] = r[:timetreated] - r[:pretreat][i]
-      end
-    end
-  
-    return @chain matches begin
-      select([:matchunits, :pretreat])
-      flatten(:matchunits)
-      flatten(:pretreat)
-      unique([:matchunits, :pretreat])
-      @subset(:pretreat .>= 0)
-      leftjoin(dat, on = [:matchunits => :fips, :pretreat => :running])
-      groupby(:matchunits)
-      combine(
-        oc => std => :std,
-        oc => var => :var,
-        oc => mean => :mean,
-        oc => median => :median,
-      )
-      combine(
-        :std => mean => :mean_std,
-        :std => median => :median_std,
-        :mean => mean => :mean,
-        :median => median => :median,
-      )
-    end
 end
