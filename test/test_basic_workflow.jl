@@ -5,7 +5,7 @@
         
         # Use example data that should work with the package
         @testset "Data Generation and Validation" begin
-            data = example_data(n_units=15, n_days=50, seed=42)
+            data = example_data_generated(n_units=15, n_days=50, seed=42)
             
             @test nrow(data) > 0
             @test ncol(data) >= 6
@@ -22,7 +22,7 @@
         end
         
         @testset "Model Construction" begin
-            data = example_data(n_units=15, n_days=50, seed=42)
+            data = example_data_generated(n_units=15, n_days=50, seed=42)
             
             # Use conservative time periods that should work
             model = makemodel(
@@ -43,7 +43,7 @@
         end
         
         @testset "Matching Step" begin
-            data = example_data(n_units=15, n_days=50, seed=42)
+            data = example_data_generated(n_units=15, n_days=50, seed=42)
             model = makemodel(
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens],
@@ -65,7 +65,7 @@
             # Test that we can at least construct and match successfully
             # This validates the core user workflow even if balancing has issues
             
-            data = example_data(n_units=10, n_days=40, seed=123)
+            data = example_data_generated(n_units=10, n_days=40, seed=123)
             
             # Simple, working example
             model = makemodel(
@@ -109,7 +109,7 @@
             )
             
             # Mismatched timevary dict should be caught
-            data = example_data(n_units=5, n_days=20, seed=1)
+            data = example_data_generated(n_units=5, n_days=20, seed=1)
             @test_throws ArgumentError makemodel(
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens], Dict(:wrong_var => false),  # Mismatched key
@@ -124,7 +124,7 @@
         
         @testset "Function Accessibility" begin
             # Test that key functions are accessible and callable
-            data = example_data(n_units=5, n_days=20, seed=99)
+            data = example_data_generated(n_units=5, n_days=20, seed=99)
             
             # These should be available functions
             @test isa(makemodel, Function)

@@ -5,7 +5,7 @@
         
         # Step 1: Generate realistic input data
         @testset "Data Preparation" begin
-            data = example_data(n_units=50, n_days=80, seed=123)
+            data = example_data_generated(n_units=50, n_days=80, seed=123)
             
             @test nrow(data) == 50 * 80
             @test ncol(data) >= 6  # Minimum required columns
@@ -23,7 +23,7 @@
         
         # Step 2: Model Construction
         @testset "Model Construction" begin
-            data = example_data(n_units=30, n_days=60, seed=456)
+            data = example_data_generated(n_units=30, n_days=60, seed=456)
             
             # Define analysis parameters
             matching_covariates = [:pop_dens, :cumul_death_rate]
@@ -51,7 +51,7 @@
         
         # Step 3: Complete Workflow - Match → Balance → Estimate
         @testset "Full Analysis Workflow" begin
-            data = example_data(n_units=25, n_days=70, seed=789)
+            data = example_data_generated(n_units=25, n_days=70, seed=789)
             
             # Build model
             model = makemodel(
@@ -83,7 +83,7 @@
         
         # Step 4: Refinement Workflow
         @testset "Refinement Workflow" begin
-            data = example_data(n_units=20, n_days=50, seed=101112)
+            data = example_data_generated(n_units=20, n_days=50, seed=101112)
             
             # Base model
             base_model = makemodel(
@@ -109,7 +109,7 @@
         
         # Step 5: Caliper Workflow  
         @testset "Caliper Workflow" begin
-            data = example_data(n_units=15, n_days=40, seed=131415)
+            data = example_data_generated(n_units=15, n_days=40, seed=131415)
             
             # Base model
             base_model = makemodel(
@@ -134,7 +134,7 @@
         
         # Step 6: Autobalance Workflow (the full automated approach)
         @testset "Autobalance Workflow" begin
-            data = example_data(n_units=20, n_days=60, seed=161718)
+            data = example_data_generated(n_units=20, n_days=60, seed=161718)
             
             # Base model
             model = makemodel(
@@ -167,7 +167,7 @@
         @testset "Researcher Workflow Simulation" begin
             # Step 1: Load/generate data
             println("📊 Researcher loads data...")
-            research_data = example_data(n_units=40, n_days=90, seed=192021)
+            research_data = example_data_generated(n_units=40, n_days=90, seed=192021)
             
             # Step 2: Explore data structure
             println("🔍 Researcher explores data structure...")
@@ -247,7 +247,7 @@
         # Test workflow with problematic data
         @testset "Workflow Error Recovery" begin
             # Test with minimal data
-            minimal_data = example_data(n_units=5, n_days=20, seed=222324)
+            minimal_data = example_data_generated(n_units=5, n_days=20, seed=222324)
             
             model = makemodel(
                 minimal_data, :day, :fips, :gub, :death_rte,

@@ -6,92 +6,84 @@ using Random
 using DataFrames
 using Statistics
 using TSCSMethods
-include("data_generation.jl")
 
-@testset "Statistical Correctness" begin
-    
-    println("🧪 CRITICAL: Testing statistical correctness with known ground truth")
-    println("   This validates that TSCSMethods produces correct causal estimates")
+using TSCSMethods: generate_simple_tscs, generate_realistic_tscs
+
+@testset "Statistical Correctness (CRITICAL TEST)" begin
+    # CRITICAL: Testing statistical correctness with known ground truth
+    # This validates that TSCSMethods produces correct causal estimates")
     
     @testset "ATT Unbiasedness - Core Validation" begin
-        println("\n📊 Testing ATT unbiasedness: Can we recover known treatment effects?")
+        # Testing ATT unbiasedness: Can we recover known treatment effects?
         
         @testset "Zero Effect (Placebo Test)" begin
             true_att = 0.0
             estimates = Float64[]
             n_reps = 50  # Start with smaller number for speed
             
-            println("   Testing true ATT = $true_att with $n_reps replications...")
+            # Testing true ATT = $true_att with $n_reps replications...
             
             for rep in 1:n_reps
-                try
-                    # Generate data with known zero effect
-                    # Treatment occurs periods 50-79 (duration=30), so we need:
-                    # - L windows BEFORE period 50 (pre-treatment matching)
-                    # - F windows AFTER period 79 (post-treatment outcomes)
-                    data = generate_simple_tscs(
-                        true_att = true_att,
-                        n_units = 60,
-                        n_periods = 120,  # Extended to accommodate F windows after treatment
-                        treatment_period = 50,  # Treatment starts at period 50
-                        treatment_duration = 30,  # Treatment ends at period 79
-                        n_treated = 15,
-                        seed = rep
-                    )
-                    
-                    # Add a dummy covariate since package requires at least one
-                    # This is pure noise that shouldn't bias the ATT estimate
-                    data.dummy_covar = randn(nrow(data))
-                    
-                    # Run the full analysis pipeline
-                    timevary = Dict{Symbol, Bool}(:dummy_covar => false)  # Time-invariant dummy
-                    model = makemodel(
-                        data, :time_period, :unit_id, :treatment, :outcome,
-                        [:dummy_covar],  # Include dummy covariate
-                        timevary,
-                        1:10,      # F: 1-10 days AFTER treatment ends (periods 80-89)
-                        -20:-5     # L: 20-5 days BEFORE treatment starts (periods 30-45)
-                    )
-                    
-                    match!(model, data)
-                    estimate!(model, data)
-                    
-                    # Extract ATT estimate from results DataFrame
-                    att_estimate = model.results.att[1]  # First row of att column  # First row, att column
-                    push!(estimates, att_estimate)
-                    
-                catch e
-                    @warn "Replication $rep failed: $e"
-                    # Continue with other replications
-                end
+
+                # Generate data with known zero effect
+                # Treatment occurs periods 50-79 (duration=30), so we need:
+                # - L windows BEFORE period 50 (pre-treatment matching)
+                # - F windows AFTER period 79 (post-treatment outcomes)
+                data = generate_simple_tscs(
+                    true_att = true_att,
+                    n_units = 60,
+                    n_periods = 120,  # Extended to accommodate F windows after treatment
+                    treatment_period = 50,  # Treatment starts at period 50
+                    treatment_duration = 30,  # Treatment ends at period 79
+                    n_treated = 15,
+                    seed = rep
+                )
+                
+                # Add a dummy covariate since package requires at least one
+                # This is pure noise that shouldn't bias the ATT estimate
+                data.dummy_covar = randn(nrow(data))
+                
+                # Run the full analysis pipeline
+                timevary = Dict{Symbol, Bool}(:dummy_covar => false)  # Time-invariant dummy
+                model = makemodel(
+                    data, :time_period, :unit_id, :treatment, :outcome,
+                    [:dummy_covar],  # Include dummy covariate
+                    timevary,
+                    1:10,      # F: 1-10 days AFTER treatment ends (periods 80-89)
+                    -20:-5     # L: 20-5 days BEFORE treatment starts (periods 30-45)
+                )
+                
+                match!(model, data)
+                estimate!(model, data)
+                
+                # Extract ATT estimate from results DataFrame
+                att_estimate = model.results.att[1]  # First row of att column  # First row, att column
+                push!(estimates, att_estimate)
             end
             
             if length(estimates) > 0
                 bias = mean(estimates) - true_att
                 rmse = sqrt(mean((estimates .- true_att).^2))
                 
-                println("     Results: bias = $(round(bias, digits=4)), RMSE = $(round(rmse, digits=4))")
-                println("     Estimates range: [$(round(minimum(estimates), digits=3)), $(round(maximum(estimates), digits=3))]")
+                # Results: bias = $(round(bias, digits=4)), RMSE = $(round(rmse, digits=4))
+                # Estimates range: [$(round(minimum(estimates), digits=3)), $(round(maximum(estimates), digits=3))]
                 
                 # Core unbiasedness test
                 @test abs(bias) < 0.15  # Bias should be small for zero effect
                 @test rmse < 1.0        # RMSE should be reasonable
                 @test length(estimates) >= 40  # Most replications should succeed
-                
-                println("     ✅ Zero effect test PASSED")
             else
-                @test false  # Fail if no estimates succeeded
+                @test false
                 println("     ❌ All replications failed!")
             end
         end
-        
+
         @testset "Positive Effect" begin
             true_att = 2.0
             estimates = Float64[]
             n_reps = 50
             
-            println("   Testing true ATT = $true_att with $n_reps replications...")
-            
+            # Testing true ATT = $true_att with $n_reps replications...
             for rep in 1:n_reps
                 try
                     # Treatment occurs periods 50-79, need F after 79 and L before 50
@@ -132,14 +124,9 @@ include("data_generation.jl")
                 bias = mean(estimates) - true_att
                 rmse = sqrt(mean((estimates .- true_att).^2))
                 
-                println("     Results: bias = $(round(bias, digits=4)), RMSE = $(round(rmse, digits=4))")
-                println("     Estimates range: [$(round(minimum(estimates), digits=3)), $(round(maximum(estimates), digits=3))]")
-                
                 @test abs(bias) < 0.2   # Allow slightly more bias for non-zero effects
                 @test rmse < 1.5        # RMSE should still be reasonable
                 @test length(estimates) >= 40
-                
-                println("     ✅ Positive effect test PASSED")
             else
                 @test false
                 println("     ❌ All replications failed!")
@@ -482,12 +469,9 @@ include("data_generation.jl")
             
             @test nrow(model.results) > 0
             @test !isnan(model.results.att[1])
-            
-            println("     ✅ Package integration test PASSED")
         end
     end
     
-    println("\n🎯 Statistical correctness testing complete!")
-    println("   If all tests passed, TSCSMethods produces statistically valid results")
-    println("   This provides the foundation for trusting the package's causal estimates")
+    # Statistical correctness testing complete
+    # If all tests passed, TSCSMethods produces statistically valid results
 end
