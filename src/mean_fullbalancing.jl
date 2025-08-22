@@ -1,11 +1,38 @@
 # mean_fullbalancing.jl
 
 """
-    fidx(f::Int, mlen::Int, fmin::Int)
+    outcome_to_lag_indices(outcome_period::Int, matching_window_length::Int, min_outcome_period::Int)
 
-get indices from f
+Convert outcome period to corresponding lag period indices for time-varying covariates.
+
+# Purpose
+Maps an outcome period (F) to the appropriate range of lag period indices (L) 
+for extracting time-varying covariate values during balance calculations.
+
+# Mathematical Mapping
+For outcome period `outcome_period`, returns the range:
+```
+(outcome_period - min_outcome_period + 1):(outcome_period - min_outcome_period + matching_window_length)
+```
+
+# Arguments
+- `outcome_period`: Outcome period index (from F range)
+- `matching_window_length`: Length of matching window (number of L periods)
+- `min_outcome_period`: Minimum outcome period value
+
+# Returns
+Range of indices into the lag period structure for covariate extraction
+
+# Example
+```julia
+# If F = 51:60, L = -10:-1 (so matching_window_length = 10, min_outcome_period = 51)
+# For outcome period 53:
+outcome_to_lag_indices(53, 10, 51) # returns 3:12
+# This maps to lag periods corresponding to outcome period 53
+```
 """
-fidx(f::Int, mlen::Int, fmin::Int) = (f - fmin + 1):(f - fmin + mlen);
+outcome_to_lag_indices(outcome_period::Int, matching_window_length::Int, min_outcome_period::Int) = 
+    (outcome_period - min_outcome_period + 1):(outcome_period - min_outcome_period + matching_window_length);
 
 """
     mean_fullbalance!(model)
@@ -21,20 +48,19 @@ function mean_fullbalance!(model::AbstractCICModel, bals::DataFrame)
     initialize_balance_storage!(refcalmodel);
 
     _meanbalance!(
-    eachrow(refcalmodel.meanbalances), eachrow(bals),
-    matches, ids, covariates, timevary, mmlen, fmin
+        eachrow(refcalmodel.meanbalances), eachrow(bals),
+        matches, ids, covariates, timevary, mmlen, fmin
     );
 
     return model
 end
 
-### meanbalances loop
+# meanbalances loop
 function _meanbalance!(
     barrows, balrows,
     matches, ids, covariates, timevary, mmlen, fmin
 )
-  
-    # for i in eachindex(balrows)
+
     Threads.@threads :greedy for i in eachindex(balrows)
         br = balrows[i];
         mr = barrows[i];
@@ -48,7 +74,7 @@ function _meanbalance!(
     return barrows
 end
 
-### inner functions
+# inner functions
 function _covar_meanbalance!(
     mr, br, efsets, covariates, timevary, mmlen, fmin,
 )
@@ -112,7 +138,7 @@ function row_covar_meanbalance!(
     for (outcome_period_index, f) in enumerate(fs)
         if f # if there are any valid matches for this outcome period
             # Map outcome period to corresponding lag period indices for time-varying covariates
-            ls = fidx(outcome_period_index + fmin - 1, mmlen, fmin);
+            ls = outcome_to_lag_indices(outcome_period_index + fmin - 1, mmlen, fmin);
             
             # Determine which matches are eligible for this specific outcome period
             matches_eligible_for_period = [efsets[m][outcome_period_index] for m in 1:length(br_covar)]
@@ -145,7 +171,7 @@ function __row_covar_meanbalance!(Holding, holding, outcome_period_index, ls)
         for (v, hold) in enumerate(holding)
             lvec[v] = hold[l]
         end
-        # [isdefined(holding, lx) for lx in eachindex(holding)]
+        
         Holding[outcome_period_index][l] = !isempty(skipmissing(lvec)) ? mean(skipmissing(lvec)) : missing
     end
     return Holding
