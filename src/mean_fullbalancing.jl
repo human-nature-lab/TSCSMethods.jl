@@ -1,22 +1,5 @@
 # mean_fullbalancing.jl
 
-## scratch
-
-# @time balances = fullbalance(model, dat);
-
-# names(model.meanbalances)
-
-# size(model.meanbalances)
-# length(model.meanbalances[1, vn.cdr])
-# length(model.meanbalances[1, vn.cdr][1])
-# length(model.meanbalances[1, vn.pd])
-
-# MBCOPY = deepcopy(model.meanbalances);
-
-# mean_fullbalance!(model, balances);
-
-##
-
 """
     fidx(f::Int, mlen::Int, fmin::Int)
 
@@ -89,21 +72,21 @@ function row_covar_meanbalance!(
 )
 
   # cntf = 0
-  for (φ, f) in enumerate(fs)
+  for (outcome_period_index, f) in enumerate(fs)
     # cntf += 1
     if f # if there are any valid matches for that f
-      ls = fidx(φ + fmin - 1, mmlen, fmin);
+      ls = fidx(outcome_period_index + fmin - 1, mmlen, fmin);
       # holding = Vector{Union{Missing, Vector{Union{Float64, Missing}}}}(
       #   missing, length(br_covar)
       # );
-      efmφ  = [efsets[m][φ] for m in 1:length(br_covar)]
+      efmφ  = [efsets[m][outcome_period_index] for m in 1:length(br_covar)]
       holding = Vector{Vector{Union{Float64, Missing}}}(
         undef, sum(efmφ)
       );
       mcnt = 0
       for m in eachindex(br_covar) # this is the site of averaging
         # for a single match
-        if efsets[m][φ]
+        if efsets[m][outcome_period_index]
           mcnt += 1
           # if that match is valid for that f
           # else leave as missing
@@ -113,20 +96,20 @@ function row_covar_meanbalance!(
     end
     
     # already missing
-    # Holding[φ] = Vector{Union{Missing, Float64}}(undef, mmlen);
-    __row_covar_meanbalance!(Holding, holding, φ, ls);
+    # Holding[outcome_period_index] = Vector{Union{Missing, Float64}}(undef, mmlen);
+    __row_covar_meanbalance!(Holding, holding, outcome_period_index, ls);
   end
   return Holding
 end
 
-function __row_covar_meanbalance!(Holding, holding, φ, ls)
+function __row_covar_meanbalance!(Holding, holding, outcome_period_index, ls)
   for l in eachindex(ls)
     lvec = Vector{Union{Float64, Missing}}(missing, length(holding));
     for (v, hold) in enumerate(holding)
       lvec[v] = hold[l]
     end
     # [isdefined(holding, lx) for lx in eachindex(holding)]
-    Holding[φ][l] = !isempty(skipmissing(lvec)) ? mean(skipmissing(lvec)) : missing
+    Holding[outcome_period_index][l] = !isempty(skipmissing(lvec)) ? mean(skipmissing(lvec)) : missing
   end
   return Holding
 end
@@ -134,15 +117,15 @@ end
 function row_covar_meanbalance!(
   Holding, br_covar, fs, efsets,
 )
-  for (φ, f) in enumerate(fs)
+  for (outcome_period_index, f) in enumerate(fs)
     if f
       holding = Vector{Union{Float64, Missing}}(undef, length(br_covar));
       for m in eachindex(br_covar) # this is the site of averaging
-        if efsets[m][φ]
+        if efsets[m][outcome_period_index]
           holding[m] = br_covar[m];
         end
       end
-      Holding[φ] = mean(skipmissing(holding))
+      Holding[outcome_period_index] = mean(skipmissing(holding))
     end
   end
   return Holding

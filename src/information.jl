@@ -147,15 +147,15 @@ function matchinfo(model::Union{CIC, CICStratified}; maxrank = 5)
 
   for (i, treatob) in enumerate(observations)
     for f in F
-      window_index = f - minimum(F) + 1
-      vlen = min(length(matches[i].match_rankings[window_index]), maxrank);
+      outcome_period_index = f - minimum(F) + 1
+      vlen = min(length(matches[i].match_rankings[outcome_period_index]), maxrank);
       push!(
         mf,
         [
           treatob[1],
           treatob[2],
           f,
-          matches[i].match_rankings[window_index][1:vlen],
+          matches[i].match_rankings[outcome_period_index][1:vlen],
           (1:vlen)[1:vlen],
         ]
       );
@@ -212,10 +212,10 @@ function matchinfo(rc, model; maxrank = 5)
     end
     
     for f in rc.F
-      window_index = f - minimum(rc.F) + 1      
-      mus = model.ids[rc.matches[i].eligible_matches[:,window_index]];
+      outcome_period_index = f - minimum(rc.F) + 1      
+      mus = model.ids[rc.matches[i].eligible_matches[:,outcome_period_index]];
       mus = mus[1:min(length(mus), maxrank)];
-      fullmus = model.ids[model.matches[cnt].match_rankings[window_index]];
+      fullmus = model.ids[model.matches[cnt].match_rankings[outcome_period_index]];
       rnks = [findfirst(x -> x == mu, fullmus) for mu in mus];
     
       rnks = rnks[sortperm(rnks)];

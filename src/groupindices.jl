@@ -1,21 +1,21 @@
 # groupindices.jl
 
 """
-Primary Purpose: Balance Calculations
+# Description: groupindices.jl
+
+## Primary Purpose: Balance Calculations
 
 The groupindices are heavily used in balance calculations:
 - compute_treated_std() uses them to calculate standardization factors
 - meanbalancing.jl uses tg, rg extensively for balance computations
 - The indexed views enable efficient access to covariate values during balance assessment
 
-Secondary Purpose: Matching Support
+## Secondary Purpose: Matching Support
 
 They also support the matching process:
 - retrieve_matches.jl uses them to access treatment histories (trtg)
 - The exposure indices (exg) are specifically for exposure-based matching
 - Time window access during eligibility determination
-
-Why Both?
 
 The groupindices create efficient indexed views of the data organized by (treatment_time, 
 unit_id) pairs. This structure is needed because:
@@ -24,7 +24,7 @@ unit_id) pairs. This structure is needed because:
 2. Balance calculations need fast access to covariate values for treated vs matched units during
   the same time windows
 
-Core Insight
+## Bottom line
 
 Both matching and balance calculations operate on the same conceptual structure: unit-specific 
 data within treatment-relevant time windows. The groupindices provide an efficient way to access

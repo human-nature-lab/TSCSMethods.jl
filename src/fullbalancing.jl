@@ -72,7 +72,7 @@ function _balance!(
     # (don't need each row)
     # we know which fs are allowable already, so we don't need to worry about lengths, etc. (since the panels are necessarily balanced)
 
-    # fw = matchwindow(window_index + fmin - 1, tt, mmin, mmax);
+    # fw = matchwindow(outcome_period_index + fmin - 1, tt, mmin, mmax);
     ttmatch = mmin + ob[1] + fmin : mmax + ob[1] + fmax;
 
     γcs = eachcol(tg[ob]);

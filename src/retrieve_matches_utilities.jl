@@ -8,11 +8,11 @@ function define_xover_windows(tt, f, fmin, fmax)
     return tx, ptx
 end
 
-function block_postxover!(match_eligibility_row, tx, mu_trtimes, window_index)
+function block_postxover!(match_eligibility_row, tx, mu_trtimes, outcome_period_index)
     if (length(mu_trtimes) > 0) & (length(tx[1]:tx[2]) > 0)
         for mtt in mu_trtimes
             if (mtt >= tx[1]) & (mtt <= tx[2])
-                match_eligibility_row[window_index] = false
+                match_eligibility_row[outcome_period_index] = false
                 break
             end
         end
@@ -86,7 +86,7 @@ function exposure_assign!(
     for e in exposures
         if treatcat(tu_treatments[e]) != treatcat(mu_treatments[e])
             # if the categories differ for any exposure, not eligible
-            match_eligibility_row[window_index] = false
+            match_eligibility_row[outcome_period_index] = false
         end
     end
     return match_eligibility_row

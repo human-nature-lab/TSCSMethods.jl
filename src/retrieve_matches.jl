@@ -87,8 +87,8 @@ function fpossible!(
   treatcat
 )
 
-  for window_index in eachindex(match_eligibility_row)
-    f = window_index + fmin - 1;
+  for outcome_period_index in eachindex(match_eligibility_row)
+    f = outcome_period_index + fmin - 1;
     treated_unit_treatments = 0; # count for treated_unit
     matched_unit_treatments = 0; # count for matched_unit
     
@@ -98,9 +98,9 @@ function fpossible!(
       
       tx, ptx = define_xover_windows(tt, f, fmin, fmax)
         
-      block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, window_index)
+      block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, outcome_period_index)
 
-      if !match_eligibility_row[window_index]
+      if !match_eligibility_row[outcome_period_index]
         # skip to next f if it is cancelled
         break
       end
@@ -115,7 +115,7 @@ function fpossible!(
       # check similarity of treated_unit_treatments & matched_unit_treatments
       # based on treatcat function (default or user defined)
       if treatcat(treated_unit_treatments) != treatcat(matched_unit_treatments)
-        match_eligibility_row[window_index] = false
+        match_eligibility_row[outcome_period_index] = false
       end
     end
   end
@@ -142,8 +142,8 @@ function fpossible!(
   sizehint!(treated_unit_treatments, length(exposures))
   sizehint!(matched_unit_treatments, length(exposures))
   
-  for window_index in eachindex(match_eligibility_row)
-    f = window_index + fmin - 1;
+  for outcome_period_index in eachindex(match_eligibility_row)
+    f = outcome_period_index + fmin - 1;
     
     # Reset counts efficiently (reuse existing dictionaries)
     empty!(treated_unit_treatments)
@@ -160,9 +160,9 @@ function fpossible!(
       tx, ptx = define_xover_windows(tt, f, fmin, fmax)
         
       # bar on post-treatment match window
-      block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, window_index)
+      block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, outcome_period_index)
 
-      if !match_eligibility_row[window_index]
+      if !match_eligibility_row[outcome_period_index]
         # skip to next f if it is cancelled
         break
       end

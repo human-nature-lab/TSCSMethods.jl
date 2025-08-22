@@ -248,12 +248,12 @@ function _refine_assign!(tobscr, matches, refinementnum, idlen, flen)
     tobscr[i] = TreatmentObservationRefinedMatches(
       eligible_matches = fill(false, idlen, flen)
     )
-    for window_index in 1:flen
-      rlen = length(matches[i].match_rankings[window_index])
+    for outcome_period_index in 1:flen
+      rlen = length(matches[i].match_rankings[outcome_period_index])
       if rlen > 0
         for n in 1:min(refinementnum, rlen)
-          idx = matches[i].match_rankings[window_index][n]
-          tobscr[i].eligible_matches[idx, window_index] = true
+          idx = matches[i].match_rankings[outcome_period_index][n]
+          tobscr[i].eligible_matches[idx, outcome_period_index] = true
         end
       end
     end

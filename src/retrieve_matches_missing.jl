@@ -138,16 +138,16 @@ function fpossible_mis!(
   treatcat
 )
 
-  for φ in eachindex(match_eligibility_row)
+  for outcome_period_index in eachindex(match_eligibility_row)
     # we now additionally check if that f is not valid
     # from the missingness check
     # if either the treated_unit or matched_unit is not valid at that f, skip
-    if (matched_unit_validfs[φ] == false) | (validfs[φ] == false)
-      match_eligibility_row[φ] = false
+    if (matched_unit_validfs[outcome_period_index] == false) | (validfs[outcome_period_index] == false)
+      match_eligibility_row[outcome_period_index] = false
       continue
     else
     
-      f = φ + fmin - 1;
+      f = outcome_period_index + fmin - 1;
       treated_unit_treatments = 0; # count for treated_unit
       matched_unit_treatments = 0; # count for matched_unit
       
@@ -157,9 +157,9 @@ function fpossible_mis!(
         
         tx, ptx = define_xover_windows(tt, f, fmin, fmax)
         
-        block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, φ)
+        block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, outcome_period_index)
   
-        if !match_eligibility_row[φ]
+        if !match_eligibility_row[outcome_period_index]
           # skip to next f if it is canceled
           break
         end
@@ -174,7 +174,7 @@ function fpossible_mis!(
         # check similarity of treated_unit_treatments & matched_unit_treatments
         # based on treatcat function (default or user defined)
         if treatcat(treated_unit_treatments) != treatcat(matched_unit_treatments)
-          match_eligibility_row[φ] = false
+          match_eligibility_row[outcome_period_index] = false
         end
 
       end
@@ -195,17 +195,17 @@ function fpossible_mis!(
   treatcat,
   treated_unit_exposures, matched_unit_exposures
 )
-  for φ in eachindex(match_eligibility_row)
+  for outcome_period_index in eachindex(match_eligibility_row)
 
     # we now additionally check if that f is not valid
     # from the missingness check
     # if either the treated_unit or matched_unit is not valid at that f, skip
-    if (matched_unit_validfs[φ] == false) | (validfs[φ] == false)
-      match_eligibility_row[φ] = false
+    if (matched_unit_validfs[outcome_period_index] == false) | (validfs[outcome_period_index] == false)
+      match_eligibility_row[outcome_period_index] = false
       continue
     else
 
-      f = φ + fmin - 1;
+      f = outcome_period_index + fmin - 1;
       
       # this needs to be a dictionary now
       # exposure => # times
@@ -225,9 +225,9 @@ function fpossible_mis!(
         tx, ptx = define_xover_windows(tt, f, fmin, fmax)
         
         # bar on post-treatment match window
-        block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, φ)
+        block_postxover!(match_eligibility_row, tx, matched_unit_trtimes, outcome_period_index)
   
-        if !match_eligibility_row[φ]
+        if !match_eligibility_row[outcome_period_index]
           # skip to next f if it is cancelled
           break
         end

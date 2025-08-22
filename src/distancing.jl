@@ -434,7 +434,7 @@ function window_distances!(
       #   mahas, Σinvdict, treated_covariate_rows, eachrow(g), lag_times
       # );
 
-      # cnt: since window_index will track 1:31, and we will have only those that exist 
+      # cnt: since outcome_period_index will track 1:31, and we will have only those that exist 
       _window_distances!(
         distances, m,
         eligible_matchescol,
@@ -608,7 +608,7 @@ function _window_distances!(
 
   else
     error("optioned method is unfinished")
-    for (window_index, fb) in enumerate(eligible_matchescol)
+    for (outcome_period_index, fb) in enumerate(eligible_matchescol)
       if fb # if the specific f (for the given match) is valid
 
         # mahalanobis distance
@@ -618,11 +618,11 @@ function _window_distances!(
         # and then just use mean with skipmissing on the appropriate
         # portion of mahas...
         
-        fw = matchwindow(window_index + fmin - 1, tt, Lmin, Lmax);
+        fw = matchwindow(outcome_period_index + fmin - 1, tt, Lmin, Lmax);
         # fw = if sliding
         #   error("unfinished")
         #   # this should grab the pretreatment crossover window
-        #   matchwindow(window_index + fmin - 1, tt, Lmin, Lmax);
+        #   matchwindow(outcome_period_index + fmin - 1, tt, Lmin, Lmax);
         # else
         #   # This is a gixed window that ought to be based
         #   # on the crossover definition.
@@ -631,7 +631,7 @@ function _window_distances!(
         # end
         
 
-        average_distances!(distances, dtots, accums, lag_times, fw, window_index, m);
+        average_distances!(distances, dtots, accums, lag_times, fw, outcome_period_index, m);
       end
 
     end

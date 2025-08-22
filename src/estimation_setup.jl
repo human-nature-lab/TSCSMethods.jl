@@ -1,22 +1,59 @@
 # estimation_setup.jl
 
 """
-        getoutcomemap(outcome, dat, t, id)
+    getoutcomemap(outcome, data, t, id)
 
-Get dictionary, from specified unit and time to outcome.
+Create a fast lookup dictionary mapping (time, unit) tuples to outcome values.
+
+# Purpose
+This function creates an optimized lookup structure for outcome data that will be
+accessed repeatedly during estimation. Instead of searching through the DataFrame
+for each outcome lookup, we pre-build a hash table for O(1) access.
+
+# Algorithm
+1. **Dictionary Creation**: Build `Dict{Tuple{Int, Int}, Float64}` where keys are `(time, unit_id)`
+2. **Data Population**: Iterate through all rows, storing non-missing outcomes
+3. **Missing Data Handling**: Skip any rows where the outcome is missing
+
+# Performance Benefits
+- **Fast Lookups**: O(1) average case vs O(n) DataFrame search
+- **Memory Efficient**: Only stores non-missing outcomes
+- **Estimation Optimization**: Critical for bootstrap performance where outcomes are accessed thousands of times
+
+# Arguments
+- `outcome`: Symbol indicating the outcome column name
+- `data`: Input DataFrame containing the panel data
+- `t`: Symbol for the time variable column
+- `id`: Symbol for the unit identifier column
+
+# Returns
+`Dict{Tuple{Int, Int}, Float64}`: Dictionary mapping `(time, unit_id)` → outcome value
+
+# Usage in Estimation
+During ATT estimation, we need outcome values for:
+- Treated units at outcome periods: `outcomemap[(outcome_time, treated_unit)]`
+- Matched units at outcome periods: `outcomemap[(outcome_time, matched_unit)]`
+- All units at reference periods: `outcomemap[(reference_time, unit)]`
+
+# Example
+```julia
+# If data has columns :time, :unit_id, :outcome
+outcome_lookup = getoutcomemap(:outcome, data, :time, :unit_id)
+# Later: quickly get outcome for unit 5 at time 10
+value = outcome_lookup[(10, 5)]
+```
 """
 function getoutcomemap(outcome, dat, t, id)
 
+    # Pre-allocate dictionary for (time, unit_id) → outcome mapping
     outcomemap = Dict{Tuple{Int, Int}, Float64}()
 
-    # there shouldn't be any missing outcomes actually pulled
-    # outcomemap = if Missing <: eltype(dat[!, model.outcome])
-    #     Dict{Tuple{Int, Int}, Union{Float64, Missing}}()
-    # else
-    #     Dict{Tuple{Int, Int}, Float64}()
-    # end
+    # Note: Missing outcomes should be rare at this stage since matching
+    # typically filters to units with complete data in the relevant periods
+    # If needed, could use Dict{Tuple{Int, Int}, Union{Float64, Missing}}
     for r in eachrow(dat)
         if !ismissing(r[outcome])
+            # Store as (time, unit_id) → outcome_value for fast lookup
             outcomemap[(r[t], r[id])] = r[outcome]
         end
     end
@@ -24,6 +61,53 @@ function getoutcomemap(outcome, dat, t, id)
     return outcomemap
 end
 
+"""
+    processunits(matches, observations, outcome, F, ids, reference, t, id, data)
+
+Pre-process matched units and outcomes for estimation and bootstrapping.
+
+# Algorithm Overview
+This function transforms the match structure into arrays optimized for ATT estimation:
+
+1. **Data Size Calculation**: For each treated unit, calculate total data points needed:
+   - `sum(eligible_matches)`: Total number of matched control units across all F periods
+   - `valid_outcome_periods_count`: Number of F periods with at least one match (treated unit appears once per valid F period)
+   - Total = matches + treated unit observations
+
+2. **Memory Pre-allocation**: Create vectors to store:
+   - `Wos`: Weighted outcomes (positive for treated, negative for matches)
+   - `Wrs`: Weighted reference period outcomes  
+   - `Tus`: Treated unit IDs
+   - `Mus`: Match unit IDs (includes treated unit ID for treated observations)
+   - `Fs`: F period indicators
+
+3. **Data Population**: Use `unitstore!` to populate arrays with outcome data and weights
+
+# Mathematical Foundation
+For ATT estimation, we need paired (treated, control) observations for each F period.
+The weighting scheme is:
+- Treated unit: weight = +1.0 for outcome, -1.0 for reference
+- Matched units: weight = -1/n_matches for outcome, +1/n_matches for reference
+
+# Arguments
+- `matches`: Vector of match objects with `eligible_matches` matrices
+- `observations`: Vector of (time, unit) tuples for treated units
+- `outcome`: Outcome variable symbol
+- `F`: Post-treatment periods for effect estimation
+- `ids`: Unit identifier mapping
+- `reference`: Reference period offset (typically negative)
+- `t`, `id`: Time and unit variable symbols
+- `data`: Input DataFrame
+
+# Returns
+Tuple of vectors: `(Tus, Mus, Wos, Wrs, Fs)` where each element contains
+data for all treated units, structured for efficient estimation.
+
+# Performance Notes
+- Uses threaded allocation and population for scalability
+- Pre-calculates data sizes to avoid dynamic resizing
+- Structured for efficient bootstrapping operations
+"""
 function processunits(
     matches, observations, outcome, F, ids, reference, t, id,
     dat
@@ -36,18 +120,19 @@ function processunits(
     Fmin = minimum(F)
     obsnum = length(matches)
 
-    # add total number of matches + treated unit
-    # every relevant outcome (and reference)
-    # over all treated units (and matches therein)
+    # Calculate total data points needed for each treated unit
+    # This includes both matched control units and treated unit observations
     mtchsums = Vector{Int}(undef, length(matches));
     for (k, mtch) in enumerate(matches)
 
-        # number of columns with any matches
-        # gives the number of times the treated unit exists
-        window_index = 0
-        for col in eachcol(mtch.eligible_matches); if any(col); window_index += 1 end end
+        # Count F periods that have at least one valid match
+        # For each such period, the treated unit contributes one observation
+        # (This is why we add it to the match count - treated unit appears once per valid F period)
+        valid_outcome_periods_count = 0
+        for col in eachcol(mtch.eligible_matches); if any(col); valid_outcome_periods_count += 1 end end
 
-        mtchsums[k] = sum(mtch.eligible_matches) + window_index
+        # Total data points = all matched units + treated unit observations (one per valid F period)
+        mtchsums[k] = sum(mtch.eligible_matches) + valid_outcome_periods_count
     end
 
     # preallocate objects that hold the outcome-level

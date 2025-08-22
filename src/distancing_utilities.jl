@@ -215,7 +215,7 @@ end
 Core distance averaging algorithm shared between sliding and fixed window versions.
 
 # Arguments
-- `output`: Function that writes results - either `(ι, value) -> output[ι] = value` or `(ι, value) -> output[ι][window_index, m] = value`
+- `output`: Function that writes results - either `(ι, value) -> output[ι] = value` or `(ι, value) -> output[ι][outcome_period_index, m] = value`
 - `dtots::Vector{Vector{T}}`: Distance arrays for each covariate
 - `accums`: Accumulator arrays for counting valid observations
 - `lag_times`: Time points corresponding to dtots columns
@@ -224,23 +224,23 @@ Core distance averaging algorithm shared between sliding and fixed window versio
 """
 
 """
-    average_distances!(distances, dtots, accums, lag_times, fw, window_index, m) where {T}
+    average_distances!(distances, dtots, accums, lag_times, fw, outcome_period_index, m) where {T}
 
 Calculate averaged distances over time windows for sliding window matching.
 
 # Mathematical Formula
 For each distance type k and valid time window W:
 ```
-distances[k][window_index, m] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where lag_times[l] = τ
+distances[k][outcome_period_index, m] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where lag_times[l] = τ
 ```
 
 # Arguments
-- `distances`: Output array [K][window_index, m] where K = number of distance types
+- `distances`: Output array [K][outcome_period_index, m] where K = number of distance types
 - `dtots`: Input distances [K][T] for K distance types over T time points  
 - `accums`: Working array for counting valid observations per distance type
 - `lag_times`: Time points corresponding to dtots columns
 - `fw`: Matching window specification (e.g., -10:-1 for 10 periods before)
-- `window_index`: Window index (for sliding windows)
+- `outcome_period_index`: Window index (for sliding windows)
 - `m`: Match index
 
 # Algorithm
@@ -256,7 +256,7 @@ distances[k][window_index, m] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where lag_tim
 - **Type Stability**: Compile-time specialization for Float64 vs Union types
 """
 function average_distances!(
-  distances, dtots::Vector{Vector{T}}, accums, lag_times, fw, window_index, m
+  distances, dtots::Vector{Vector{T}}, accums, lag_times, fw, outcome_period_index, m
 ) where {T}
   
   # Common input validation
@@ -266,8 +266,8 @@ function average_distances!(
   end
   
   # Sliding window specific validation
-  if window_index < 1 || m < 1
-    throw(BoundsError("Invalid indices: window_index=$window_index, m=$m (must be ≥ 1)"))
+  if outcome_period_index < 1 || m < 1
+    throw(BoundsError("Invalid indices: outcome_period_index=$outcome_period_index, m=$m (must be ≥ 1)"))
   end
   
   if length(distances) != length(dtots)
@@ -277,9 +277,9 @@ function average_distances!(
   end
   
   for (i, dist_matrix) in enumerate(distances)
-    if size(dist_matrix, 1) < window_index || size(dist_matrix, 2) < m
+    if size(dist_matrix, 1) < outcome_period_index || size(dist_matrix, 2) < m
       throw(BoundsError(
-        "distances[$i] size $(size(dist_matrix)) too small for indices [window_index=$window_index, m=$m]"
+        "distances[$i] size $(size(dist_matrix)) too small for indices [outcome_period_index=$outcome_period_index, m=$m]"
       ))
     end
   end
@@ -292,7 +292,7 @@ function average_distances!(
   else
     # For pure Float64, we can safely initialize
     for ι in eachindex(dtots)
-      distances[ι][window_index, m] = 0.0
+      distances[ι][outcome_period_index, m] = 0.0
       accums[ι] = 0
     end
     accums_initialized = true
@@ -310,7 +310,7 @@ function average_distances!(
       # Handle initialization for Union types on first valid data
       if !accums_initialized && T <: Union{Float64, Missing}
         for ι in eachindex(dtots)
-          distances[ι][window_index, m] = 0.0
+          distances[ι][outcome_period_index, m] = 0.0
           accums[ι] = 0
         end
         accums_initialized = true
@@ -322,14 +322,14 @@ function average_distances!(
         for u in eachindex(dtots)
           val = dtots[u][l]
           if !_is_value_missing(val)
-            distances[u][window_index, m] += val
+            distances[u][outcome_period_index, m] += val
             accums[u] += 1
           end
         end
       else
         # Pure Float64 - no missing check needed
         for u in eachindex(dtots)
-          distances[u][window_index, m] += dtots[u][l]
+          distances[u][outcome_period_index, m] += dtots[u][l]
           accums[u] += 1
         end
       end
@@ -338,10 +338,10 @@ function average_distances!(
 
   # Finalize averages
   for ι in eachindex(dtots)
-    distances[ι][window_index, m] = if accums[ι] == 0
+    distances[ι][outcome_period_index, m] = if accums[ι] == 0
       Inf
     else
-      distances[ι][window_index, m] / accums[ι]
+      distances[ι][outcome_period_index, m] / accums[ι]
     end
   end
 end
@@ -368,7 +368,7 @@ are constant rather than sliding.
 - `fw`: Fixed matching window specification
 
 # Differences from Sliding Version
-- **Output**: Single vector instead of matrix (no window_index, m indices)
+- **Output**: Single vector instead of matrix (no outcome_period_index, m indices)
 - **Use Case**: Fixed matching windows vs. sliding windows
 - **Performance**: Slightly more efficient due to simpler indexing
 

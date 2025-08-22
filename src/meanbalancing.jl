@@ -166,7 +166,7 @@ function _addmatches!(
       mu = ids[m]; # matches[1].eligible_matches
       Xs = eachcol(tg[(tt, mu)]);
 
-      # cnt: since φ will track 1:31, and we will have only those that exist 
+      # cnt: since outcome_period_index will track 1:31, and we will have only those that exist 
       _addmatch!(
         balrw, Ys, Xs, Yt, Lσ, murow,
         tt, covariates, timevary, reference,
@@ -217,7 +217,7 @@ function addmatch_f!(
       
       # sliding
       # implement later
-      # fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+      # fw = matchwindow(outcome_period_index + fmin - 1, tt, mmin, mmax);
 
       # static
       fw = Lmin + tt : Lmax + tt
@@ -282,10 +282,10 @@ function __meanmatch!(
   balance_by_covariate::Vector{BalanceData},
   efsum
 )
-  for (φ, balφ) in enumerate(balance_by_covariate)
+  for (outcome_period_index, balφ) in enumerate(balance_by_covariate)
     for μ in eachindex(balφ)
       if !balφ.is_missing[μ]
-        balφ.values[μ] = balφ.values[μ] / efsum[φ]
+        balφ.values[μ] = balφ.values[μ] / efsum[outcome_period_index]
       end
     end
   end

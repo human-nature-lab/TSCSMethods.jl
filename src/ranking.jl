@@ -30,9 +30,9 @@ end
 
 function _rankmatches!(ranks, fbools, mamatc)
 
-  # (window_index, (fbool, ec, mc)) = collect(enumerate(zip(fbools, mamatc, musc)))[1]
+  # (outcome_period_index, (fbool, ec, mc)) = collect(enumerate(zip(fbools, mamatc, musc)))[1]
 
-  for (window_index, (fbool, ec)) in enumerate(zip(fbools, mamatc))
+  for (outcome_period_index, (fbool, ec)) in enumerate(zip(fbools, mamatc))
     if fbool
       # Single-pass ranking: sort indices by distance, stop at first Inf
       sp = sortperm(ec)
@@ -48,7 +48,7 @@ function _rankmatches!(ranks, fbools, mamatc)
       
       # Only keep finite distances
       if last_finite_idx > 0
-        ranks[window_index] = sp[1:last_finite_idx]
+        ranks[outcome_period_index] = sp[1:last_finite_idx]
       end
     end
   end
@@ -57,8 +57,8 @@ end
 
 function _streaming_rankmatches!(match_rankings, distances, eligible_matches, flen, valids)
   # Streaming approach: process one f at a time without full matrix
-  for window_index in 1:flen
-    valf = @views eligible_matches[:, window_index]
+  for outcome_period_index in 1:flen
+    valf = @views eligible_matches[:, outcome_period_index]
     if any(valf)
       # Get distances for this f, only for valid matches
       valid_and_allowed = valids .& valf
@@ -68,7 +68,7 @@ function _streaming_rankmatches!(match_rankings, distances, eligible_matches, fl
         
         # Single-pass ranking: sort indices by distance
         sorted_indices = valid_indices[sortperm(dist_f)]
-        match_rankings[window_index] = sorted_indices
+        match_rankings[outcome_period_index] = sorted_indices
       end
     end
   end
@@ -76,12 +76,12 @@ function _streaming_rankmatches!(match_rankings, distances, eligible_matches, fl
 end
 
 function _fixed_rankmatches!(match_rankings, fulldist, distances, eligible_matches, flen, valids)
-  for window_index in eachindex(1:flen)
-    valf = @views eligible_matches[:, window_index];
+  for outcome_period_index in eachindex(1:flen)
+    valf = @views eligible_matches[:, outcome_period_index];
     fulldist .= Inf;
     fulldist[valids] = @views distances[:, 1]; # mahalanobis is col 1
     sp = sortperm(fulldist[valf]);
-    match_rankings[window_index] = (1:size(eligible_matches)[1])[valf][sp];
+    match_rankings[outcome_period_index] = (1:size(eligible_matches)[1])[valf][sp];
   end
   return match_rankings
 end

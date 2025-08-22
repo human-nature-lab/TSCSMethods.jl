@@ -75,23 +75,23 @@ function bootatt!(atts, tcounts, fblocks, ids, treatdex)
 end
 
 function _boot!(atts, tcounts, fblocks, sampcount)
-    for window_index in 1:length(fblocks)
+    for outcome_period_index in 1:length(fblocks)
         (; matchunits, weightedoutcomes,
-        weightedrefoutcomes, treatment) = fblocks[window_index]
+        weightedrefoutcomes, treatment) = fblocks[outcome_period_index]
 
         __boot!(
-            atts, tcounts, window_index,
+            atts, tcounts, outcome_period_index,
             matchunits, weightedoutcomes,
             weightedrefoutcomes, treatment,
             sampcount
         )
 
-        atts[window_index] = atts[window_index] / tcounts[window_index]
+        atts[outcome_period_index] = atts[outcome_period_index] / tcounts[outcome_period_index]
     end
 end
 
 function __boot!(
-    atts, tcounts, window_index,
+    atts, tcounts, outcome_period_index,
     matchunits, weightedoutcomes,
     weightedrefoutcomes, treatments,
     sampcount
@@ -102,9 +102,9 @@ function __boot!(
     )
         # Cache dictionary lookup to avoid repeated hash operations
         sample_weight = get(sampcount, munit, 0)
-        atts[window_index] += (wo + wref) * sample_weight
+        atts[outcome_period_index] += (wo + wref) * sample_weight
         if trted
-            tcounts[window_index] += sample_weight
+            tcounts[outcome_period_index] += sample_weight
         end
     end
 end
