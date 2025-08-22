@@ -82,8 +82,12 @@ export
     # utilities
     matchprocess, quick_att, variable_filter, treatedinfo,
     relabel!, trim_model,
-    # inspection
-    inspection, pretreatment,
+    # inspection utilities
+    inspect_results, create_inspection_dashboard, quick_inspection, compare_strata,
+    save_inspection_plots, export_results_csv,
+    prepare_treatment_effect_data, prepare_counterfactual_comparison_data, prepare_percentage_change_data,
+    plot_treatment_effects, plot_counterfactual_comparison, plot_percentage_changes,
+    calculate_overall_summary,
     # vignette
     example_data, policy_data, economic_data,
     filterunits!

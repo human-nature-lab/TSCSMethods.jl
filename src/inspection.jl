@@ -1092,4 +1092,3 @@ function plot_percentage_changes(results_df::DataFrame;
     
     return fig
 end
-
