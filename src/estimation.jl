@@ -17,7 +17,7 @@ function estimate!(
     iterations::Union{Nothing, Int} = nothing,
     percentiles::Vector{Float64} = [0.025, 0.5, 0.975],
     overallestimate::Bool = false,
-    dobayesfactor::Bool = true,
+    dobayesfactor::Bool = false,
     dopvalue::Bool = false
 )::Union{AbstractCICModel, Overall}
 
