@@ -53,6 +53,7 @@ end
 # Modern task-local storage - avoid deprecated threadid() pattern
 # Each task gets its own storage automatically
 const TASK_DISTANCE_STORAGE = Dict{Any, ThreadLocalDistanceStorage}()
+const TASK_STORAGE_LOCK = ReentrantLock()
 
 """
     get_thread_storage(n_times::Int, n_covariates::Int) -> ThreadLocalDistanceStorage
@@ -93,19 +94,21 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
     # Include dimensions in key to avoid size conflicts between different calls
     task_key = (current_task(), n_times, n_covariates)
     
-    # Get or create storage for this task with these specific dimensions
-    if !haskey(TASK_DISTANCE_STORAGE, task_key)
-        # First time initialization for this task
-        TASK_DISTANCE_STORAGE[task_key] = ThreadLocalDistanceStorage(
-            [Vector{Float64}(undef, n_times) for _ in 1:(n_covariates+1)],
-            [Vector{Union{Float64, Missing}}(undef, n_times) for _ in 1:(n_covariates+1)],
-            Vector{Int}(undef, n_covariates+1),
-            n_times,
-            n_covariates
-        )
-        return TASK_DISTANCE_STORAGE[task_key]
+    # Get or create storage for this task with these specific dimensions (thread-safe)
+    lock(TASK_STORAGE_LOCK) do
+        if !haskey(TASK_DISTANCE_STORAGE, task_key)
+            # First time initialization for this task
+            TASK_DISTANCE_STORAGE[task_key] = ThreadLocalDistanceStorage(
+                [Vector{Float64}(undef, n_times) for _ in 1:(n_covariates+1)],
+                [Vector{Union{Float64, Missing}}(undef, n_times) for _ in 1:(n_covariates+1)],
+                Vector{Int}(undef, n_covariates+1),
+                n_times,
+                n_covariates
+            )
+        end
     end
     
+    # Get storage reference and check if resize needed
     storage = TASK_DISTANCE_STORAGE[task_key]
     
     # Resize storage if needed
@@ -113,15 +116,17 @@ function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanc
         new_max_times = max(n_times, storage.max_times)
         new_max_covariates = max(n_covariates, storage.max_covariates)
         
-        # Create new storage with larger dimensions and updated key
+        # Create new storage with larger dimensions and updated key (thread-safe)
         new_key = (current_task(), new_max_times, new_max_covariates)
-        TASK_DISTANCE_STORAGE[new_key] = ThreadLocalDistanceStorage(
-            [Vector{Float64}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
-            [Vector{Union{Float64, Missing}}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
-            Vector{Int}(undef, new_max_covariates+1),
-            new_max_times,
-            new_max_covariates
-        )
+        lock(TASK_STORAGE_LOCK) do
+            TASK_DISTANCE_STORAGE[new_key] = ThreadLocalDistanceStorage(
+                [Vector{Float64}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
+                [Vector{Union{Float64, Missing}}(undef, new_max_times) for _ in 1:(new_max_covariates+1)],
+                Vector{Int}(undef, new_max_covariates+1),
+                new_max_times,
+                new_max_covariates
+            )
+        end
         return TASK_DISTANCE_STORAGE[new_key]
     end
     
