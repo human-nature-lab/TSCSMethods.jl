@@ -22,6 +22,38 @@ function __init_balance_pools__()
     end
 end
 
+"""
+    get_balance_data(size::Int, fill_missing::Bool = true) -> (BalanceData, Bool)
+
+Efficiently allocate BalanceData objects using memory pooling for performance optimization.
+
+# Purpose
+Creates BalanceData objects while reusing pre-allocated memory buffers when possible.
+This reduces allocation overhead during intensive balance calculations across many
+treated observations and matching periods.
+
+# Arguments
+- `size`: Number of elements needed in the BalanceData object
+- `fill_missing`: Whether to initialize all values as missing (default: true)
+
+# Returns
+Tuple of:
+- `BalanceData`: The allocated/reused balance data object
+- `Bool`: Whether the object came from the pool (true) or was newly allocated (false)
+
+# Details
+- For small objects (≤100 elements): attempts to reuse pooled memory
+- For large objects or when pool is empty: allocates new memory directly
+- Pooled objects should be returned via `return_balance_data()` when no longer needed
+- Thread-safe through channel-based pooling system
+
+# Example
+```julia
+balance_data, is_pooled = get_balance_data(50, true)
+# ... use balance_data ...
+return_balance_data(balance_data, is_pooled)  # Return to pool when done
+```
+"""
 function get_balance_data(size::Int, fill_missing::Bool = true)
     __init_balance_pools__()
     
@@ -43,85 +75,145 @@ function get_balance_data(size::Int, fill_missing::Bool = true)
     return BalanceData(values, is_missing), true
 end
 
-function return_balance_data(bd::BalanceData, is_pooled::Bool)
-    if is_pooled && length(bd) <= 100
-        put!(BALANCE_FLOAT_POOL[], bd.values)
-        put!(BALANCE_BIT_POOL[], bd.is_missing)
+"""
+    return_balance_data(balance_data::BalanceData, is_pooled::Bool)
+
+Return a BalanceData object to the memory pool for reuse, if it came from the pool.
+
+# Purpose
+Completes the memory pooling cycle by returning used BalanceData objects back to
+the pool for future reuse. This prevents memory fragmentation and reduces allocation
+overhead in subsequent balance calculations.
+
+# Arguments
+- `balance_data`: The BalanceData object to potentially return to pool
+- `is_pooled`: Whether this object originally came from the pool (from `get_balance_data`)
+
+# Details
+- Only returns objects to pool if they originally came from it (`is_pooled == true`)
+- Only pools objects with ≤100 elements (larger ones are discarded)
+- Thread-safe operation using channel-based pools
+- Should be called when BalanceData objects are no longer needed
+
+# Usage Pattern
+```julia
+balance_data, is_pooled = get_balance_data(50, true)
+# ... use balance_data for calculations ...
+return_balance_data(balance_data, is_pooled)  # Return when done
+```
+"""
+function return_balance_data(balance_data::BalanceData, is_pooled::Bool)
+    if is_pooled && length(balance_data) <= 100
+        put!(BALANCE_FLOAT_POOL[], balance_data.values)
+        put!(BALANCE_BIT_POOL[], balance_data.is_missing)
     end
 end
 
 """
-gives (1 / (std of treated units)) for each l in the matching period
+    compute_treated_std(model::VeryAbstractCICModel, dat::DataFrame) -> Dict{Tuple{Int64, Symbol}, Float64}
 
-outputs dict[t-l, covariate] where t-l is l days prior to the treatment
+Compute standardization factors (1/σ) for covariates across all treated units' matching periods.
 
-(adjust this for f, in sliding window F-defined match period case, which is the case...)
+# Purpose
+For balance calculations, we need to standardize covariate differences by the standard deviation
+of treated units during their matching windows. This ensures balance statistics are comparable
+across covariates with different scales.
+
+# Returns
+Dictionary with keys `(time_offset, covariate)` and values `1/σ`, where:
+- `time_offset`: Days relative to treatment (negative = pre-treatment, positive = post-treatment)  
+- `covariate`: Covariate name
+- `1/σ`: Inverse standard deviation for standardization
+
+# Details
+For each treated unit at treatment time `t`, we collect covariate values from their matching
+window `[t + min(L), t + max(F)]`. We then compute the standard deviation of each covariate
+at each time offset across all treated units and return the inverse for efficient multiplication
+during balance calculations.
+
+# Example
+```julia
+std_factors = compute_treated_std(model, data)
+# std_factors[(-10, :population)] = 0.05  # 1/σ for population 10 days before treatment
+```
 """
-function std_treated(model::VeryAbstractCICModel, dat::DataFrame)
+function compute_treated_std(model::VeryAbstractCICModel, dat::DataFrame)
 
-  trtobs = unique(dat[dat[!, model.treatment] .== 1, [model.t, model.id]])
-  sort!(trtobs, [model.t, model.id])
-  idx = Int[];
-  L = Int[];
+  treated_observations = unique(dat[dat[!, model.treatment] .== 1, [model.t, model.id]])
+  sort!(treated_observations, [model.t, model.id])
+  observation_indices = Int[];
+  time_offsets = Int[];
 
-  mmin = minimum(model.L)
-  fmax = maximum(model.F)
+  min_lag_period = minimum(model.L)
+  max_forward_period = maximum(model.F)
 
-  for to in eachrow(trtobs)
+  for treated_obs in eachrow(treated_observations)
 
-    c1 = dat[!, model.id] .== to[2];
-    ct = (dat[!, model.t] .>= (to[1] - 1 + mmin)) .& (dat[!, model.t] .<= to[1] + fmax);
+    unit_condition = dat[!, model.id] .== treated_obs[2];
+    time_condition = (dat[!, model.t] .>= (treated_obs[1] - 1 + min_lag_period)) .& (dat[!, model.t] .<= treated_obs[1] + max_forward_period);
 
-    append!(idx, findall((c1 .& ct)))
-    # L relative to tt, not the actual time
-    append!(L, dat[c1 .& ct, model.t] .- to[1])
+    append!(observation_indices, findall((unit_condition .& time_condition)))
+    # time_offsets relative to treatment time, not the actual time
+    append!(time_offsets, dat[unit_condition .& time_condition, model.t] .- treated_obs[1])
   end
 
-  allvals = @view dat[idx, model.covariates];
+  covariate_values = @view dat[observation_indices, model.covariates];
 
-  if any([Missing <: eltype(c) for c in eachcol(allvals)])
-    Lset = unique(L);
-    Lstd = zeros(Float64, length(Lset));
-    # Lstd = Dict{Tuple{Int64, Symbol}, Union{Float64, Missing}}()
-    Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
+  if any([Missing <: eltype(c) for c in eachcol(covariate_values)])
+    unique_offsets = unique(time_offsets);
+    standardization_factors = zeros(Float64, length(unique_offsets));
+    # standardization_factors = Dict{Tuple{Int64, Symbol}, Union{Float64, Missing}}()
+    standardization_factors = Dict{Tuple{Int64, Symbol}, Float64}()
 
-    for l in Lset
-      lvals = @view allvals[L .== l, :]
+    for offset in unique_offsets
+      timepoint_values = @view covariate_values[time_offsets .== offset, :]
       for covar in model.covariates
-        Lstd[(l, covar)] = 1.0 / std(
-          skipmissing(lvals[!, covar]); corrected = true
+        standardization_factors[(offset, covar)] = 1.0 / std(
+          skipmissing(timepoint_values[!, covar]); corrected = true
         )
       end
     end
   else
-    Lset = unique(L);
-    Lstd = zeros(Float64, length(Lset));
-    Lstd = Dict{Tuple{Int64, Symbol}, Float64}()
+    unique_offsets = unique(time_offsets);
+    standardization_factors = zeros(Float64, length(unique_offsets));
+    standardization_factors = Dict{Tuple{Int64, Symbol}, Float64}()
     
-    for l in Lset
-      lvals = @view allvals[L .== l, :]
+    for offset in unique_offsets
+      timepoint_values = @view covariate_values[time_offsets .== offset, :]
       for covar in model.covariates
-        Lstd[(l, covar)] = 1.0 / std(lvals[!, covar]; corrected = true)
+        standardization_factors[(offset, covar)] = 1.0 / std(timepoint_values[!, covar]; corrected = true)
       end
     end
   end
   
-  return Lstd 
+  return standardization_factors 
 end
 
 """
-    allocate_meanbalances!(model)
+    initialize_balance_storage!(model)
 
-Prepare the meanbalances DataFrame for a model. Meanbalances has number of rows == observations.
+Prepare the meanbalances DataFrame storage for balance calculations.
+
+# Purpose
+Allocates and initializes the meanbalances DataFrame which stores balance statistics
+for each treated observation. The DataFrame structure depends on whether covariates
+are time-varying or static.
+
+# Details
+- Creates one row per treated observation
+- For time-varying covariates: Vector{Vector{BalanceData}} (periods × time points)
+- For static covariates: Vector{BalanceData} (just periods)
+- Uses object pooling for memory efficiency
 """
-function allocate_meanbalances!(model)
+function initialize_balance_storage!(model)
 
-  @unpack observations, matches, ids, meanbalances = model;
-  @unpack covariates, timevary = model;
-  @unpack t, id, treatment = model;
-  @unpack F, L = model;
+  (; observations, matches, ids, meanbalances,
+   covariates, timevary,
+   t, id, treatment,
+   F, L) = model
 
-  Len = length(L); Flen = length(F);
+
+  lag_periods_count = length(L); forward_periods_count = length(F);
 
   # meanbalances = DataFrame(
   #   treattime = [ob[1] for ob in model.observations],
@@ -142,66 +234,153 @@ function allocate_meanbalances!(model)
   end
 
   _fill_meanbalances!(
-    meanbalances, matches, Len, covariates, timevary, Flen
+    meanbalances, matches, lag_periods_count, covariates, timevary, forward_periods_count
   );
 
   return model
 end
 
+"""
+    _fill_meanbalances!(meanbalances, matches, lag_periods_count, covariates, timevary, forward_periods_count)
+
+Populate meanbalances DataFrame with properly sized BalanceData objects for each treated observation.
+
+# Purpose
+For each treated observation, determines which forward periods (F values) have at least one
+eligible match, then allocates appropriate BalanceData storage structures. The allocation
+pattern depends on whether covariates are time-varying or static.
+
+# Arguments
+- `meanbalances`: DataFrame to populate (one row per treated observation)
+- `matches`: Vector of match objects containing eligible_matches matrices
+- `lag_periods_count`: Number of lag periods (length of L range)
+- `covariates`: Vector of covariate names
+- `timevary`: Dict indicating which covariates are time-varying
+- `forward_periods_count`: Number of forward periods (length of F range)
+
+# Details
+- Creates `:fs` column indicating which forward periods have matches
+- For time-varying covariates: Vector{BalanceData} of length periods_with_matches
+- For static covariates: Single BalanceData of length periods_with_matches
+- Uses memory pooling via `get_balance_data()` for efficiency
+- Each BalanceData object sized according to lag_periods_count for time-varying covariates
+
+# Storage Structure
+```
+meanbalances[i, :covariate] = 
+  - Time-varying: [BalanceData(lag_periods), BalanceData(lag_periods), ...]
+  - Static: BalanceData(periods_with_matches)
+```
+"""
 function _fill_meanbalances!(
-  meanbalances, matches, Len, covariates, timevary, Flen
+  meanbalances, matches, lag_periods_count, covariates, timevary, forward_periods_count
 )
 
-  # (i, balrw) = collect(enumerate(eachrow(meanbalances)))[1]
-
-  for (i, balrw) in enumerate(eachrow(meanbalances))
+  for (i, balance_row) in enumerate(eachrow(meanbalances))
     
     # we want to create a vector for f, so long as at least one match unit allows it
-    balrw[:fs] = Vector{Bool}(undef, Flen);
-    getfunion!(balrw[:fs], matches[i].mus);
-    fpresent = sum(balrw[:fs]);
+    balance_row[:fs] = Vector{Bool}(undef, forward_periods_count);
+    find_periods_with_matches!(balance_row[:fs], matches[i].eligible_matches);
+    periods_with_matches = sum(balance_row[:fs]);
   
     __fill_meanbalances!(
-      balrw, fpresent, Len, covariates, timevary
+      balance_row, periods_with_matches, lag_periods_count, covariates, timevary
     )
   end
   return meanbalances
 end
 
+"""
+    __fill_meanbalances!(balance_row, periods_with_matches, lag_periods_count, covariates, timevary)
+
+Allocate BalanceData objects for a single treated observation with error handling and memory pooling.
+
+# Purpose
+Handles the actual allocation of BalanceData objects for one row of the meanbalances DataFrame.
+Implements error-safe memory pooling with proper cleanup if allocation fails partway through.
+
+# Arguments
+- `balance_row`: Single row from meanbalances DataFrame to populate
+- `periods_with_matches`: Number of forward periods that have eligible matches
+- `lag_periods_count`: Number of lag periods (for time-varying covariate sizing)
+- `covariates`: Vector of covariate names to allocate storage for
+- `timevary`: Dict indicating which covariates are time-varying
+
+# Details
+- For time-varying covariates: Creates Vector{BalanceData} with `periods_with_matches` elements, each of size `lag_periods_count`
+- For static covariates: Creates single BalanceData of size `periods_with_matches`
+- Uses memory pooling via `get_balance_data()` for allocation efficiency
+- Implements error handling: if allocation fails, returns all pooled objects to prevent memory leaks
+- Tracks all pooled allocations for proper cleanup
+
+# Error Handling
+If any allocation fails, all previously allocated pooled objects are automatically
+returned to their respective pools to prevent memory leaks.
+"""
 function __fill_meanbalances!(
-  balrw, fpresent, Len, covariates, timevary
+  balance_row, periods_with_matches, lag_periods_count, covariates, timevary
 )
   pooled_data = []  # Track pooled data for cleanup
   
   try
     for covar in covariates
       if timevary[covar]
-        covar_data = BalanceData[]
-        for _ in 1:fpresent
-          bd, is_pooled = get_balance_data(Len, true)
-          push!(covar_data, bd)
-          push!(pooled_data, (bd, is_pooled))
+        covariate_balance_data = BalanceData[]
+        for _ in 1:periods_with_matches
+          balance_data, is_pooled = get_balance_data(lag_periods_count, true)
+          push!(covariate_balance_data, balance_data)
+          push!(pooled_data, (balance_data, is_pooled))
         end
-        balrw[covar] = covar_data
+        balance_row[covar] = covariate_balance_data
       else
-        bd, is_pooled = get_balance_data(fpresent, true)
-        balrw[covar] = bd
-        push!(pooled_data, (bd, is_pooled))
+        balance_data, is_pooled = get_balance_data(periods_with_matches, true)
+        balance_row[covar] = balance_data
+        push!(pooled_data, (balance_data, is_pooled))
       end
     end
   catch e
     # Clean up any allocated data on error
-    for (bd, is_pooled) in pooled_data
-      return_balance_data(bd, is_pooled)
+    for (balance_data, is_pooled) in pooled_data
+      return_balance_data(balance_data, is_pooled)
     end
     rethrow(e)
   end
   
-  return balrw
+  return balance_row
 end
 
-function getfunion!(funion, matches_i_mus)
-  for j in eachindex(funion)
-    funion[j] = any(matches_i_mus[:, j])
+"""
+    find_periods_with_matches!(has_matches_by_period, eligible_matches_matrix)
+
+Determine which forward periods have at least one eligible match across all potential match units.
+
+# Purpose
+For a given treated observation, creates a boolean vector indicating which forward periods (F values)
+have at least one unit eligible to serve as a match. This is used to determine which periods
+need BalanceData storage allocation.
+
+# Arguments
+- `has_matches_by_period`: Output boolean vector to populate (length = number of F periods)
+- `eligible_matches_matrix`: Boolean matrix where `[unit, period]` indicates if unit is eligible match for that period
+
+# Details
+- Performs column-wise `any()` operation across the eligible_matches_matrix
+- `has_matches_by_period[i] = true` if any unit can match in forward period i
+- `has_matches_by_period[i] = false` if no units are eligible for forward period i
+- Used to optimize storage: only allocate BalanceData for periods with potential matches
+
+# Example
+```julia
+# eligible_matches_matrix: 3 units × 4 periods
+# [true  false true  true ]  # unit 1
+# [false true  false false]  # unit 2  
+# [false false false true ]  # unit 3
+# 
+# Result: [true, true, true, true] - all periods have ≥1 eligible match
+```
+"""
+function find_periods_with_matches!(has_matches_by_period, eligible_matches_matrix)
+  for period_index in eachindex(has_matches_by_period)
+    has_matches_by_period[period_index] = any(eligible_matches_matrix[:, period_index])
   end
 end

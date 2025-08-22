@@ -44,10 +44,10 @@ function processunits(
 
         # number of columns with any matches
         # gives the number of times the treated unit exists
-        Φ = 0
-        for col in eachcol(mtch.mus); if any(col); Φ += 1 end end
+        window_index = 0
+        for col in eachcol(mtch.eligible_matches); if any(col); window_index += 1 end end
 
-        mtchsums[k] = sum(mtch.mus) + Φ
+        mtchsums[k] = sum(mtch.eligible_matches) + window_index
     end
 
     # preallocate objects that hold the outcome-level
@@ -70,14 +70,14 @@ function processunits(
     end
 
     # populate these
-    # essentially, use the match.mus information
+    # essentially, use the match.eligible_matches information
     # to find the relevant outcomes and restructure them
     # for bootstrapping & estimation
     Threads.@threads :greedy for i in eachindex(observations)
         (tt, tu) = observations[i]
         mtch = matches[i]
         
-        #wo = Matrix{Union{Float64, Missing}}(missing, size(mtch.mus)) # outcomes
+        #wo = Matrix{Union{Float64, Missing}}(missing, size(mtch.eligible_matches)) # outcomes
         #wo2 = similar(wo) # reference
 
         wos = Wos[i]
@@ -86,12 +86,12 @@ function processunits(
         mux = Mus[i]
         fux = Fs[i]
 
-        matchnums = vec(sum(mtch.mus, dims = 1))
+        matchnums = vec(sum(mtch.eligible_matches, dims = 1))
 
         unitstore!(
             wos, wrs, tux, mux, fux,
             tt, tu,
-            mtch.mus, ids, Fmin, outcomemap, matchnums,
+            mtch.eligible_matches, ids, Fmin, outcomemap, matchnums,
             reference
         )
     end

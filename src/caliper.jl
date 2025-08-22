@@ -52,7 +52,7 @@ calipered_model = caliper(model, caliper_specs, data; dobalance = false)
 """
 function caliper(model::CIC, acaliper, dat; dobalance = true)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;
+  (; title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator) = model;
 
   tobscr = calipermatches(model, acaliper);
 
@@ -92,9 +92,8 @@ end
 
 function caliper(model::CICStratified, acaliper, dat; dobalance = true)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels = model;
-
-  @unpack stratifier, strata = model;
+  (; title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels) = model;
+  (; stratifier, strata) = model;
 
   tobscr = calipermatches(model, acaliper);
 
@@ -138,7 +137,7 @@ end
 function get_observations_left!(obsleft, tobscr)
   # only include observations that have matches post-caliper
   for (i, e) in enumerate(tobscr)
-    obsleft[i] = sum(e.mus) > 0
+    obsleft[i] = sum(e.eligible_matches) > 0
   end
   return obsleft
 end
@@ -146,11 +145,11 @@ end
 # mechanics
 
 function calipermatches(model, acaliper)
-  @unpack observations, matches, covariates = model;
+  (; observations, matches, covariates) = model;
 
   calipers = calipervars(acaliper, covariates);
 
-  tobscr = Vector{TobC}(undef, length(observations));
+  tobscr = Vector{TreatmentObservationCaliperMatches}(undef, length(observations));
   _fillcal!(tobscr, matches);
 
   _caliper!(tobscr, matches, calipers);
@@ -169,11 +168,11 @@ end
 function _fillcal!(tobscr, matches)
   Threads.@threads :greedy for i in eachindex(matches)
     tob = @views matches[i]
-    @unpack mus, distances, ranks = tob;
+    (; eligible_matches, distances, match_rankings) = tob;
 
-    tobscr[i] = TobC(
-      deepcopy(mus),
-      deepcopy(ranks)
+    tobscr[i] = TreatmentObservationCaliperMatches(
+      eligible_matches = deepcopy(eligible_matches),
+      match_rankings = deepcopy(match_rankings)
     );
   end
   return tobscr
@@ -184,9 +183,9 @@ function _caliper!(tobscr, matches, calipers)
   Threads.@threads :greedy for m in eachindex(tobscr)
 
     tob = @views tobscr[m];
-    @unpack distances = @views matches[m];
+    (; distances) = @views matches[m];
 
-    @unpack mus, ranks = tob;
+    (; eligible_matches, distances, match_rankings) = tob;
 
     anymus = Vector{Bool}(undef, size(mus)[1]);
     get_anymus!(anymus, mus);

@@ -13,7 +13,7 @@ function variable_filter(
   mn = nothing, mx = nothing
 )
 
-  @unpack t, id, treatment = model
+  (; t, id, treatment) = model
 
   # remove elections prior to March 10
 
@@ -55,7 +55,7 @@ function treatedinfo(
   model, variables, dat;
 )
 
-  @unpack t, id, treatment = model
+  (; t, id, treatment) = model
 
   # remove elections prior to March 10
 

@@ -217,7 +217,7 @@ using Dates
         end
         
         @testset "Union Type Elimination Optimization" begin
-            # Test unified distaveraging! functions work correctly
+            # Test unified average_distances! functions work correctly
             Random.seed!(3333)
             
             # Test with pure Float64 data (should use fast path)

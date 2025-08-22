@@ -53,7 +53,7 @@ function refine(
   
   tobscr = _refine(model, refinementnum);
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator = model;
+  (; title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator) = model;
 
   modelref = RefinedCIC(
     title = title,
@@ -90,8 +90,6 @@ function refine(
   return modelref
 end
 
-# import TSCSMethods:_refine,RefinedCaliperCICStratified,@unpack,meanbalance!,grandbalance!,TobR
-
 function refine(
   model::CICStratified, dat;
   refinementnum = 5, dobalance = true, doestimate = true
@@ -99,9 +97,8 @@ function refine(
   
   tobscr = _refine(model, refinementnum);
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels = model;
-
-  @unpack stratifier, strata = model # no. treated obs don't change
+  (; title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels) = model;
+  (; stratifier, strata) = model # no. treated obs don't change
 
   modelref = RefinedCICStratified(
     title = title,
@@ -148,9 +145,7 @@ function refine(
   
   tobscr = _refine(calmodel, refinementnum)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, caliper = calmodel;
-
-  @unpack treatednum = calmodel;
+  (; treatednum, title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, caliper) = calmodel;
   
   modelcalref = RefinedCaliperCIC(
     title = title,
@@ -194,10 +189,8 @@ function refine(
   
   tobscr = _refine(calmodel, refinementnum)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels, caliper = calmodel;
-
-  @unpack stratifier, strata = calmodel
-  @unpack treatednum = calmodel;
+  (title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, iterations, estimator, labels, caliper) = calmodel;
+  (treatednum, stratifier, strata) = calmodel
 
   modelcalref = RefinedCaliperCICStratified(
     title = title,
@@ -241,10 +234,10 @@ end
 # mechanics
 
 function _refine(model, refinementnum)
-  @unpack observations, matches, ids, F = model;
+  (; observations, matches, ids, F) = model;
   
   # new objects
-  tobscr = Vector{TobR}(undef, length(observations));
+  tobscr = Vector{TreatmentObservationRefinedMatches}(undef, length(observations));
   _refine_assign!(tobscr, matches, refinementnum, length(ids), length(F));
 
   return tobscr
@@ -252,15 +245,15 @@ end
 
 function _refine_assign!(tobscr, matches, refinementnum, idlen, flen)
   Threads.@threads :greedy for i in eachindex(tobscr)
-    tobscr[i] = TobR(
-      mus = fill(false, idlen, flen)
+    tobscr[i] = TreatmentObservationRefinedMatches(
+      eligible_matches = fill(false, idlen, flen)
     )
-    for φ in 1:flen
-      rlen = length(matches[i].ranks[φ])
+    for window_index in 1:flen
+      rlen = length(matches[i].match_rankings[window_index])
       if rlen > 0
         for n in 1:min(refinementnum, rlen)
-          idx = matches[i].ranks[φ][n]
-          tobscr[i].mus[idx, φ] = true
+          idx = matches[i].match_rankings[window_index][n]
+          tobscr[i].eligible_matches[idx, window_index] = true
         end
       end
     end

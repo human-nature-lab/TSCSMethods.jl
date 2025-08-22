@@ -31,13 +31,11 @@ Calculate the mean balances, for each treated observation from the full set of b
 """
 function mean_fullbalance!(model::AbstractCICModel, bals::DataFrame)
 
-  @unpack matches, ids = refcalmodel;
-  @unpack covariates, timevary = refcalmodel;
-  @unpack F, L = refcalmodel;
+  (; matches, ids, covariates, timevary, F, L) = refcalmodel
 
   fmin = minimum(F); mmlen = length(L);
 
-  allocate_meanbalances!(refcalmodel);
+  initialize_balance_storage!(refcalmodel);
 
   _meanbalance!(
     eachrow(refcalmodel.meanbalances), eachrow(bals),
@@ -151,7 +149,7 @@ function row_covar_meanbalance!(
 end
 
 function refinebalances(refcalmodel, model, balances)
-  @unpack covariates, matches, observations = model;
+  (; covariates, matches, observations) = model;
   bals = copy(balances);
 
   # remove tobs that do not exist in ref / cal model
@@ -162,7 +160,7 @@ function refinebalances(refcalmodel, model, balances)
 
   for covar in covariates
     for i in eachindex(refcalmodel.observations)
-      rdx = refcalmodel.matches[i].mus[matches[i].mus] # 2096
+      rdx = refcalmodel.matches[i].eligible_matches[matches[i].eligible_matches] # 2096
       bals[i, covar] = balances[i, covar][rdx]
     end
   end

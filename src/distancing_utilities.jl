@@ -3,7 +3,7 @@
 ## covariance calculations for mahalanobis distance matching
 
 function samplecovar(
-  dat_t, cdat;
+  dat_t, X;
   variancesonly = true
 )
   # Input validation
@@ -11,18 +11,18 @@ function samplecovar(
     throw(ArgumentError("dat_t (time variable) cannot be empty"))
   end
   
-  if isempty(cdat)
-    throw(ArgumentError("cdat (covariate data) cannot be empty"))
+  if isempty(X)
+    throw(ArgumentError("X (covariate data) cannot be empty"))
   end
   
-  if length(dat_t) != size(cdat, 1)
+  if length(dat_t) != size(X, 1)
     throw(DimensionMismatch(
-      "Length mismatch: dat_t ($(length(dat_t))) != cdat rows ($(size(cdat, 1)))"
+      "Length mismatch: dat_t ($(length(dat_t))) != X rows ($(size(X, 1)))"
     ))
   end
   
-  if size(cdat, 2) == 0
-    throw(ArgumentError("cdat must have at least one covariate column"))
+  if size(X, 2) == 0
+    throw(ArgumentError("X must have at least one covariate column"))
   end
 
   ## setup
@@ -31,30 +31,30 @@ function samplecovar(
   ##
 
   ## handle missingness
-  cdat2, dat_t2 = if Missing <: eltype(typeof(cdat))
-    samplecovar_missingness(cdat, dat_t)
+  X2, dat_t2 = if Missing <: eltype(typeof(X))
+    samplecovar_missingness(X, dat_t)
   else
-    cdat, dat_t
+    X, dat_t
   end
   ##
   
   calculate_sample_Σs!(
-    ut, Σinvdict, dat_t2, cdat2,
+    ut, Σinvdict, dat_t2, X2,
     variancesonly
   )
   return Σinvdict
 end
 
-function samplecovar_missingness(cdat, dat_t)
-  nomis = fill(true, size(cdat)[1]);
-  for (k, r) in enumerate(eachrow(cdat))
+function samplecovar_missingness(X, dat_t)
+  nomis = fill(true, size(X)[1]);
+  for (k, r) in enumerate(eachrow(X))
     if ismissing(sum(r))
       nomis[k] = false
     end
   end
 
   # use subset of data where each row has no missing values
-  return @views(cdat[nomis, :]), @views(dat_t[nomis])
+  return @views(X[nomis, :]), @views(dat_t[nomis])
 end
 
 """
@@ -63,14 +63,14 @@ inverted covariance matrix for mahalanobis distance (all units at t)
 inverted sqrt(vars) for balance score calculations (treated units at t)
 """
 function calculate_sample_Σs!(
-  ut, Σinvdict, dat_t, cdat,
+  ut, Σinvdict, dat_t, X,
   variancesonly::Bool
 )
   
   for i = eachindex(ut)
     uti = ut[i]
     c_t = dat_t .== uti;
-    Σ = cov(cdat[c_t, :]);
+    Σ = cov(X[c_t, :]);
 
     if variancesonly
       Σ[Not(diagind(Σ))] .= 0
@@ -127,14 +127,14 @@ For each covariate k and match pair (i,j), computes:
 d̄_k(i,j) = (1/|W|) ∑_{τ ∈ W} d_k(x_{iτ}, x_{jτ})
 ```
 where:
-- W is the matching window (subset of γtimes within fw bounds)
+- W is the matching window (subset of lag_times within fw bounds)
 - d_k(x_{iτ}, x_{jτ}) is the distance for covariate k at time τ
 - |W| is the number of valid (non-missing) observations in the window
 
 ## Window Filtering
 Efficient implementation uses:
 ```
-W = {τ ∈ γtimes : fw_min ≤ τ ≤ fw_max}
+W = {τ ∈ lag_times : fw_min ≤ τ ≤ fw_max}
 ```
 where fw_min, fw_max = extrema(fw) are pre-computed once.
 
@@ -165,7 +165,7 @@ where fw_min, fw_max = extrema(fw) are pre-computed once.
 @inline _is_value_missing(::Missing) = true
 
 """
-    _validate_distaveraging_inputs(dtots, γtimes, fw, accums) -> Int
+    _validate_distaveraging_inputs(dtots, lag_times, fw, accums) -> Int
 
 Validate common inputs for distance averaging functions.
 
@@ -176,12 +176,12 @@ Validate common inputs for distance averaging functions.
 - `ArgumentError`: For empty required inputs
 - `DimensionMismatch`: For inconsistent array dimensions
 """
-function _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
+function _validate_distaveraging_inputs(dtots, lag_times, fw, accums)
     if isempty(dtots)
         throw(ArgumentError("dtots cannot be empty"))
     end
     
-    if isempty(γtimes)
+    if isempty(lag_times)
         @warn "No time points provided"
         return 0
     end
@@ -191,11 +191,11 @@ function _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
     end
     
     # Check dimensions consistency
-    n_times = length(γtimes)
+    n_times = length(lag_times)
     for (i, dt) in enumerate(dtots)
         if length(dt) != n_times
             throw(DimensionMismatch(
-                "dtots[$i] length ($(length(dt))) must match γtimes length ($n_times)"
+                "dtots[$i] length ($(length(dt))) must match lag_times length ($n_times)"
             ))
         end
     end
@@ -210,64 +210,64 @@ function _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
 end
 
 """
-    _distance_averaging_core!(output, dtots, accums, γtimes, fw, T) -> Nothing
+    _distance_averaging_core!(output, dtots, accums, lag_times, fw, T) -> Nothing
 
 Core distance averaging algorithm shared between sliding and fixed window versions.
 
 # Arguments
-- `output`: Function that writes results - either `(ι, value) -> output[ι] = value` or `(ι, value) -> output[ι][φ, m] = value`
+- `output`: Function that writes results - either `(ι, value) -> output[ι] = value` or `(ι, value) -> output[ι][window_index, m] = value`
 - `dtots::Vector{Vector{T}}`: Distance arrays for each covariate
 - `accums`: Accumulator arrays for counting valid observations
-- `γtimes`: Time points corresponding to dtots columns
+- `lag_times`: Time points corresponding to dtots columns
 - `fw`: Matching window specification
 - `T`: Element type (Float64 or Union{Float64, Missing})
 """
 
 """
-    distaveraging!(distances, dtots, accums, γtimes, fw, φ, m) where {T}
+    average_distances!(distances, dtots, accums, lag_times, fw, window_index, m) where {T}
 
 Calculate averaged distances over time windows for sliding window matching.
 
 # Mathematical Formula
 For each distance type k and valid time window W:
 ```
-distances[k][φ, m] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where γtimes[l] = τ
+distances[k][window_index, m] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where lag_times[l] = τ
 ```
 
 # Arguments
-- `distances`: Output array [K][φ, m] where K = number of distance types
+- `distances`: Output array [K][window_index, m] where K = number of distance types
 - `dtots`: Input distances [K][T] for K distance types over T time points  
 - `accums`: Working array for counting valid observations per distance type
-- `γtimes`: Time points corresponding to dtots columns
+- `lag_times`: Time points corresponding to dtots columns
 - `fw`: Matching window specification (e.g., -10:-1 for 10 periods before)
-- `φ`: Window index (for sliding windows)
+- `window_index`: Window index (for sliding windows)
 - `m`: Match index
 
 # Algorithm
 1. **Window Bounds**: Pre-compute fw_min, fw_max = extrema(fw) once
 2. **Type-Based Init**: Initialize based on data type T for type stability
-3. **Filtered Iteration**: Only process γtimes[l] where fw_min ≤ γtimes[l] ≤ fw_max
+3. **Filtered Iteration**: Only process lag_times[l] where fw_min ≤ lag_times[l] ≤ fw_max
 4. **Missing Handling**: Skip missing values, track counts in accums
 5. **Averaging**: Divide accumulated sums by valid observation counts
 
 # Performance
-- **Complexity**: O(|γtimes|) with early termination when γtimes[l] > fw_max  
+- **Complexity**: O(|lag_times|) with early termination when lag_times[l] > fw_max  
 - **Memory**: Uses pre-allocated arrays, no intermediate allocations
 - **Type Stability**: Compile-time specialization for Float64 vs Union types
 """
-function distaveraging!(
-  distances, dtots::Vector{Vector{T}}, accums, γtimes, fw, φ, m
+function average_distances!(
+  distances, dtots::Vector{Vector{T}}, accums, lag_times, fw, window_index, m
 ) where {T}
   
   # Common input validation
-  n_times = _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
-  if n_times == 0  # Early return for empty γtimes
+  n_times = _validate_distaveraging_inputs(dtots, lag_times, fw, accums)
+  if n_times == 0  # Early return for empty lag_times
     return
   end
   
   # Sliding window specific validation
-  if φ < 1 || m < 1
-    throw(BoundsError("Invalid indices: φ=$φ, m=$m (must be ≥ 1)"))
+  if window_index < 1 || m < 1
+    throw(BoundsError("Invalid indices: window_index=$window_index, m=$m (must be ≥ 1)"))
   end
   
   if length(distances) != length(dtots)
@@ -277,9 +277,9 @@ function distaveraging!(
   end
   
   for (i, dist_matrix) in enumerate(distances)
-    if size(dist_matrix, 1) < φ || size(dist_matrix, 2) < m
+    if size(dist_matrix, 1) < window_index || size(dist_matrix, 2) < m
       throw(BoundsError(
-        "distances[$i] size $(size(dist_matrix)) too small for indices [φ=$φ, m=$m]"
+        "distances[$i] size $(size(dist_matrix)) too small for indices [window_index=$window_index, m=$m]"
       ))
     end
   end
@@ -292,7 +292,7 @@ function distaveraging!(
   else
     # For pure Float64, we can safely initialize
     for ι in eachindex(dtots)
-      distances[ι][φ, m] = 0.0
+      distances[ι][window_index, m] = 0.0
       accums[ι] = 0
     end
     accums_initialized = true
@@ -303,14 +303,14 @@ function distaveraging!(
   fw_min, fw_max = extrema(fw)
 
   # Main averaging loop - IDENTICAL logic to original, just optimized bounds
-  for (l, τ) in enumerate(γtimes)
+  for (l, τ) in enumerate(lag_times)
     if τ > fw_max # don't bother with the rest (same as maximum(fw))
       break
     elseif (τ >= fw_min) # same as minimum(fw)
       # Handle initialization for Union types on first valid data
       if !accums_initialized && T <: Union{Float64, Missing}
         for ι in eachindex(dtots)
-          distances[ι][φ, m] = 0.0
+          distances[ι][window_index, m] = 0.0
           accums[ι] = 0
         end
         accums_initialized = true
@@ -322,14 +322,14 @@ function distaveraging!(
         for u in eachindex(dtots)
           val = dtots[u][l]
           if !_is_value_missing(val)
-            distances[u][φ, m] += val
+            distances[u][window_index, m] += val
             accums[u] += 1
           end
         end
       else
         # Pure Float64 - no missing check needed
         for u in eachindex(dtots)
-          distances[u][φ, m] += dtots[u][l]
+          distances[u][window_index, m] += dtots[u][l]
           accums[u] += 1
         end
       end
@@ -338,23 +338,23 @@ function distaveraging!(
 
   # Finalize averages
   for ι in eachindex(dtots)
-    distances[ι][φ, m] = if accums[ι] == 0
+    distances[ι][window_index, m] = if accums[ι] == 0
       Inf
     else
-      distances[ι][φ, m] / accums[ι]
+      distances[ι][window_index, m] / accums[ι]
     end
   end
 end
 
 """
-    distaveraging!(drow, dtots, accums, γtimes, fw) where {T}
+    average_distances!(drow, dtots, accums, lag_times, fw) where {T}
 
 Calculate averaged distances over time windows for fixed window matching.
 
 # Mathematical Formula
 For each distance type k and valid time window W:
 ```
-drow[k] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where γtimes[l] = τ  
+drow[k] = (1/|W|) ∑_{τ ∈ W} dtots[k][l] where lag_times[l] = τ  
 ```
 
 This is the fixed-window version of distance averaging, used when matching windows
@@ -364,11 +364,11 @@ are constant rather than sliding.
 - `drow`: Output vector [K] where K = number of distance types
 - `dtots`: Input distances [K][T] for K distance types over T time points
 - `accums`: Working array for counting valid observations per distance type  
-- `γtimes`: Time points corresponding to dtots columns
+- `lag_times`: Time points corresponding to dtots columns
 - `fw`: Fixed matching window specification
 
 # Differences from Sliding Version
-- **Output**: Single vector instead of matrix (no φ, m indices)
+- **Output**: Single vector instead of matrix (no window_index, m indices)
 - **Use Case**: Fixed matching windows vs. sliding windows
 - **Performance**: Slightly more efficient due to simpler indexing
 
@@ -379,13 +379,13 @@ Identical to sliding window version but with simplified output structure:
 3. Accumulate valid distances within window
 4. Average by count of valid observations
 """
-function distaveraging!(
-  drow, dtots::Vector{Vector{T}}, accums, γtimes, fw
+function average_distances!(
+  drow, dtots::Vector{Vector{T}}, accums, lag_times, fw
 ) where {T}
   
   # Common input validation
-  n_times = _validate_distaveraging_inputs(dtots, γtimes, fw, accums)
-  if n_times == 0  # Early return for empty γtimes
+  n_times = _validate_distaveraging_inputs(dtots, lag_times, fw, accums)
+  if n_times == 0  # Early return for empty lag_times
     return
   end
   
@@ -414,7 +414,7 @@ function distaveraging!(
   fw_min, fw_max = extrema(fw)
 
   # Main averaging loop - IDENTICAL logic to original, just optimized bounds
-  for (l, τ) in enumerate(γtimes)
+  for (l, τ) in enumerate(lag_times)
     if τ > fw_max # don't bother with the rest (same as maximum(fw))
       break
     elseif (τ >= fw_min) # same as minimum(fw)

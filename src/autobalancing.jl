@@ -49,9 +49,10 @@ function autobalance(
         throw(ArgumentError("calmin and step must be positive"))
     end
     
-    @unpack ids = model;
-    @unpack t, id, treatment, covariates = model;
-    @unpack F, L = model;
+    (; ids,
+    t, id, treatment, covariates,
+    F, L) = model
+
 
     fmax = maximum(F);
     mmin = minimum(L);

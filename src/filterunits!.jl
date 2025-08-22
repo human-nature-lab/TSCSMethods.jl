@@ -10,7 +10,7 @@ function filterunits!(m, omap)
         (tt, tu) = m.observations[i]
 
         _filterunits!(
-            m.matches[i].mus, m.matches[i].ranks, tt, tu, omap, m.F, m.ids,
+            m.matches[i].eligible_matches, m.matches[i].match_rankings, tt, tu, omap, m.F, m.ids,
             m.reference
         )
     end

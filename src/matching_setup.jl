@@ -15,16 +15,16 @@ function observe(datt, datid, dattrt)
 end
 
 function make_matches(obslen, idlen, flen)
-  matches = Vector{Tob}(undef, obslen);
+  matches = Vector{TreatmentObservationMatches}(undef, obslen);
   _make_matches!(matches, obslen, idlen, flen);
   return matches
 end
 
 function _make_matches!(matches, obslen, idlen, flen)
   for i in 1:obslen
-    matches[i] = Tob(
-      mus = fill(true, idlen, flen), # DEFAULT TRUE -- ACTIVELY REMOVE MATCHES
-      ranks = Dict{Int, Vector{Int}}()
+    matches[i] = TreatmentObservationMatches(
+      eligible_matches = fill(true, idlen, flen), # DEFAULT TRUE -- ACTIVELY REMOVE MATCHES
+      match_rankings = Dict{Int, Vector{Int}}()
     );
   end;
 end

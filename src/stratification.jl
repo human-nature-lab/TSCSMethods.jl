@@ -18,7 +18,7 @@ function stratify(
 
   strata, stratlabels, stratifier = stratfunc(model, args...; kwargs...)
 
-  @unpack title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, meanbalances, iterations, estimator = model;
+  (; title, id, t, outcome, treatment, covariates, timevary, reference, F, L, observations, ids, matches, meanbalances, iterations, estimator) = model;
 
   stratmodel = CICStratified(
     title = title,
@@ -58,7 +58,8 @@ end
 assign treatment numbers in each category
 """
 function treatednums!(model)
-  @unpack strata, treatednum = model;
+  (; strata, treatednum) = model;
+
   for s in unique(strata)
     treatednum[s] = sum(strata .== s)
   end
@@ -78,7 +79,7 @@ function customstrat(
   stratdict::Dict{Tuple{Int64, Int64}, Int64}
 )
 
-  @unpack observations = model;
+  (; observations) = model;
 
   strata = Vector{Int}(undef, length(observations));
 
@@ -109,7 +110,7 @@ function variablestrat(
   qtes = [0, 0.25, 0.5, 0.75, 1.0], zerosep = false, stratvary = false
 )
 
-  @unpack title, id, t, outcome, treatment, timevary, observations = model;
+  (; title, id, t, outcome, treatment, timevary, observations) = model;
 
   strata = Vector{Int}(undef, length(observations));
 
@@ -220,7 +221,7 @@ function combostrat(model, vars::Vector{Symbol}, dat; varslabs = nothing)
   # vars = [:hightrump, :highinc]
   ###
 
-  @unpack title, id, t, outcome, treatment, timevary, observations = model;
+  (; id, t, treatment, observations) = model;
 
   strata = Vector{Int}(undef, length(observations));
 

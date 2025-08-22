@@ -80,10 +80,10 @@ maximizing memory reuse and providing better composability.
 function get_thread_storage(n_times::Int, n_covariates::Int)::ThreadLocalDistanceStorage
     # Input validation
     if n_times <= 0
-        throw(ArgumentError("n_times must be positive, got: $n_times"))
+        throw(ArgumentError("n_times eligible_matchest be positive, got: $n_times"))
     end
     if n_covariates <= 0
-        throw(ArgumentError("n_covariates must be positive, got: $n_covariates"))
+        throw(ArgumentError("n_covariates eligible_matchest be positive, got: $n_covariates"))
     end
     if n_times > LARGE_DATASET_WARNING_THRESHOLD
         @warn "Large n_times ($n_times) may cause excessive memory usage"
@@ -162,7 +162,7 @@ function distances_allocate!(matches, flen, covnum; sliding = false)
     tob = @views matches[i];
     
     # at least one f is valid
-    valids = vec(sum(tob.mus, dims = 2) .> 0);
+    valids = vec(sum(tob.eligible_matches, dims = 2) .> 0);
 
     if sliding
       matches[i] = @set tob.distances = [
@@ -182,7 +182,7 @@ end
 # tmu = (ob[1], 44007)
 
 # findfirst(ids .== tmu[2])
-# findfirst(ids[tobsvec[1].mus] .== tmu[2])
+# findfirst(ids[tobsvec[1].eligible_matches] .== tmu[2])
 
 # fset = [true for i in 1:31];
 # begin
@@ -221,7 +221,7 @@ where:
 
 # Algorithm Overview
 1. **Thread Parallelization**: Use :greedy scheduler for load balancing across irregular workloads
-2. **Valid Match Filtering**: Check mus matrix to identify potential matches
+2. **Valid Match Filtering**: Check eligible_matches matrix to identify potential matches
 3. **Storage Optimization**: Use thread-local pre-allocated arrays
 4. **Distance Computation**: Call alldistances! for each treated-control pair
 5. **Window Averaging**: Call window_distances! to average over time windows
@@ -283,12 +283,12 @@ function distances_calculate!(
   @inbounds Threads.@threads :greedy for i in eachindex(observations)
     ob = observations[i];
 
-    @unpack mus, distances = matches[i];
+    (; eligible_matches, distances) = matches[i];
 
     ## check the set of valid matches for ob
-    valids = vec(sum(mus, dims = 2) .> 0);
+    valids = vec(sum(eligible_matches, dims = 2) .> 0);
     validunits = @views ids[valids];
-    validmus = @views mus[valids, :];
+    valideligible_matches = @views eligible_matches[valids, :];
 
     # skip to next ob if there are no valid matches
     if length(validunits) == 0
@@ -297,28 +297,28 @@ function distances_calculate!(
     ##
 
     ## setup up for distance calculations
-    γrs = eachrow(tg[ob]);
-    γtimes = rg[ob];
+    treated_covariate_rows = eachrow(tg[ob]);
+    lag_times = rg[ob];
     
     # Get thread-local pre-allocated storage
-    storage = get_thread_storage(length(γtimes), length(covariates))
+    storage = get_thread_storage(length(lag_times), length(covariates))
     
     # Use pre-allocated arrays (resize views if needed)
     has_missing = Missing <: eltype(tg[ob])
     dtots = if has_missing
       # Use missing-compatible arrays, resize to current needs
       for h in 1:(length(covariates)+1)
-        if length(storage.dtots_missing[h]) < length(γtimes)
-          resize!(storage.dtots_missing[h], length(γtimes))
+        if length(storage.dtots_missing[h]) < length(lag_times)
+          resize!(storage.dtots_missing[h], length(lag_times))
         end
-        fill!(view(storage.dtots_missing[h], 1:length(γtimes)), missing)
+        fill!(view(storage.dtots_missing[h], 1:length(lag_times)), missing)
       end
       storage.dtots_missing
     else
       # Use Float64 arrays
       for h in 1:(length(covariates)+1)
-        if length(storage.dtots_float[h]) < length(γtimes)
-          resize!(storage.dtots_float[h], length(γtimes))
+        if length(storage.dtots_float[h]) < length(lag_times)
+          resize!(storage.dtots_float[h], length(lag_times))
         end
       end
       storage.dtots_float
@@ -331,9 +331,9 @@ function distances_calculate!(
     window_distances!(
       distances,
       dtots, accums,
-      eachrow(validmus), validunits,
+      eachrow(valideligible_matches), validunits,
       ob[1], Σinvdict,
-      γrs, γtimes, tg,
+      treated_covariate_rows, lag_times, tg,
       fmin, Lmin, Lmax;
       sliding = sliding
     );
@@ -342,8 +342,8 @@ function distances_calculate!(
     # get the matches for which mahalanobis distance cannot be calculated
     # -- due to missingness.
 
-    @views(mus[valids, :][isinf.(distances[:, 1]), :]) .= false;
-    # @views(mus[valids, :][.!isinf.(distances[:, 1]), :])
+    @views(eligible_matches[valids, :][isinf.(distances[:, 1]), :]) .= false;
+    # @views(eligible_matches[valids, :][.!isinf.(distances[:, 1]), :])
     # @set matches[i].distances = distances[.!isinf.(distances[:, 1]), :];
     # @reset matches[i].distances = distances[.!isinf.(distances[:, 1]), :];
     
@@ -356,7 +356,7 @@ end
 matchwindow(f, tt, pomin, pomax) = (tt + f) + pomin : (tt + f) + pomax;
 
 """
-    window_distances!(distances, dtots, accums, validmuscols, validunits, tt, Σinvdict, γrs, γtimes, tg, fmin, Lmin, Lmax; sliding = false)
+    window_distances!(distances, dtots, accums, valideligible_matchescols, validunits, tt, Σinvdict, treated_covariate_rows, lag_times, tg, fmin, Lmin, Lmax; sliding = false)
 
 Assign distance calculations for temporal matching windows.
 
@@ -364,12 +364,12 @@ Assign distance calculations for temporal matching windows.
 - `distances`: Output matrix to store computed distances
 - `dtots`: Pre-allocated arrays for distance calculations per covariate
 - `accums`: Accumulator arrays for counting valid observations
-- `validmuscols`: Valid match columns for each potential match
+- `valideligible_matchescols`: Valid match columns for each potential match
 - `validunits`: Unit identifiers for valid matches
 - `tt`: Treatment time indicator
 - `Σinvdict`: Dictionary of inverse covariance matrices by time period
-- `γrs`: Treated unit covariate rows over time
-- `γtimes`: Time periods for the treated unit
+- `treated_covariate_rows`: Treated unit covariate rows over time
+- `lag_times`: Time periods for the treated unit
 - `tg`: Treatment group data structure
 - `fmin`: Minimum relative time offset for matching window
 - `Lmin`: Minimum absolute time for matching
@@ -381,7 +381,7 @@ Assign distance calculations for temporal matching windows.
 2. **Distance Computation**: For each valid match and time window:
    - Extract control unit data for the same time periods
    - Calculate Mahalanobis and covariate-specific distances using `alldistances!`
-   - Average distances over the matching window using `distaveraging!`
+   - Average distances over the matching window using `average_distances!`
 3. **Storage**: Store final averaged distances in the `distances` matrix
 
 # Mathematical Foundation
@@ -399,9 +399,9 @@ allow the matching window to vary by treatment time.
 """
 function window_distances!(
   distances, dtots, accums,
-  validmuscols, validunits,
+  valideligible_matchescols, validunits,
   tt, Σinvdict,
-  γrs, γtimes, tg,
+  treated_covariate_rows, lag_times, tg,
   fmin, Lmin, Lmax;
   sliding = false
 )
@@ -409,37 +409,37 @@ function window_distances!(
   # the sliding method would be for the pretreatment matching period ONLY
   # cc = 0
 
-  # validmuscols = eachrow(validmus)
-  # (m, (unit, muscol)) = collect(enumerate(
+  # valideligible_matchescols = eachrow(valideligible_matches)
+  # (m, (unit, eligible_matchescol)) = collect(enumerate(
   #   zip(
-  #     validunits, validmuscols
+  #     validunits, valideligible_matchescols
   #     )
   #   ))[6]
 
-  for (m, (unit, muscol)) in enumerate(
+  for (m, (unit, eligible_matchescol)) in enumerate(
     zip(
-      validunits, validmuscols
+      validunits, valideligible_matchescols
       )
     )
 
     # cc += 1
     g = tg[(tt, unit)];
 
-    alldistances!(dtots, Σinvdict, γrs, eachrow(g), γtimes);
+    alldistances!(dtots, Σinvdict, treated_covariate_rows, eachrow(g), lag_times);
 
     if sliding
       # MISSING DONE
 
       # @time mahadistancing!(
-      #   mahas, Σinvdict, γrs, eachrow(g), γtimes
+      #   mahas, Σinvdict, treated_covariate_rows, eachrow(g), lag_times
       # );
 
-      # cnt: since φ will track 1:31, and we will have only those that exist 
+      # cnt: since window_index will track 1:31, and we will have only those that exist 
       _window_distances!(
         distances, m,
-        muscol,
+        eligible_matchescol,
         dtots, accums,
-        tt, γtimes, fmin, Lmin, Lmax;
+        tt, lag_times, fmin, Lmin, Lmax;
         sliding = sliding
       )
 
@@ -447,9 +447,9 @@ function window_distances!(
       # NOT SLIDING
       _window_distances!(
         distances, m,
-        muscol,
+        eligible_matchescol,
         dtots, accums,
-        tt, γtimes, fmin, Lmin, Lmax;
+        tt, lag_times, fmin, Lmin, Lmax;
         sliding = sliding
       );
     end
@@ -460,7 +460,7 @@ end
 
 
 """
-    alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
+    alldistances!(dtotals, Σinvdict, xrows, yrows, lag_times)
 
 Calculate Mahalanobis and individual covariate distances for time-series matching.
 
@@ -486,7 +486,7 @@ d_j(x_jτ, y_jτ) = √[(x_jτ - y_jτ)² / σ²_jτ]
 where σ²_jτ = Σ_τ[j,j] is the variance of covariate j at time τ.
 
 # Algorithm
-1. **Matrix Caching**: Pre-cache all covariance matrices for γtimes to eliminate 
+1. **Matrix Caching**: Pre-cache all covariance matrices for lag_times to eliminate 
    repeated hash lookups (Performance optimization - maintains exact results)
 2. **Distance Calculation**: For each time point, compute both Mahalanobis and 
    individual distances simultaneously
@@ -497,11 +497,11 @@ where σ²_jτ = Σ_τ[j,j] is the variance of covariate j at time τ.
 - `Σinvdict`: Dictionary mapping time → inverse covariance matrix
 - `xrows`: Treated unit covariate vectors over time
 - `yrows`: Control unit covariate vectors over time  
-- `γtimes`: Time points for distance calculation
+- `lag_times`: Time points for distance calculation
 
 # Performance Notes
 - **Optimization**: Caches covariance matrices to avoid O(m) hash lookups per distance
-- **Complexity**: O(k) where k = length(γtimes), down from O(k×m) with m unique times
+- **Complexity**: O(k) where k = length(lag_times), down from O(k×m) with m unique times
 - **Memory**: Uses views and pre-allocated arrays for efficiency
 
 # Statistical Accuracy
@@ -512,7 +512,7 @@ while providing significant performance improvements through caching.
 - Feltham et al. (2023): Mass gatherings methodology with extended time windows
 - Imai et al. (2021): Original matching framework for TSCS data
 """
-function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
+function alldistances!(dtotals, Σinvdict, xrows, yrows, lag_times)
   # Input validation
   if isempty(dtotals)
     throw(ArgumentError("dtotals cannot be empty"))
@@ -522,7 +522,7 @@ function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
     throw(ArgumentError("Σinvdict (covariance matrices) cannot be empty"))
   end
   
-  n_times = length(γtimes)
+  n_times = length(lag_times)
   if n_times == 0
     @warn "No time points provided"
     return
@@ -530,7 +530,7 @@ function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
   
   if length(xrows) != n_times || length(yrows) != n_times
     throw(DimensionMismatch(
-      "Dimension mismatch: xrows ($(length(xrows))), yrows ($(length(yrows))), γtimes ($n_times) must have same length"
+      "Dimension mismatch: xrows ($(length(xrows))), yrows ($(length(yrows))), lag_times ($n_times) eligible_matchest have same length"
     ))
   end
   
@@ -538,17 +538,17 @@ function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
   for (i, dt) in enumerate(dtotals)
     if length(dt) != n_times
       throw(DimensionMismatch(
-        "dtotals[$i] length ($(length(dt))) must match γtimes length ($n_times)"
+        "dtotals[$i] length ($(length(dt))) eligible_matchest match lag_times length ($n_times)"
       ))
     end
   end
-  # CORRECTNESS NOTE: Pre-cache matrices for this specific γtimes sequence
+  # CORRECTNESS NOTE: Pre-cache matrices for this specific lag_times sequence
   # This is safe because we only cache what would be looked up anyway
   # TYPE STABILITY FIX: Separate valid matrices from missing indicators
   cached_Σ = Dict{Int, Matrix{Float64}}()
   has_matrix = Dict{Int, Bool}()
   
-  for τ in γtimes
+  for τ in lag_times
     if !haskey(has_matrix, τ)
       Σ_temp = get(Σinvdict, τ, nothing)
       if Σ_temp !== nothing
@@ -560,7 +560,7 @@ function alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
     end
   end
   
-  for (xr, yr, τ, i) in zip(xrows, yrows, γtimes, 1:length(γtimes))
+  for (xr, yr, τ, i) in zip(xrows, yrows, lag_times, 1:length(lag_times))
     # TYPE STABILITY: Check existence first, then access type-stable dictionary
     # CORRECTNESS: This gives identical result to get(Σinvdict, τ, nothing)
     if has_matrix[τ]
@@ -591,9 +591,9 @@ end
 
 function _window_distances!(
   distances, m,
-  muscol,
+  eligible_matchescol,
   dtots, accums,
-  tt, γtimes, fmin, Lmin, Lmax;
+  tt, lag_times, fmin, Lmin, Lmax;
   sliding = false
 )
 
@@ -604,11 +604,11 @@ function _window_distances!(
     drow .= 0.0
     accums .= 0
     ##
-    distaveraging!(drow, dtots, accums, γtimes, fw);
+    average_distances!(drow, dtots, accums, lag_times, fw);
 
   else
     error("optioned method is unfinished")
-    for (φ, fb) in enumerate(muscol)
+    for (window_index, fb) in enumerate(eligible_matchescol)
       if fb # if the specific f (for the given match) is valid
 
         # mahalanobis distance
@@ -618,11 +618,11 @@ function _window_distances!(
         # and then just use mean with skipmissing on the appropriate
         # portion of mahas...
         
-        fw = matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
+        fw = matchwindow(window_index + fmin - 1, tt, Lmin, Lmax);
         # fw = if sliding
         #   error("unfinished")
         #   # this should grab the pretreatment crossover window
-        #   matchwindow(φ + fmin - 1, tt, Lmin, Lmax);
+        #   matchwindow(window_index + fmin - 1, tt, Lmin, Lmax);
         # else
         #   # This is a gixed window that ought to be based
         #   # on the crossover definition.
@@ -631,7 +631,7 @@ function _window_distances!(
         # end
         
 
-        distaveraging!(distances, dtots, accums, γtimes, fw, φ, m);
+        average_distances!(distances, dtots, accums, lag_times, fw, window_index, m);
       end
 
     end

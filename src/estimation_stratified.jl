@@ -13,7 +13,7 @@ function estimate!(
 
 )
 
-    @unpack results, matches, observations, strata, outcome, F, ids, reference, t, id = model; 
+    (; results, matches, observations, strata, outcome, F, ids, reference, t, id) = model; 
     modeliters = model.iterations;
 
     if !isnothing(iterations)

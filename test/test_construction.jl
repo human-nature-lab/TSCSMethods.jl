@@ -126,25 +126,25 @@
             @test RefinedCICStratified <: AbstractCICModelStratified
         end
         
-        @testset "Tob structure types" begin
+        @testset "TreatmentObservationMatches structure types" begin
             # Test Tob structure creation
             mus = rand(Bool, 10, 5)
             distances = rand(5, 5)
             ranks = Dict(1 => [1, 2, 3], 2 => [2, 1, 3])
             
-            tob = Tob(mus = mus, distances = distances, ranks = ranks)
-            @test tob.mus == mus
+            tob = TreatmentObservationMatches(mus = mus, distances = distances, ranks = ranks)
+            @test tob.eligible_matches == mus
             @test tob.distances == distances
-            @test tob.ranks == ranks
+            @test tob.match_rankings == ranks
             
-            # Test TobC (Caliper) structure
-            tobc = TobC(mus = mus, ranks = ranks)
-            @test tobc.mus == mus
-            @test tobc.ranks == ranks
+            # Test TreatmentObservationRefinedMatches (Caliper) structure
+            tobc = TreatmentObservationRefinedMatches(mus = mus, ranks = ranks)
+            @test tobc.eligible_matches == mus
+            @test tobc.match_rankings == ranks
             
-            # Test TobR (Refined) structure
-            tobr = TobR(mus = mus)
-            @test tobr.mus == mus
+            # Test TreatmentObservationRefinedMatches (Refined) structure
+            tobr = TreatmentObservationRefinedMatches(mus = mus)
+            @test tobr.eligible_matches == mus
         end
         
         @testset "Overall results structure" begin

@@ -9,22 +9,22 @@ Calculate the att for each f, for a the set of treated units and
 matches contained in the fblocks.
 """
 function att!(atts, tcounts, fblocks)
-    for φ in 1:length(fblocks)
-        @unpack matchunits, weightedoutcomes,
-        weightedrefoutcomes, treatment = fblocks[φ]
+    for window_index in 1:length(fblocks)
+        (; weightedoutcomes,
+        weightedrefoutcomes, treatment) = fblocks[window_index]
 
         __att!(
-            atts, tcounts, φ,
+            atts, tcounts, window_index,
             weightedoutcomes,
             weightedrefoutcomes, treatment
         )
 
-        atts[φ] = atts[φ] / tcounts[φ]
+        atts[window_index] = atts[window_index] / tcounts[window_index]
     end
 end
 
 function __att!(
-    atts, tcounts, φ,
+    atts, tcounts, window_index,
     weightedoutcomes,
     weightedrefoutcomes, treatments,
 )
@@ -32,9 +32,9 @@ function __att!(
         weightedoutcomes,
         weightedrefoutcomes, treatments
     )
-        atts[φ] += (wo + wref);
+        atts[window_index] += (wo + wref);
         if trted
-            tcounts[φ] += 1;
+            tcounts[window_index] += 1;
         end
     end
 end
@@ -160,9 +160,9 @@ function applyunitcounts!(model)
     Ud = Dict(collect(1:length(model.F)) .=> Us)
 
     for (j, f) in enumerate(res.f)
-      φ = f - minimum(model.F) + 1
-      res[j, :treated] = Ys[φ]
-      res[j, :matches] = Us[φ]
+      window_index = f - minimum(model.F) + 1
+      res[j, :treated] = Ys[window_index]
+      res[j, :matches] = Us[window_index]
     end
   else
     for s in res.stratum
@@ -170,9 +170,9 @@ function applyunitcounts!(model)
       Ud = Dict(collect(1:length(model.F)) .=> Us[s])
       
       for (j, f, s) in zip(eachindex(res.f), res.f, res.stratum)
-        φ = f - minimum(model.F) + 1
-        res[j, :treated] = Ys[s][φ]
-        res[j, :matches] = Us[s][φ]
+        window_index = f - minimum(model.F) + 1
+        res[j, :treated] = Ys[s][window_index]
+        res[j, :matches] = Us[s][window_index]
       end
     end
   end
@@ -262,7 +262,7 @@ function quick_att(
     for (i, r) in enumerate(eachrow(matchseries))
         for ot in outcomes
             # change within units: Y_(t+F) - Y_(t-1)
-            attdat[i, ot] = [r[ot][φ + 31] - r[ot][tm1] for φ in F]
+            attdat[i, ot] = [r[ot][window_index + 31] - r[ot][tm1] for window_index in F]
         end
     end
 
@@ -291,14 +291,14 @@ function quick_att(
     
     ln = Int(nrow(x) / length(F))
 
-    # add the φ values, in order
-    x[!, :φ] = reduce(vcat, fill(collect(F), ln))
+    # add the window_index values, in order
+    x[!, :window_index] = reduce(vcat, fill(collect(F), ln))
 
     
     # SUM NOT AVERAGE....
     # individual unit effect
     x = @chain x begin
-        groupby([:timetreated, :treatedunit, :φ])
+        groupby([:timetreated, :treatedunit, :window_index])
         combine(
             [ot => sum => ot for ot in outcomes]...
         )
@@ -311,7 +311,7 @@ function quick_att(
 
     # atts
     oa = @chain x begin
-        groupby(:φ)
+        groupby(:window_index)
         combine(
             [ot => func => ot for ot in outcomes]...
         )

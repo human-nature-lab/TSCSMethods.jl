@@ -8,16 +8,16 @@ function define_xover_windows(tt, f, fmin, fmax)
     return tx, ptx
 end
 
-function block_postxover!(rmus, tx, mu_trtimes, φ)
+function block_postxover!(match_eligibility_row, tx, mu_trtimes, window_index)
     if (length(mu_trtimes) > 0) & (length(tx[1]:tx[2]) > 0)
         for mtt in mu_trtimes
             if (mtt >= tx[1]) & (mtt <= tx[2])
-                rmus[φ] = false
+                match_eligibility_row[window_index] = false
                 break
             end
         end
     end
-    return rmus
+    return match_eligibility_row
 end
    
 function match_prexover!(
@@ -79,17 +79,17 @@ function match_prexover!(
 end
 
 function exposure_assign!(
-    rmus, exposures, tu_treatments, mu_treatments, treatcat
+    match_eligibility_row, exposures, tu_treatments, mu_treatments, treatcat
 )
     # check similarity of tu_treatments & mu_treatments
     # based on treatcat function (default or user defined)
     for e in exposures
         if treatcat(tu_treatments[e]) != treatcat(mu_treatments[e])
             # if the categories differ for any exposure, not eligible
-            rmus[φ] = false
+            match_eligibility_row[window_index] = false
         end
     end
-    return rmus
+    return match_eligibility_row
 end
 
 """
@@ -101,7 +101,7 @@ function trim_model(model2)
   # remove treated observations with no valid mus
   anymatches = fill(true, length(model2.observations));
   for (i, e) in enumerate(model2.matches)
-    anymatches[i] = any(e.mus)
+    anymatches[i] = any(e.eligible_matches)
   end
 
   model2 = @set model2.observations = model2.observations[anymatches];

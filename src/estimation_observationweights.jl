@@ -5,7 +5,7 @@ treated observation weights
 """
 function observationweights(model, dat)
 
-  @unpack id, t, outcome, observations = model;
+  (; id, t, outcome, observations) = model;
 
   M = Mprep(model);
 
@@ -51,7 +51,7 @@ function Mprep(model)
   # - treated units
   # in each case we have the unique set, at each f
 
-  @unpack observations, matches, ids, F, reference = model;
+  (; observations, matches, ids, F, reference) = model;
   Fmin = minimum(F);
 
   M = DataFrame(
@@ -143,21 +143,21 @@ end
 
 function Mloop!(M, Mt, observations, matches, ids, Flen)
   for i in eachindex(observations)
-    @unpack mus = matches[i]
+    (; eligible_matches) = matches[i]
 
-    anymus = Vector{Bool}(undef, size(mus)[1]);
-    get_anymus!(anymus, mus);
+    anymus = Vector{Bool}(undef, size(eligible_matches)[1]);
+    get_anymus!(anymus, eligible_matches);
 
     fthere = Vector{Bool}(undef, Flen);
-    getfunion!(fthere, mus);
+    find_periods_with_matches!(fthere, eligible_matches);
 
     append!(
       M,
       DataFrame(
         treatob = fill(observations[i], sum(anymus)),
         id = ids[anymus],
-        # fbs = matches[i].fs[matches[i].mus] # vector of vectors
-        fbs = [r for r in eachrow(mus[anymus, :])]
+        # fbs = matches[i].fs[matches[i].eligible_matches] # vector of vectors
+        fbs = [r for r in eachrow(eligible_matches[anymus, :])]
       )
     );
 
@@ -174,8 +174,8 @@ function Mloop!(M, Mt, observations, matches, ids, Flen)
   return M, Mt
 end
 
-function get_anymus!(anymus, mus)
-  for (i, r) in enumerate(eachrow(mus))
+function get_anymus!(anymus, eligible_matches)
+  for (i, r) in enumerate(eachrow(eligible_matches))
     if any(r)
       anymus[i] = true
     else 

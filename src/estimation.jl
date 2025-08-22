@@ -21,8 +21,6 @@ function estimate!(
     dopvalue::Bool = false
 )::Union{AbstractCICModel, Overall}
 
-    # import TSCSMethods:processunits,getoutcomemap,@unpack,unitstore!,setup_bootstrap,makefblocks,treatedmap,bootstrap!,att!,bootinfo!
-
     # Input validation
     if nrow(dat) == 0
       throw(ArgumentError("Input data cannot be empty"))
@@ -36,7 +34,7 @@ function estimate!(
       throw(ArgumentError("percentiles must be between 0 and 1"))
     end
     
-    @unpack results, matches, observations, outcome, F, ids, reference, t, id = model; 
+    (; results, matches, observations, outcome, F, ids, reference, t, id) = model; 
     modeliters = model.iterations;
 
     if !isnothing(iterations)

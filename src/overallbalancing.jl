@@ -7,10 +7,9 @@ Calculate the overall mean covariate balance for a model.
 """
 function grandbalance!(model::AbstractCICModel)
 
-  @unpack F, L, covariates, timevary = model;
-  @unpack grandbalances, meanbalances = model;
+  (; L, covariates, timevary, grandbalances, meanbalances) = model
 
-  __grandbalance!(
+  __compute_grand_balance!(
     grandbalances, meanbalances,
     covariates, timevary, length(L)
   );
@@ -19,17 +18,17 @@ function grandbalance!(model::AbstractCICModel)
 end
 
 # not stratified
-function __grandbalance!(
+function __compute_grand_balance!(
   grandbalances, meanbalances, covariates, timevary, Len
 )
   for covar in covariates
     if timevary[covar]
-      covec = meanbalances[!, covar];
-      gbc = disallowmissing(_grandbalance(covec, Len))
+      covariate_balance_vector = meanbalances[!, covar];
+      gbc = disallowmissing(_compute_grand_balance(covariate_balance_vector, Len))
       grandbalances[covar] = gbc
     else
-      covec = meanbalances[!, covar]
-      grandbalances[covar] = _grandbalance(covec)
+      covariate_balance_vector = meanbalances[!, covar]
+      grandbalances[covar] = _compute_grand_balance(covariate_balance_vector)
     end
   end
   return grandbalances
@@ -42,17 +41,16 @@ Calculate the overall mean covariate balance for a model.
 """
 function grandbalance!(stratmodel::AbstractCICModelStratified)
 
-  @unpack F, L, covariates, timevary, strata = stratmodel;
-  @unpack grandbalances, meanbalances = stratmodel;
+  (; L, covariates, timevary, strata, grandbalances, meanbalances) = stratmodel
 
   Len = length(L);
 
   if isempty(strata)
     println("N.B. stratum not defined in meanbalances. so, calculating nonstratified grandbalances.")
     @reset grandbalances = GrandDictNoStrat();
-    __grandbalance!(
+    __compute_grand_balance!(
       grandbalances, meanbalances,
-      covariates, timevary, length(L)
+      covariates, timevary, Len
     );
   else
     us = sort(unique(strata));
@@ -60,7 +58,7 @@ function grandbalance!(stratmodel::AbstractCICModelStratified)
     
     for s in us
       mb_s = @view meanbalances[strata .== s, :];
-      __grandbalance!(
+      __compute_grand_balance!(
         grandbalances, mb_s,
         covariates, timevary, Len,
         s
@@ -71,20 +69,20 @@ function grandbalance!(stratmodel::AbstractCICModelStratified)
 end
 
 # stratified
-function __grandbalance!(
+function __compute_grand_balance!(
   grandbalances, meanbalances, covariates, timevary, Len, s
 )
   for covar in covariates
     if timevary[covar]
       gbc = disallowmissing(
-        _grandbalance(
+        _compute_grand_balance(
           meanbalances[!, covar],
           Len
         )
       )
       grandbalances[s][covar] = gbc
     else
-      grandbalances[s][covar] = _grandbalance(
+      grandbalances[s][covar] = _compute_grand_balance(
         meanbalances[!, covar]
       )
     end
@@ -94,8 +92,8 @@ end
 
 # common inner functions
 
-function _grandbalance(covec, Len)
-  reduced = reduce(vcat, covec);
+function _compute_grand_balance(covariate_balance_vector, Len)
+  reduced = reduce(vcat, covariate_balance_vector);
   # means = Vector{Union{Missing, Float64}}(undef, Len);
   means = Vector{Float64}(undef, Len);
 
@@ -116,16 +114,16 @@ function _grandbalance(covec, Len)
   return means
 end
 
-function _grandbalance(covec)
+function _compute_grand_balance(covariate_balance_vector)
   # Handle BalanceData specially
-  if eltype(covec) <: BalanceData
+  if eltype(covariate_balance_vector) <: BalanceData
     all_values = Float64[]
-    for bd in covec
+    for bd in covariate_balance_vector
       valid_indices = .!bd.is_missing
       append!(all_values, bd.values[valid_indices])
     end
     return isempty(all_values) ? NaN : mean(all_values)
   else
-    return mean(skipmissing(reduce(vcat, covec)))
+    return mean(skipmissing(reduce(vcat, covariate_balance_vector)))
   end
 end

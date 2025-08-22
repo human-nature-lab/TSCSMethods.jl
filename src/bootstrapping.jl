@@ -75,23 +75,23 @@ function bootatt!(atts, tcounts, fblocks, ids, treatdex)
 end
 
 function _boot!(atts, tcounts, fblocks, sampcount)
-    for φ in 1:length(fblocks)
-        @unpack matchunits, weightedoutcomes,
-        weightedrefoutcomes, treatment = fblocks[φ]
+    for window_index in 1:length(fblocks)
+        (; matchunits, weightedoutcomes,
+        weightedrefoutcomes, treatment) = fblocks[window_index]
 
         __boot!(
-            atts, tcounts, φ,
+            atts, tcounts, window_index,
             matchunits, weightedoutcomes,
             weightedrefoutcomes, treatment,
             sampcount
         )
 
-        atts[φ] = atts[φ] / tcounts[φ]
+        atts[window_index] = atts[window_index] / tcounts[window_index]
     end
 end
 
 function __boot!(
-    atts, tcounts, φ,
+    atts, tcounts, window_index,
     matchunits, weightedoutcomes,
     weightedrefoutcomes, treatments,
     sampcount
@@ -102,9 +102,9 @@ function __boot!(
     )
         # Cache dictionary lookup to avoid repeated hash operations
         sample_weight = get(sampcount, munit, 0)
-        atts[φ] += (wo + wref) * sample_weight
+        atts[window_index] += (wo + wref) * sample_weight
         if trted
-            tcounts[φ] += sample_weight
+            tcounts[window_index] += sample_weight
         end
     end
 end

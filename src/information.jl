@@ -15,7 +15,7 @@ function unitcounts(m)
     for i in eachindex(m.matches)
         push!(
             X,
-            vec(sum(m.matches[i].mus, dims = 1))
+            vec(sum(m.matches[i].eligible_matches, dims = 1))
         )
     end
 
@@ -72,11 +72,11 @@ end
 is eligible to be a match, for each F in the outcome window.
 """
 function eligibility(model)
-  @unpack matches = model
-  eligibles = similar(matches[1].mus) .* 0;
+  (; matches) = model
+  eligibles = similar(matches[1].eligible_matches) .* 0;
   
   for objet in matches
-    eligibles += objet.mus
+    eligibles += objet.eligible_matches
   end
   return eligibles
 end
@@ -88,7 +88,7 @@ Input a unit id, and see when (if) a treatment occured.
 """
 function whentreated(fips, model)
 
-  @unpack matches, observations = model;
+  (; observations) = model;
 
   loc = Int[];
   cnt = 0
@@ -115,7 +115,7 @@ Show the ranked (best to worst) eligible matches to a chosen
 treated observation.
 """
 function showmatches(model, treatob)
-  @unpack matches, observations = model;
+  (; matches, observations) = model;
 
   cnt = 0
   found = false
@@ -131,11 +131,12 @@ function showmatches(model, treatob)
     return "treated observation not found"
   end
 
-  return sort(matches[cnt].ranks)
+  return sort(matches[cnt].match_rankings)
 end
 
 function matchinfo(model::Union{CIC, CICStratified}; maxrank = 5)
-  @unpack observations, matches, ids, F = model;
+  (; observations, matches, F) = model;
+
   mf = DataFrame(
     timetreated = Int[],
     treatedunit = Int[],
@@ -146,15 +147,15 @@ function matchinfo(model::Union{CIC, CICStratified}; maxrank = 5)
 
   for (i, treatob) in enumerate(observations)
     for f in F
-      φ = f - minimum(F) + 1
-      vlen = min(length(matches[i].ranks[φ]), maxrank);
+      window_index = f - minimum(F) + 1
+      vlen = min(length(matches[i].match_rankings[window_index]), maxrank);
       push!(
         mf,
         [
           treatob[1],
           treatob[2],
           f,
-          matches[i].ranks[φ][1:vlen], # ids[matches[i].mus[:,φ]],
+          matches[i].match_rankings[window_index][1:vlen],
           (1:vlen)[1:vlen],
         ]
       );
@@ -211,10 +212,10 @@ function matchinfo(rc, model; maxrank = 5)
     end
     
     for f in rc.F
-      φ = f - minimum(rc.F) + 1      
-      mus = model.ids[rc.matches[i].mus[:,φ]];
+      window_index = f - minimum(rc.F) + 1      
+      mus = model.ids[rc.matches[i].eligible_matches[:,window_index]];
       mus = mus[1:min(length(mus), maxrank)];
-      fullmus = model.ids[model.matches[cnt].ranks[φ]];
+      fullmus = model.ids[model.matches[cnt].match_rankings[window_index]];
       rnks = [findfirst(x -> x == mu, fullmus) for mu in mus];
     
       rnks = rnks[sortperm(rnks)];

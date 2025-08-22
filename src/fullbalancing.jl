@@ -9,12 +9,12 @@ cf. meanbalance for the averages by treated observation
 """
 function fullbalance(model::AbstractCICModel, dat::DataFrame)
 
-  @unpack observations, matches, ids = model;
-  @unpack F, L, id, t, reference, treatment, covariates, timevary = model;
+  (; observations, matches, ids) = model;
+  (; F, L, id, t, reference, treatment, covariates, timevary) = model;
   fmin = minimum(F); fmax = maximum(F); mmin = minimum(L); mmax = maximum(L);
   
   tmin = minimum(dat[!, t])
-  cdat = Matrix(dat[!, covariates]);
+  X = Matrix(dat[!, covariates]);
 
   balances = setup_fullbalances(model);
 
@@ -23,13 +23,13 @@ function fullbalance(model::AbstractCICModel, dat::DataFrame)
   #   matches, covariates, timevary, matches, ids, Lrnge
   # );
   
-  Lσ = std_treated(model, dat);
+  Lσ = compute_treated_std(model, dat);
 
   tg, rg, trtg = make_groupindices(
     dat[!, t], dat[!, treatment],
     dat[!, id], ids,
     fmax, mmin,
-    cdat
+    X
   );
 
   _balance!(
@@ -72,13 +72,13 @@ function _balance!(
     # (don't need each row)
     # we know which fs are allowable already, so we don't need to worry about lengths, etc. (since the panels are necessarily balanced)
 
-    # fw = matchwindow(φ + fmin - 1, tt, mmin, mmax);
+    # fw = matchwindow(window_index + fmin - 1, tt, mmin, mmax);
     ttmatch = mmin + ob[1] + fmin : mmax + ob[1] + fmax;
 
     γcs = eachcol(tg[ob]);
 
-    # γrs = eachrow(tg[ob]);
-    # γtimes = rg[ob];
+    # treated_covariate_rows = eachrow(tg[ob]);
+    # lag_times = rg[ob];
     firstγtime = rg[ob][begin];
 
     # if the data vector is shorter than ttmatch
@@ -146,8 +146,7 @@ function balance_atreated!(
 end
 
 function setup_fullbalances(model)
-  @unpack F, L, covariates, timevary = model;
-  @unpack matches, ids, observations = model;
+  (; F, L, covariates, timevary, matches, ids, observations) = model;
 
   Lrnge = length((F[1] + L[1]):(F[end] + L[end]));
 
@@ -170,7 +169,7 @@ function setup_fullbalances(model)
       }(undef, length(observations));
       for i in eachindex(observations)
         balances[i, covar] = [
-          Vector{Union{Missing, Float64}}(missing, Lrnge) for _ in 1:sum(matches[i].mus)
+          Vector{Union{Missing, Float64}}(missing, Lrnge) for _ in 1:sum(matches[i].eligible_matches)
         ]
       end
     else
@@ -178,7 +177,7 @@ function setup_fullbalances(model)
     balances[!, covar] = zeros(Float64, nrow(balances));
     balances[!, covar] = Vector{Vector{Float64}}(undef, length(observations));
     for i in eachindex(observations)
-      balances[i, covar] = Vector{Float64}(undef, sum(matches[i].mus))
+      balances[i, covar] = Vector{Float64}(undef, sum(matches[i].eligible_matches))
       end
     end
   end
@@ -187,7 +186,7 @@ function setup_fullbalances(model)
 end
 
 # function matchassignments(tobsi, ids; returnefsets = true)
-#   assigned = getassigned(tobsi.mus, tobsi.fs);
+#   assigned = getassigned(tobsi.eligible_matches, tobsi.fs);
 #   emus = ids[assigned]; # eligible matches
   
 #   if returnefsets == false

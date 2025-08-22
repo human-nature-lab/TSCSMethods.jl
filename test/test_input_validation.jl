@@ -48,8 +48,8 @@ using LinearAlgebra
         
         @testset "Valid inputs" begin
             dat_t = [1, 1, 2, 2, 3, 3]
-            cdat = randn(6, 3)
-            result = TSCSMethods.samplecovar(dat_t, cdat)
+            X = randn(6, 3)
+            result = TSCSMethods.samplecovar(dat_t, X)
             @test result isa Dict{Int64, Matrix{Float64}}
             @test length(result) == 3  # Three time periods
         end
@@ -73,7 +73,7 @@ using LinearAlgebra
             dtotals = [Vector{Float64}(undef, 3), Vector{Float64}(undef, 3)]
             Σinvdict = Dict(1 => Matrix{Float64}(I, 2, 2))
             
-            # Length mismatches between xrows, yrows, γtimes
+            # Length mismatches between xrows, yrows, lag_times
             @test_throws DimensionMismatch TSCSMethods.alldistances!(
                 dtotals, Σinvdict,
                 [randn(2), randn(2)],  # 2 time points
@@ -81,7 +81,7 @@ using LinearAlgebra
                 [1, 2]                # 2 time points
             )
             
-            # dtotals length mismatch with γtimes
+            # dtotals length mismatch with lag_times
             @test_throws DimensionMismatch TSCSMethods.alldistances!(
                 [Vector{Float64}(undef, 2)],  # Wrong length
                 Σinvdict,
@@ -103,10 +103,10 @@ using LinearAlgebra
             
             xrows = [randn(n_covs) for _ in 1:n_times]
             yrows = [randn(n_covs) for _ in 1:n_times]
-            γtimes = 1:n_times
+            lag_times = 1:n_times
             
             # Should not throw
-            @test_nowarn TSCSMethods.alldistances!(dtotals, Σinvdict, xrows, yrows, γtimes)
+            @test_nowarn TSCSMethods.alldistances!(dtotals, Σinvdict, xrows, yrows, lag_times)
             
             # Check that distances were computed
             @test all(isfinite, dtotals[1])  # Mahalanobis distances
@@ -115,13 +115,13 @@ using LinearAlgebra
         end
     end
 
-    @testset "distaveraging! validation (sliding window)" begin
+    @testset "average_distances! validation (sliding window)" begin
         @testset "Empty inputs" begin
             distances = Matrix{Float64}[]
             dtots = Vector{Vector{Float64}}()
             accums = Int[]
             
-            @test_throws ArgumentError TSCSMethods.distaveraging!(
+            @test_throws ArgumentError TSCSMethods.average_distances!(
                 distances, dtots, accums, Int[], 1:5, 1, 1
             )
         end
@@ -131,10 +131,10 @@ using LinearAlgebra
             distances = [Matrix{Float64}(undef, 2, 2), Matrix{Float64}(undef, 2, 2)]
             dtots = [Vector{Float64}(undef, n_times), Vector{Float64}(undef, 3)]  # Mismatch!
             accums = [0, 0]
-            γtimes = 1:n_times
+            lag_times = 1:n_times
             
-            @test_throws DimensionMismatch TSCSMethods.distaveraging!(
-                distances, dtots, accums, γtimes, 1:3, 1, 1
+            @test_throws DimensionMismatch TSCSMethods.average_distances!(
+                distances, dtots, accums, lag_times, 1:3, 1, 1
             )
         end
         
@@ -143,16 +143,16 @@ using LinearAlgebra
             dtots = [Vector{Float64}(undef, 5)]
             accums = [0]
             
-            @test_throws BoundsError TSCSMethods.distaveraging!(
-                distances, dtots, accums, 1:5, 1:3, 0, 1  # φ = 0 invalid
+            @test_throws BoundsError TSCSMethods.average_distances!(
+                distances, dtots, accums, 1:5, 1:3, 0, 1  # window_index = 0 invalid
             )
             
-            @test_throws BoundsError TSCSMethods.distaveraging!(
+            @test_throws BoundsError TSCSMethods.average_distances!(
                 distances, dtots, accums, 1:5, 1:3, 1, 0  # m = 0 invalid
             )
             
-            @test_throws BoundsError TSCSMethods.distaveraging!(
-                distances, dtots, accums, 1:5, 1:3, 3, 1  # φ = 3 > matrix size
+            @test_throws BoundsError TSCSMethods.average_distances!(
+                distances, dtots, accums, 1:5, 1:3, 3, 1  # window_index = 3 > matrix size
             )
         end
         
@@ -161,10 +161,10 @@ using LinearAlgebra
             distances = [Matrix{Float64}(undef, 3, 3) for _ in 1:2]
             dtots = [randn(n_times), randn(n_times)]
             accums = [0, 0]
-            γtimes = 1:n_times
+            lag_times = 1:n_times
             fw = 3:7  # Window from time 3 to 7
             
-            @test_nowarn TSCSMethods.distaveraging!(distances, dtots, accums, γtimes, fw, 1, 1)
+            @test_nowarn TSCSMethods.average_distances!(distances, dtots, accums, lag_times, fw, 1, 1)
             
             # Check results are finite and reasonable
             @test isfinite(distances[1][1, 1])
@@ -172,13 +172,13 @@ using LinearAlgebra
         end
     end
 
-    @testset "distaveraging! validation (fixed window)" begin
+    @testset "average_distances! validation (fixed window)" begin
         @testset "Empty window" begin
             drow = [0.0, 0.0]
             dtots = [Vector{Float64}(undef, 5), Vector{Float64}(undef, 5)]
             accums = [0, 0]
             
-            @test_throws ArgumentError TSCSMethods.distaveraging!(
+            @test_throws ArgumentError TSCSMethods.average_distances!(
                 drow, dtots, accums, 1:5, Int[]  # Empty fw
             )
         end
@@ -191,10 +191,10 @@ using LinearAlgebra
                 Vector{Union{Float64, Missing}}([2.0, missing, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0])
             ]
             accums = [0, 0]
-            γtimes = 1:n_times
+            lag_times = 1:n_times
             fw = 2:6  # Window from time 2 to 6
             
-            @test_nowarn TSCSMethods.distaveraging!(drow, dtots, accums, γtimes, fw)
+            @test_nowarn TSCSMethods.average_distances!(drow, dtots, accums, lag_times, fw)
             
             # Should compute averages excluding missing values
             @test isfinite(drow[1])
@@ -257,7 +257,7 @@ using LinearAlgebra
         
         @testset "Length mismatches" begin
             # Create minimal valid structures for testing
-            matches = [TSCSMethods.Tob(mus=Matrix{Bool}(undef, 0, 0), distances=Matrix{Float64}(undef, 0, 0), ranks=Dict{Int, Vector{Int}}())]
+            matches = [TSCSMethodsTreatmentObservationMatches(mus=Matrix{Bool}(undef, 0, 0), distances=Matrix{Float64}(undef, 0, 0), ranks=Dict{Int, Vector{Int}}())]
             observations = [1, 2]  # Length mismatch
             
             @test_throws ArgumentError TSCSMethods.distances_calculate!(
@@ -267,7 +267,7 @@ using LinearAlgebra
         end
         
         @testset "Invalid time bounds" begin
-            matches = [TSCSMethods.Tob(mus=Matrix{Bool}(undef, 0, 0), distances=Matrix{Float64}(undef, 0, 0), ranks=Dict{Int, Vector{Int}}())]
+            matches = [TSCSMethodsTreatmentObservationMatches(mus=Matrix{Bool}(undef, 0, 0), distances=Matrix{Float64}(undef, 0, 0), ranks=Dict{Int, Vector{Int}}())]
             observations = [1]
             
             @test_throws ArgumentError TSCSMethods.distances_calculate!(
@@ -277,7 +277,7 @@ using LinearAlgebra
         end
         
         @testset "Sliding window not implemented" begin
-            matches = [TSCSMethods.Tob(mus=Matrix{Bool}(undef, 0, 0), distances=Matrix{Float64}(undef, 0, 0), ranks=Dict{Int, Vector{Int}}())]
+            matches = [TSCSMethodsTreatmentObservationMatches(mus=Matrix{Bool}(undef, 0, 0), distances=Matrix{Float64}(undef, 0, 0), ranks=Dict{Int, Vector{Int}}())]
             observations = [1]
             
             @test_throws ErrorException TSCSMethods.distances_calculate!(

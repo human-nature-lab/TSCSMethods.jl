@@ -3,22 +3,51 @@ model object
 * the data is kept separately
 =#
 
+const DEFAULT_BOOTSTRAP_ITERATIONS = 500
+
 MatchDist = Vector{Vector{Vector{Float64}}} # = Vector{Vector{Vector{Float64}}}
 
-@with_kw struct Tob
-  mus::Matrix{Bool}
-  distances::Union{Vector{Matrix{Float64}}, Matrix{Float64}} = Matrix{Float64}(undef, 0, 0)# Vector{Matrix{Float64}}(undef, 0)
-  # ranks::Dict{Int, SubArray{Bool, 1, Matrix{Bool}, Tuple{Vector{Int64}, Int64}, false}}
-  ranks::Dict{Int, Vector{Int}}
+"""
+    TreatmentObservationMatches
+
+Stores matching results for each treated observation in basic CIC models.
+
+Contains the core data structures for matching:
+- `eligible_matches`: Boolean matrix indicating which control units are eligible matches
+- `distances`: Computed distances between treated and control units  
+- `match_rankings`: Ranked preferences for matches by time period
+
+This is the fundamental data structure for storing match relationships in TSCS designs.
+"""
+@with_kw struct TreatmentObservationMatches
+  eligible_matches::Matrix{Bool}
+  distances::Union{Vector{Matrix{Float64}}, Matrix{Float64}} = Matrix{Float64}(undef, 0, 0)
+  match_rankings::Dict{Int, Vector{Int}}
 end
 
-@with_kw struct TobC
-  mus::Matrix{Bool}
-  ranks::Dict{Int, Vector{Int}}
+"""
+    TreatmentObservationCaliperMatches
+
+Stores matching results for caliper-constrained CIC models.
+
+Similar to TreatmentObservationMatches but for models where matches are restricted
+by caliper constraints (maximum allowable distance thresholds).
+"""
+@with_kw struct TreatmentObservationCaliperMatches
+  eligible_matches::Matrix{Bool}
+  match_rankings::Dict{Int, Vector{Int}}
 end
 
-@with_kw struct TobR
-  mus::Matrix{Bool}
+"""
+    TreatmentObservationRefinedMatches  
+
+Stores matching results for refined CIC models.
+
+Used in refined matching procedures where the initial match set is 
+iteratively improved through additional matching criteria.
+"""
+@with_kw struct TreatmentObservationRefinedMatches
+  eligible_matches::Matrix{Bool}
 end
 
 # Vector{Vector{MVector{C}{Float64}}}([[[1],[1]],[[1],[1]]])
@@ -54,7 +83,7 @@ Created by `makemodel()` and used throughout the analysis workflow.
 - `L::UnitRange{Int}`: Pre-treatment periods for matching (negative values)
 - `observations::Vector{Tuple{Int, Int}}`: Treated observations (time, unit)
 - `ids::Vector{Int}`: All unit identifiers
-- `matches::Vector{Tob}`: Matching results for each treated observation
+- `matches::Vector{TreatmentObservationMatches}`: Matching results for each treated observation
 - `meanbalances::DataFrame`: Covariate balance statistics
 - `grandbalances::Dict`: Overall balance measures
 - `iterations::Int`: Bootstrap iterations (default: 500)
@@ -85,11 +114,11 @@ model = makemodel(data, :day, :fips, :gub, :death_rte,
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}# Vector{Tuple{Int, Int}}
   ids::Vector{Int} #Vector{Int}
-  matches::Vector{Tob}
+  matches::Vector{TreatmentObservationMatches}
   # balances::DataFrame = DataFrame()
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictNoStrat = GrandDictNoStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Int64
   estimator::String = "ATT"
@@ -118,7 +147,7 @@ are performed separately within subgroups defined by a stratifying variable.
 - `L::UnitRange{Int}`: Pre-treatment periods for matching (negative values)
 - `observations::Vector{Tuple{Int, Int}}`: Treated observations (time, unit)
 - `ids::Vector{Int}`: All unit identifiers
-- `matches::Vector{Tob}`: Matching results for each treated observation
+- `matches::Vector{TreatmentObservationMatches}`: Matching results for each treated observation
 - `meanbalances::DataFrame`: Covariate balance statistics by stratum
 - `grandbalances::Dict`: Overall balance measures by stratum
 - `iterations::Int`: Bootstrap iterations (default: 500)
@@ -151,11 +180,11 @@ strat_model = stratify(model, data, :region)
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{Tob}
+  matches::Vector{TreatmentObservationMatches}
   # balances::DataFrame = DataFrame()
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictStrat = GrandDictStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Dict{Int64, Int64}
   estimator::String = "ATT"
@@ -175,10 +204,10 @@ end
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{TobC}
+  matches::Vector{TreatmentObservationCaliperMatches}
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictNoStrat = GrandDictNoStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Int64
   estimator::String = "ATT"
@@ -201,10 +230,10 @@ end
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{TobC}
+  matches::Vector{TreatmentObservationCaliperMatches}
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictStrat = GrandDictStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Dict{Int64, Int64}
   estimator::String = "ATT"
@@ -227,10 +256,10 @@ end
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{TobR}
+  matches::Vector{TreatmentObservationRefinedMatches}
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictNoStrat = GrandDictNoStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Int64
   estimator::String = "ATT"
@@ -253,10 +282,10 @@ end
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{TobR}
+  matches::Vector{TreatmentObservationRefinedMatches}
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictStrat = GrandDictStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Int64
   estimator::String = "ATT"
@@ -278,10 +307,10 @@ end
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{TobR}
+  matches::Vector{TreatmentObservationRefinedMatches}
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictNoStrat = GrandDictNoStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Int64
   estimator::String = "ATT"
@@ -305,10 +334,10 @@ end
   L::UnitRange{Int}
   observations::Vector{Tuple{Int, Int}}
   ids::Vector{Int}
-  matches::Vector{TobR}
+  matches::Vector{TreatmentObservationRefinedMatches}
   meanbalances::DataFrame = DataFrame()
   grandbalances::GrandDictStrat = GrandDictStrat()
-  iterations::Int64 = 500
+  iterations::Int64 = DEFAULT_BOOTSTRAP_ITERATIONS
   results::DataFrame = DataFrame()
   treatednum::Dict{Int64, Int64}
   estimator::String = "ATT"

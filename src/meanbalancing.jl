@@ -8,20 +8,18 @@ Calculate the mean balances, for each treated observation from the full set of b
 function meanbalance!(model::VeryAbstractCICModel, dat)
 
   # DEV
-  # import TSCSMethods:allocate_meanbalances!,std_treated,make_groupindices,_meanbalance!
+  # import TSCSMethods:initialize_balance_storage!,compute_treated_std,make_groupindices,_meanbalance!
   # using Parameters
 
-  @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
-  @unpack t, id, treatment = model;
-  @unpack F, L, reference = model;
+  (; meanbalances, observations, matches, ids, covariates, timevary, t, id, treatment, F, L, reference) = model
 
   fmax = maximum(F);
   Lmin, Lmax = extrema(L);
 
   tmin = minimum(dat[!, t]);
   
-  allocate_meanbalances!(model);
-  Lσ = std_treated(model, dat);
+  initialize_balance_storage!(model);
+  Lσ = compute_treated_std(model, dat);
 
   tg, rg, _ = make_groupindices(
     dat[!, t], dat[!, treatment],
@@ -51,16 +49,14 @@ Calculate the mean balances, for each treated observation from the full set of b
 """
 function meanbalance!(model::VeryAbstractCICModel, dat, tg, rg)
 
-  @unpack meanbalances, observations, matches, ids, covariates, timevary = model;
-  @unpack t, id, treatment = model;
-  @unpack F, L, reference = model;
+  (; meanbalances, observations, matches, ids, covariates, timevary, t, F, L, reference) = model
 
   Lmin, Lmax = extrema(L);
 
   tmin = minimum(dat[!, t]);
   
-  allocate_meanbalances!(model);
-  Lσ = std_treated(model, dat);
+  initialize_balance_storage!(model);
+  Lσ = compute_treated_std(model, dat);
 
   _meanbalance!(
     meanbalances,
@@ -89,12 +85,12 @@ function _meanbalance!(
   reference, Lσ, tmin
 )
 
-  # import TSCSMethods:getfunion!
+  # import TSCSMethods:find_periods_with_matches!
   # for i in eachindex(observations)
   @inbounds Threads.@threads :greedy for i in eachindex(observations)
   
     matches_i = @views matches[i]
-    @unpack mus = matches_i;
+    (; eligible_matches) = matches_i;
 
     # if any(mus)
     #   continue
@@ -105,10 +101,10 @@ function _meanbalance!(
   
     # this should be recycled with @init and floops
     bwpres = Vector{Bool}(undef, length(F));
-    getfunion!(bwpres, mus);
+    find_periods_with_matches!(bwpres, eligible_matches);
 
     efsum = Vector{Int}(undef, length(F));
-    for (cnt, mc) in enumerate(eachcol(mus)); efsum[cnt] = sum(mc) end
+    for (cnt, mc) in enumerate(eachcol(eligible_matches)); efsum[cnt] = sum(mc) end
 
     # we need the difference between the same covariates at each time point
     # (don't need each row)
@@ -116,7 +112,7 @@ function _meanbalance!(
 
     Ys = eachcol(tg[ob]);
 
-    # γrs = eachrow(tg[ob]);
+    # treated_covariate_rows = eachrow(tg[ob]);
     Yt = rg[ob];
 
     # total match window across all fs
@@ -133,7 +129,7 @@ function _meanbalance!(
     # end
     
     _addmatches!(
-      balrw, tt, Ys, Yt, ids, eachrow(mus),
+      balrw, tt, Ys, Yt, ids, eachrow(eligible_matches),
       Lσ, covariates, timevary,
       reference, Lmin, Lmax,
       tg, tmin
@@ -157,17 +153,17 @@ function _meanbalance!(
 end
 
 function _addmatches!(
-  balrw, tt, Ys, Yt, ids, musrows,
+  balrw, tt, Ys, Yt, ids, eligible_matches_rows,
   Lσ, covariates, timevary,
   reference, Lmin, Lmax,
   tg, tmin
 )
 
-  # musrows = eachrow(mus)
-  # (m, murow) = collect(enumerate(musrows))[327];
-  for (m, murow) in enumerate(musrows)
+  # eligible_matches_rows = eachrow(eligible_matches)
+  # (m, murow) = collect(enumerate(eligible_matches_rows))[327];
+  for (m, murow) in enumerate(eligible_matches_rows)
     if any(murow)
-      mu = ids[m]; # matches[1].mus
+      mu = ids[m]; # matches[1].eligible_matches
       Xs = eachcol(tg[(tt, mu)]);
 
       # cnt: since φ will track 1:31, and we will have only those that exist 
@@ -283,24 +279,24 @@ function _meanmatch!(balrw, covariates, efsum)
 end
 
 function __meanmatch!(
-  balrwcovar::Vector{BalanceData},
+  balance_by_covariate::Vector{BalanceData},
   efsum
 )
-  for (φ, balφ) in enumerate(balrwcovar)
+  for (φ, balφ) in enumerate(balance_by_covariate)
     for μ in eachindex(balφ)
       if !balφ.is_missing[μ]
         balφ.values[μ] = balφ.values[μ] / efsum[φ]
       end
     end
   end
-  return balrwcovar
+  return balance_by_covariate
 end
 
-function __meanmatch!(balrwcovar::BalanceData, efsum)
-  for μ in eachindex(balrwcovar)
-    if !balrwcovar.is_missing[μ]
-      balrwcovar.values[μ] = balrwcovar.values[μ] / efsum[μ]
+function __meanmatch!(balance_by_covariate::BalanceData, efsum)
+  for μ in eachindex(balance_by_covariate)
+    if !balance_by_covariate.is_missing[μ]
+      balance_by_covariate.values[μ] = balance_by_covariate.values[μ] / efsum[μ]
     end
   end
-  return balrwcovar
+  return balance_by_covariate
 end

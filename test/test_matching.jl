@@ -45,7 +45,7 @@
             # Test that matching populates the matches structure
             # After matching, matches should contain distance information
             @test !isempty(model.matches)
-            @test all(m -> !isempty(m.ranks), model.matches)
+            @test all(m -> !isempty(m.match_rankings), model.matches)
         end
         
         @testset "Custom treatment categories" begin
@@ -159,7 +159,7 @@
         @testset "Ranking properties" begin
             # Ranks should contain valid indices
             for match_obj in model.matches
-                for (unit_id, ranks) in match_obj.ranks
+                for (unit_id, ranks) in match_obj.match_rankings
                     @test all(r -> r > 0, ranks)  # Ranks should be positive
                     @test allunique(ranks)  # Ranks should be unique
                 end
