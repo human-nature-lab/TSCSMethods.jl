@@ -2,67 +2,106 @@
 # various functions that give information about the models, etc.
 
 """
-    unitcounts(m)
+    unitcounts(model::VeryAbstractCICModel)
 
-count the total number of treated and the number of matched units for each F.
+Count treated and matched units for each time period F.
+
+# Arguments
+- `model`: Fitted TSCSMethods model
+
+# Returns
+- For non-stratified models: `(treated_counts, matched_counts)`
+  - `treated_counts`: Vector{Int} - number of treated units per F period
+  - `matched_counts`: Vector{Int} - total matched units available per F period
+- For stratified models: `(treated_by_stratum, matched_by_stratum)`
+  - `treated_by_stratum`: Dict{Int, Vector{Int}} - treated counts by stratum
+  - `matched_by_stratum`: Dict{Int, Vector{Int}} - matched counts by stratum
+
+# Description
+Counts how many treated units remain eligible and how many matched control units 
+are available for each time period in the post-treatment window F. Essential for 
+assessing statistical power and balance of the matching procedure.
+
+For stratified models, counts are organized by stratum to enable stratum-specific
+power analysis and balance assessment.
+
+# Examples
+```julia
+# Non-stratified model
+treated_counts, matched_counts = unitcounts(model)
+println("F=1: \$(treated_counts[1]) treated, \$(matched_counts[1]) matched")
+
+# Stratified model  
+treated_strata, matched_strata = unitcounts(stratified_model)
+for (stratum, counts) in treated_strata
+    println("Stratum \$stratum: \$(counts[1]) treated units in F=1")
+end
+```
 """
-function unitcounts(m)
-    
-    X = Vector{Vector{Int}}(undef, 0);
-
-    Flen = length(m.F)
-    
-    for i in eachindex(m.matches)
-        push!(
-            X,
-            vec(sum(m.matches[i].eligible_matches, dims = 1))
-        )
+function unitcounts(model::VeryAbstractCICModel)
+    # Input validation
+    if isempty(model.matches)
+        throw(ArgumentError("Model has no matches - run matching first"))
     end
-
-    strat = any(
-        [
-            typeof(m) == x for x in [
-                CICStratified, RefinedCICStratified, RefinedCaliperCICStratified
-            ]
-        ]
-    );
-
-    if !strat
-        # compute the number of treated units left (for each F)
-        Y = zeros(Int, Flen)
-        _treatedcount!(Y, X)
+    if length(model.matches) != length(model.observations)
+        throw(ArgumentError("Mismatch between observations and matches"))
+    end
+    
+    # Extract match availability for each treated observation
+    # Each element is a vector showing matches available per F period
+    match_availability_per_obs = [vec(sum(match.eligible_matches, dims=1)) 
+                                 for match in model.matches]
+    
+    n_periods = length(model.F)
+    is_stratified = typeof(model) <: AbstractCICModelStratified
+    
+    if !is_stratified
+        # Non-stratified: aggregate across all treated observations
+        treated_counts = zeros(Int, n_periods)
+        _count_treated_units!(treated_counts, match_availability_per_obs)
         
-        # compute the total number of match units (for each F)
-        U = sum(X)
-        return Y, U
+        # Total matched units available per period
+        matched_counts = sum(match_availability_per_obs)
+        return treated_counts, matched_counts
     else
-        S = sort(unique(m.strata));
-        # with stratification
-        Ys = Dict{Int, Vector{Int}}();
-        Us = Dict{Int, Vector{Int}}();
-
-        # compute the number of treated units left (for each F)
-        for (i, s) in enumerate(S)
-            Ys[s] = zeros(Int, Flen)
-            Us[s] = zeros(Int, Flen)
-            c1 = m.strata .== s;
-            _treatedcount!(Ys[s], X[c1])
+        # Stratified: organize by strata
+        unique_strata = sort(unique(model.strata))
+        treated_by_stratum = Dict{Int, Vector{Int}}()
+        matched_by_stratum = Dict{Int, Vector{Int}}()
         
-            # compute the total number of match units (for each F)
-            Us[i] = sum(X[c1])
+        for stratum in unique_strata
+            stratum_mask = model.strata .== stratum
+            stratum_match_availability = match_availability_per_obs[stratum_mask]
+            
+            # Count treated units in this stratum
+            treated_by_stratum[stratum] = zeros(Int, n_periods)
+            _count_treated_units!(treated_by_stratum[stratum], stratum_match_availability)
+            
+            # Count matched units available in this stratum (BUG FIX: was Us[i] = ...)
+            matched_by_stratum[stratum] = sum(stratum_match_availability)
         end
-        return Ys, Us
+        
+        return treated_by_stratum, matched_by_stratum
     end
 end
 
-function _treatedcount!(Y, X)
-    for x in X
-        for (i, xi) in enumerate(x)
-            if xi > 0
-                Y[i] += 1
+"""
+    _count_treated_units!(treated_counts, match_availability)
+
+Internal helper to count treated units with available matches for each F period.
+
+Modifies `treated_counts` in place by incrementing the count for each period
+where a treated unit has at least one available match.
+"""
+function _count_treated_units!(treated_counts::Vector{Int}, match_availability::Vector{Vector{Int}})
+    for unit_matches in match_availability
+        for (period_idx, available_matches) in enumerate(unit_matches)
+            if available_matches > 0
+                treated_counts[period_idx] += 1
             end
         end
     end
+    return nothing
 end
 
 """
