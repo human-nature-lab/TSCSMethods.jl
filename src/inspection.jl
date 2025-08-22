@@ -1,59 +1,39 @@
 # inspection.jl
+#
+# CURRENT STATUS: This file contains legacy code that needs major refactoring
+# 
+# DEPRECATED FUNCTIONS REMOVED:
+# - pretreatment(): Used hardcoded 'fips'/'running' columns and magic numbers
+# - inspection(): Referenced undefined variables and used old API
+# - plot_inspection(): Used incompatible column names
+#
+# INCOMPATIBLE FUNCTIONS:
+# - figure_6(): Expects old column names from before imputation.jl refactor
+# - fill_att!(): Uses old confidence interval column names  
+#
+# WORKING UTILITY FUNCTIONS:
+# - change_pct(): Simple percentage calculation (works)
+# - fill_axis!(), fill_baxis!(): Basic plotting helpers (work with correct data)
+# - model_balance_plot(): Balance plotting (works but has hardcoded styling)
 
 function change_pct(val, attval)
     return 100 * attval / val
 end
 
-function inspection(model, fpth_oe)
-    ares, mcd_pre, tcd_pre, d_gb = impute_results(model, dat);
-    oe = load_object(fpth_oe);
-    if typeof(oe) <: Dict
-        oe = oe[1]
-    end
+# DEPRECATED: Broken inspection functions with undefined variables
+# TODO: Replace with properly designed inspection functions
+# 
+# Issues with old functions:
+# - References undefined 'dat', 'objet' variables
+# - Calls non-existent 'load_object' function  
+# - Uses old impute_results signature
+# - Returns inconsistent values
 
-    fig = figure_6(ares, oe, objet.refcalmodel.outcome)
-    return fig, ares, oe, mcd_pre, tcd_pre, d_gb
-end
-
-function inspection(m, matches, overallestimate, dat, tvar)
-    ares, mcd_pre, tcd_pre = impute_results(m, matches, dat, tvar);
-    if typeof(overallestimate) <: Dict
-        overallestimate = overallestimate[1]
-    end
-
-    return ares, mcd_pre, tcd_pre
-end
-
-function pretreatment(matches, oc)
-    matches[!, :pretreat] = [collect(1:20) for _ in 1:nrow(matches)]
-    for r in eachrow(matches)
-      for i in eachindex(r[:pretreat])
-        r[:pretreat][i] = r[:timetreated] - r[:pretreat][i]
-      end
-    end
-  
-    return @chain matches begin
-      select([:matchunits, :pretreat])
-      flatten(:matchunits)
-      flatten(:pretreat)
-      unique([:matchunits, :pretreat])
-      @subset(:pretreat .>= 0)
-      leftjoin(dat, on = [:matchunits => :fips, :pretreat => :running])
-      groupby(:matchunits)
-      combine(
-        oc => std => :std,
-        oc => var => :var,
-        oc => mean => :mean,
-        oc => median => :median,
-      )
-      combine(
-        :std => mean => :mean_std,
-        :std => median => :median_std,
-        :mean => mean => :mean,
-        :median => median => :median,
-      )
-    end
-end
+# DEPRECATED: Dataset-specific function with hardcoded column names
+# TODO: Replace with generic pretreatment analysis function
+# function pretreatment(matches, oc, dat, time_col, unit_col)
+#     This function used hardcoded 'fips' and 'running' column names
+#     and magic number 20 for time periods. Needs complete rewrite.
 
 ## plotting
 
@@ -68,14 +48,19 @@ function fill_att!(ax2, t, dm; msize = 8)
     rangebars!(ax2, t, dm[!, Symbol("2.5%")], dm[!, Symbol("97.5%")])
 end
 
-function plot_inspection(
-    ares, overallestimate, outcome;
-    stratum = 1,
-    plot_pct = false
-)
-    return figure_6(ares, overallestimate, outcome, stratum; plot_pct)
-end
+# DEPRECATED: Old plotting function with hardcoded column names  
+# TODO: Replace with functions that work with ImputationResults struct
+# function plot_inspection(imputation_results::ImputationResults, ...)
 
+# DEPRECATED: Dataset-specific plotting function
+# TODO: Modernize to work with new ImputationResults and remove hardcoded assumptions
+# INCOMPATIBLE: This function expects old column names that no longer exist:
+#   :counter_post -> :counterfactual_trajectory
+#   :counter_post_lwr -> :counterfactual_lower  
+#   :counter_post_upr -> :counterfactual_upper
+#   :pct -> :pct_change
+#   :pct_lo -> :pct_change_lower
+#   :pct_hi -> :pct_change_upper
 function figure_6(dm, overallestimate, oc, stratum; msize = 8, plot_pct = false)
     fig = Figure();
     oe = overallestimate[stratum];
@@ -84,6 +69,7 @@ function figure_6(dm, overallestimate, oc, stratum; msize = 8, plot_pct = false)
     overall_att = oe[1];
     lo_att = oe[2][1]; hi_att = oe[2][3];
 
+    # BROKEN: These column names no longer exist after imputation.jl refactoring
     variables = [oc, :counter_post, :counter_post_lwr, :counter_post_upr];
     t = sort(unique(dm.f));
 
@@ -155,10 +141,13 @@ function figure_6(dm, overallestimate, oc, stratum; msize = 8, plot_pct = false)
 
     if plot_pct
         ax5 = Axis(fbotbot[1,1], ylabel = "Pct. difference");
+        # BROKEN: :pct should be :pct_change
         scatter!(ax5, t, dm[!, :pct], color = :black, markersize = msize)
+        # BROKEN: :pct_lo/:pct_hi should be :pct_change_lower/:pct_change_upper
         rangebars!(ax5, t, dm[!, :pct_lo], dm[!, :pct_hi])
 
         ax6 = Axis(fbotbot[1,2]);
+        # BROKEN: dm.pct should be dm.pct_change  
         cm = mean(dm.pct) # == change_pct(treated_observed_mean, oe[1])
         clo = change_pct(treated_observed_mean, oe[2][1])
         chi = change_pct(treated_observed_mean, oe[2][2])
