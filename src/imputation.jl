@@ -83,21 +83,159 @@ consecutive days
 """
 
 """
-    make_timeunit_lookup(dat, variable)
+    _validate_imputation_inputs(m, matches, dat, tvar, unit_var, stratum)
+
+Validate inputs for imputation function. Throws ArgumentError if validation fails.
+"""
+function _validate_imputation_inputs(m, matches, dat, tvar, unit_var, stratum)
+    # Input validation
+    isnothing(m) && throw(ArgumentError("Model cannot be nothing"))
+    isnothing(matches) && throw(ArgumentError("Matches DataFrame cannot be nothing"))
+    isnothing(dat) && throw(ArgumentError("Data DataFrame cannot be nothing"))
+    
+    # Check required columns exist
+    tvar ∉ names(dat) && throw(ArgumentError("Time variable '$tvar' not found in data"))
+    unit_var ∉ names(dat) && throw(ArgumentError("Unit variable '$unit_var' not found in data"))
+    
+    # Check model has required fields
+    !hasproperty(m, :results) && throw(ArgumentError("Model must have results field"))
+    !hasproperty(m, :outcome) && throw(ArgumentError("Model must have outcome field"))
+    !hasproperty(m, :observations) && throw(ArgumentError("Model must have observations field"))
+    
+    # Check outcome variable exists in data
+    m.outcome ∉ names(dat) && throw(ArgumentError("Outcome variable '$(m.outcome)' not found in data"))
+    
+    # Check matches has required columns
+    required_match_cols = [:timetreated, :treatedunit, :matchunits, :f]
+    for col in required_match_cols
+        col ∉ names(matches) && throw(ArgumentError("Required column '$col' not found in matches"))
+    end
+    
+    # Check stratum is valid for stratified models
+    if m.stratifier != Symbol("") 
+        stratum < 1 && throw(ArgumentError("Stratum must be >= 1"))
+        !hasproperty(m, :strata) && throw(ArgumentError("Stratified model must have strata field"))
+    end
+    
+    return nothing
+end
+
+"""
+    _calculate_counterfactuals!(matches_with_treatment, outcome_lookup, outcome_var, tvar)
+
+Calculate observed outcomes and counterfactual values for each matched observation.
+Modifies matches_with_treatment in place.
+"""
+function _calculate_counterfactuals!(matches_with_treatment, outcome_lookup, outcome_var, tvar)
+    for row in eachrow(matches_with_treatment)
+        time_period = row[tvar]
+        treated_unit = row[:treatedunit]
+        matched_units = row[:matchunits]
+        
+        # Check for required data
+        if !haskey(outcome_lookup, (time_period, treated_unit))
+            throw(ArgumentError("Missing outcome data for treated unit $treated_unit at time $time_period"))
+        end
+        
+        row[outcome_var] = outcome_lookup[(time_period, treated_unit)]
+        
+        # Calculate counterfactual from matched units
+        matched_outcomes = Float64[]
+        for unit in matched_units
+            if haskey(outcome_lookup, (time_period, unit))
+                push!(matched_outcomes, outcome_lookup[(time_period, unit)])
+            else
+                @warn "Missing outcome data for matched unit $unit at time $time_period, skipping"
+            end
+        end
+        
+        if isempty(matched_outcomes)
+            throw(ArgumentError("No valid matched outcomes found for time $time_period"))
+        end
+        
+        row[:counterfactual_values] = mean(matched_outcomes)
+    end
+    return nothing
+end
+
+"""
+    _calculate_pretreatment_averages(matches_with_treatment, outcome_lookup, outcome_var)
+
+Calculate pre-treatment outcome averages for treated and matched units.
+Returns (matched_avg, treated_avg).
+"""
+function _calculate_pretreatment_averages(matches_with_treatment, outcome_lookup, outcome_var)
+    # Extract unique treated and matched units for pre-treatment baseline calculation
+    treated_obs = unique(matches_with_treatment[!, [:timetreated, :treatedunit]])
+    matched_obs = unique(flatten(matches_with_treatment, :matchunits)[!, [:timetreated, :matchunits]])
+    
+    # Calculate pre-treatment time period (one period before treatment)
+    # This is used to assess baseline balance between treated and matched units
+    matched_obs[!, :pretreatment_time] = matched_obs.timetreated .- 1
+    treated_obs[!, :pretreatment_time] = treated_obs.timetreated .- 1
+
+    matched_obs[!, outcome_var] .= 0.0
+    treated_obs[!, outcome_var] .= 0.0
+
+    # Get pre-treatment outcomes for matched units with error handling
+    for unit_obs in eachrow(matched_obs)
+        key = (unit_obs[:pretreatment_time], unit_obs[:matchunits])
+        if haskey(outcome_lookup, key)
+            unit_obs[outcome_var] = outcome_lookup[key]
+        else
+            @warn "Missing pre-treatment data for matched unit $(unit_obs[:matchunits]) at time $(unit_obs[:pretreatment_time])"
+            unit_obs[outcome_var] = missing
+        end
+    end
+
+    # Get pre-treatment outcomes for treated units with error handling
+    for unit_obs in eachrow(treated_obs)
+        key = (unit_obs[:pretreatment_time], unit_obs[:treatedunit])
+        if haskey(outcome_lookup, key)
+            unit_obs[outcome_var] = outcome_lookup[key]
+        else
+            @warn "Missing pre-treatment data for treated unit $(unit_obs[:treatedunit]) at time $(unit_obs[:pretreatment_time])"
+            unit_obs[outcome_var] = missing
+        end
+    end
+
+    # Calculate pre-treatment averages with missing data handling
+    matched_pretreatment_avg = mean(skipmissing(matched_obs[!, outcome_var]))
+    treated_pretreatment_avg = mean(skipmissing(treated_obs[!, outcome_var]))
+    
+    # Validate final results
+    if isnan(matched_pretreatment_avg)
+        throw(ArgumentError("Unable to calculate matched pre-treatment average - insufficient data"))
+    end
+    if isnan(treated_pretreatment_avg)
+        throw(ArgumentError("Unable to calculate treated pre-treatment average - insufficient data"))
+    end
+    
+    return (matched_pretreatment_avg, treated_pretreatment_avg)
+end
+
+"""
+    make_timeunit_lookup(dat, variable, time_col, unit_var)
 
 Create lookup dictionary mapping (time, unit) tuples to variable values.
 Returns Dict{Tuple, Union{Float64, Missing}} for fast value retrieval.
+
+# Arguments
+- `dat`: DataFrame with panel data
+- `variable`: Column name for the variable to look up
+- `time_col`: Column name for time variable
+- `unit_col`: Column name for unit ID variable
 """
-function make_timeunit_lookup(dat, variable)
-    odict = Dict{Tuple, Union{Float64, Missing}}();
+function make_timeunit_lookup(dat, variable, time_col, unit_col)
+    odict = Dict{Tuple, Union{Float64, Missing}}()
     for r in eachrow(dat)
-        odict[(r.running, r.fips)] = r[variable]
+        odict[(r[time_col], r[unit_col])] = r[variable]
     end
     return odict
 end
 
 """
-    impute_results(m, matches, dat, tvar; stratum = 1)
+    impute_results(m, matches, dat, tvar, unit_var; stratum = 1)
 
 Generate counterfactual outcomes Y(0) using matched control units.
 
@@ -105,7 +243,8 @@ Generate counterfactual outcomes Y(0) using matched control units.
 - `m`: Fitted TSCSMethods model
 - `matches`: DataFrame of matched units from matching procedure  
 - `dat`: Original panel data
-- `tvar`: Time variable name
+- `tvar`: Time variable name in data
+- `unit_var`: Unit ID variable name in data
 - `stratum`: Stratum number for stratified models (default: 1)
 
 # Returns
@@ -121,7 +260,10 @@ The results DataFrame includes:
 Creates counterfactual predictions by averaging matched control outcomes
 at each time period, enabling visualization of treated vs counterfactual trajectories.
 """
-function impute_results(m, matches, dat, tvar; stratum = 1)
+function impute_results(m, matches, dat, tvar, unit_var; stratum = 1)
+    
+    # Validate all inputs
+    _validate_imputation_inputs(m, matches, dat, tvar, unit_var, stratum)
 
     model_results = m.results
     outcome_var = m.outcome
@@ -130,7 +272,16 @@ function impute_results(m, matches, dat, tvar; stratum = 1)
         @subset!(model_results, :stratum .== 1)
     end
 
-    outcome_lookup = make_timeunit_lookup(dat, m.outcome)
+    # Create outcome lookup with error handling
+    try
+        outcome_lookup = make_timeunit_lookup(dat, m.outcome, tvar, unit_var)
+    catch e
+        throw(ArgumentError("Failed to create outcome lookup: $(e.msg)"))
+    end
+    
+    # Check for missing critical data
+    nrow(model_results) == 0 && throw(ArgumentError("Model results are empty"))
+    nrow(matches) == 0 && throw(ArgumentError("Matches DataFrame is empty"))
 
     treatment_info = if m.stratifier != Symbol("")
         DataFrame(
@@ -156,28 +307,13 @@ function impute_results(m, matches, dat, tvar; stratum = 1)
     matches_with_treatment[!, outcome_var] .= 0.0
     matches_with_treatment[!, :counterfactual_values] .= 0.0
     
-    for row in eachrow(matches_with_treatment)
-        time_period = row[:running]
-        row[outcome_var] = outcome_lookup[(time_period, row[:treatedunit])]
-        matched_units = row[:matchunits]
-        row[:counterfactual_values] = mean([outcome_lookup[(time_period, unit)] for unit in matched_units])
-    end
+    # Calculate outcomes and counterfactuals
+    _calculate_counterfactuals!(matches_with_treatment, outcome_lookup, outcome_var, tvar)
 
-    treated_obs = unique(matches_with_treatment[!, [:timetreated, :treatedunit]])
-    matched_obs = unique(flatten(matches_with_treatment, :matchunits)[!, [:timetreated, :matchunits]])
-    matched_obs[!, :pretreatment_time] = matched_obs.timetreated .- 1
-    treated_obs[!, :pretreatment_time] = treated_obs.timetreated .- 1
-
-    matched_obs[!, outcome_var] .= 0.0
-    treated_obs[!, outcome_var] .= 0.0
-
-    for unit_obs in eachrow(matched_obs)
-        unit_obs[outcome_var] = outcome_lookup[(unit_obs[:pretreatment_time], unit_obs[:matchunits])]
-    end
-
-    for unit_obs in eachrow(treated_obs)
-        unit_obs[outcome_var] = outcome_lookup[(unit_obs[:pretreatment_time], unit_obs[:treatedunit])]
-    end
+    # Calculate pre-treatment baseline averages
+    matched_pretreatment_avg, treated_pretreatment_avg = _calculate_pretreatment_averages(
+        matches_with_treatment, outcome_lookup, outcome_var
+    )
 
     time_aggregated = @chain matches_with_treatment begin
         groupby(:f)
@@ -188,19 +324,19 @@ function impute_results(m, matches, dat, tvar; stratum = 1)
     end
 
     augmented_results = leftjoin(model_results, time_aggregated, on = :f)
+    # Calculate counterfactual trajectory: what treated outcomes would have been without treatment
+    # counterfactual = observed - treatment_effect
     augmented_results[!, :counterfactual_trajectory] = augmented_results[!, outcome_var] .- augmented_results.att
 
     # Calculate confidence intervals for counterfactual trajectory
-    conf_lower, conf_upper = sort([
-        augmented_results[!, outcome_var] .- augmented_results[!, Symbol("2.5%")], 
-        augmented_results[!, outcome_var] .- augmented_results[!, Symbol("97.5%")]
-    ])
-
-    augmented_results[!, :counterfactual_lower] = conf_lower
-    augmented_results[!, :counterfactual_upper] = conf_upper
-
-    matched_pretreatment_avg = mean(matched_obs[!, m.outcome])
-    treated_pretreatment_avg = mean(treated_obs[!, m.outcome])
+    # Since counterfactual = observed - ATT, confidence bounds are:
+    # counterfactual_bounds = observed - ATT_bounds
+    # Use element-wise min/max to ensure lower < upper for each time period
+    counterfactual_bound1 = augmented_results[!, outcome_var] .- augmented_results[!, Symbol("2.5%")]
+    counterfactual_bound2 = augmented_results[!, outcome_var] .- augmented_results[!, Symbol("97.5%")]
+    
+    augmented_results[!, :counterfactual_lower] = min.(counterfactual_bound1, counterfactual_bound2)
+    augmented_results[!, :counterfactual_upper] = max.(counterfactual_bound1, counterfactual_bound2)
 
     # Calculate percentage changes
     augmented_results[!, :pct_change] .= 0.0
@@ -213,9 +349,13 @@ function impute_results(m, matches, dat, tvar; stratum = 1)
         row[:pct_change_upper] = change_pct(row[outcome_var], row[Symbol("97.5%")])
     end
 
-    # Day-to-day variability in counterfactual
+    # Calculate day-to-day percentage change in counterfactual outcomes
+    # Formula: 100 * (value[t] - value[t-1]) / value[t-1]
+    # This helps assess stability of the counterfactual trajectory
     daily_variation = 100 .* diff(augmented_results.counterfactual_values) .* 
                      inv.(augmented_results.counterfactual_values[2:end])
+    
+    # Initialize column with missing values, then fill from second row onward
     augmented_results[!, :daily_counterfactual_change] = Vector{Union{Missing, Float64}}(undef, nrow(augmented_results))
     augmented_results[2:end, :daily_counterfactual_change] = daily_variation
 
