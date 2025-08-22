@@ -89,6 +89,6 @@ export
     plot_treatment_effects, plot_counterfactual_comparison, plot_percentage_changes,
     calculate_overall_summary,
     # vignette
-    example_data, policy_data, economic_data,
+    example_data, example_data_generated, policy_data, economic_data,
     filterunits!
 end
