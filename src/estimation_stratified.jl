@@ -10,7 +10,6 @@ function estimate!(
     overallestimate = false,
     dobayesfactor = false,
     dopvalue = false
-
 )
 
     (; results, matches, observations, strata, outcome, F, ids, reference, t, id) = model; 
