@@ -141,11 +141,17 @@ function match!(
     X = Matrix(dat[!, covariates])
 
     # Step 1: Determine which units are eligible to serve as matches
+    # Convert DataFrame columns to regular vectors to ensure thread-safe indexing
+    data_time = Vector(dat[!, t])
+    data_unit_id = Vector(dat[!, id]) 
+    data_treatment = Vector(dat[!, treatment])
+    data_exposure = isnothing(exposure) ? nothing : Vector(dat[!, exposure])
+    
     covariate_groups, time_groups = eligibility!(
         matches, observations, X,
         ids, treatcat,
-        dat[!, t], dat[!, id], dat[!, treatment],
-        min_forward_period, max_forward_period, min_lag_period; exposure = exposure
+        data_time, data_unit_id, data_treatment,
+        min_forward_period, max_forward_period, min_lag_period; exposure = data_exposure
     );
 
     # Step 2: Calculate Mahalanobis distances between treated units and potential matches
@@ -241,7 +247,7 @@ function eligibility!(
             data_unit_id, ids,
             max_outcome_period, min_matching_period,
             X;
-            exvec = exposure
+            exvec = data_exposure
         )
 
         # Apply crossover window constraints plus exposure pattern matching
@@ -309,7 +315,7 @@ function eligibility!(
         data_unit_id, ids,
         max_outcome_period, min_matching_period,
         X;
-        exvec = exposure
+        exvec = data_exposure
     )
 
     # Apply crossover window constraints plus exposure pattern matching
