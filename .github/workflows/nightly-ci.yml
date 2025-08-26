@@ -1,0 +1,104 @@
+name: Nightly CI
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  comprehensive-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.11'
+    
+    - name: Cache Julia packages
+      uses: julia-actions/cache@v1
+    
+    - name: Install dependencies
+      run: |
+        julia --project=. -e "using Pkg; Pkg.instantiate()"
+    
+    - name: Run package tests
+      run: |
+        julia --project=. -e "using Pkg; Pkg.test()"
+    
+    - name: Run comprehensive seed sweep
+      run: |
+        julia --project=. scripts/seed_sweep.jl --seeds 30 --N 600 --T 200 --treated-share 0.10 --F 1:8 --L -30:-1 --phi 0.0 --rho 0.5 --sigma-y 0.2 --beta1 0.3 --beta2 0.5 --out test/validation/nightly_seed_sweep.json
+    
+    - name: Run bias and coverage analysis
+      run: |
+        julia --project=. scripts/sim_bias_coverage.jl --seeds 20 --iterations 400 --out test/validation/nightly_bias_coverage.json
+    
+    - name: Run placebo permutation tests
+      run: |
+        julia --project=. scripts/placebo_permutation.jl --permutations 200 --iterations 100 --out test/validation/nightly_placebo.json
+    
+    - name: Upload comprehensive validation artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: nightly-validation-results
+        path: |
+          test/validation/nightly_*.json
+        retention-days: 90
+    
+    - name: Create validation summary
+      if: always()
+      run: |
+        echo "# Nightly Validation Summary" > validation_summary.md
+        echo "Generated: $(date)" >> validation_summary.md
+        echo "" >> validation_summary.md
+        
+        if [ -f test/validation/nightly_seed_sweep.json ]; then
+          echo "## Seed Sweep Results" >> validation_summary.md
+          julia --project=. -e "
+            using JSON
+            data = JSON.parsefile(\"test/validation/nightly_seed_sweep.json\")
+            summary = data[\"summary\"]
+            println(\"- MAE Mean: \", summary[\"mae_mean\"])
+            println(\"- MAE SD: \", summary[\"mae_sd\"])  
+            println(\"- MxE Max: \", summary[\"mxe_max\"])
+          " >> validation_summary.md
+        fi
+        
+        if [ -f test/validation/nightly_bias_coverage.json ]; then
+          echo "" >> validation_summary.md
+          echo "## Bias & Coverage Results" >> validation_summary.md
+          julia --project=. -e "
+            using JSON
+            data = JSON.parsefile(\"test/validation/nightly_bias_coverage.json\")
+            bias_summary = data[\"bias\"][\"summary\"]
+            coverage_summary = data[\"coverage\"][\"summary\"]
+            println(\"- Overall MAE: \", bias_summary[\"overall_mae\"])
+            println(\"- Overall RMSE: \", bias_summary[\"overall_rmse\"])
+            println(\"- Coverage Rate: \", coverage_summary[\"overall_coverage\"])
+          " >> validation_summary.md
+        fi
+        
+        if [ -f test/validation/nightly_placebo.json ]; then
+          echo "" >> validation_summary.md
+          echo "## Placebo Test Results" >> validation_summary.md
+          julia --project=. -e "
+            using JSON
+            data = JSON.parsefile(\"test/validation/nightly_placebo.json\")
+            summary = data[\"placebo\"][\"summary\"]
+            println(\"- Type I Error Rate: \", summary[\"overall_type1\"])
+            println(\"- Successful Permutations: \", summary[\"n_successful\"], \"/\", summary[\"n_attempted\"])
+          " >> validation_summary.md
+        fi
+    
+    - name: Upload validation summary
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: validation-summary
+        path: validation_summary.md
+        retention-days: 90

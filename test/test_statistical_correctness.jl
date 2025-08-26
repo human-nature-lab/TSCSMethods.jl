@@ -138,8 +138,6 @@ using TSCSMethods: generate_simple_tscs, generate_realistic_tscs
             estimates = Float64[]
             n_reps = 50
             
-            println("   Testing true ATT = $true_att with $n_reps replications...")
-            
             for rep in 1:n_reps
                 try
                     # Treatment occurs periods 50-79, need F after 79 and L before 50
@@ -180,14 +178,9 @@ using TSCSMethods: generate_simple_tscs, generate_realistic_tscs
                 bias = mean(estimates) - true_att
                 rmse = sqrt(mean((estimates .- true_att).^2))
                 
-                println("     Results: bias = $(round(bias, digits=4)), RMSE = $(round(rmse, digits=4))")
-                println("     Estimates range: [$(round(minimum(estimates), digits=3)), $(round(maximum(estimates), digits=3))]")
-                
                 @test abs(bias) < 0.2
                 @test rmse < 1.5
                 @test length(estimates) >= 40
-                
-                println("     ✅ Negative effect test PASSED")
             else
                 @test false
                 println("     ❌ All replications failed!")
@@ -297,7 +290,7 @@ using TSCSMethods: generate_simple_tscs, generate_realistic_tscs
     end
     
     @testset "Precision Scaling" begin
-        println("\n📊 Testing precision: Do standard errors decrease with sample size?")
+        # println("\n📊 Testing precision: Do standard errors decrease with sample size?")
         
         true_att = 1.5
         sample_sizes = [40, 80, 160]
@@ -307,7 +300,7 @@ using TSCSMethods: generate_simple_tscs, generate_realistic_tscs
             estimates = Float64[]
             n_reps = 30  # Fewer reps for larger samples
             
-            println("   Testing with $n_units units ($n_reps replications)...")
+            # println("   Testing with $n_units units ($n_reps replications)...")
             
             for rep in 1:n_reps
                 try

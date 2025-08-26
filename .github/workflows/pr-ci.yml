@@ -1,0 +1,41 @@
+name: PR CI
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.11'
+    
+    - name: Cache Julia packages
+      uses: julia-actions/cache@v1
+    
+    - name: Install dependencies
+      run: |
+        julia --project=. -e "using Pkg; Pkg.instantiate()"
+    
+    - name: Run package tests
+      run: |
+        julia --project=. -e "using Pkg; Pkg.test()"
+    
+    - name: Run validation seed sweep
+      run: |
+        julia --project=. scripts/seed_sweep.jl --seeds 10 --N 800 --T 250 --treated-share 0.08 --F 1:8 --L -30:-1 --phi 0.0 --rho 0.5 --sigma-y 0.18 --beta1 0.3 --beta2 0.5 --out test/validation/pr_seed_sweep.json
+    
+    - name: Upload validation artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: pr-validation-results
+        path: |
+          test/validation/pr_seed_sweep.json
+        retention-days: 30

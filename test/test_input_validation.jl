@@ -144,7 +144,7 @@ using LinearAlgebra
             accums = [0]
             
             @test_throws BoundsError TSCSMethods.average_distances!(
-                distances, dtots, accums, 1:5, 1:3, 0, 1  # window_index = 0 invalid
+                distances, dtots, accums, 1:5, 1:3, 0, 1  # outcome_period_index = 0 invalid
             )
             
             @test_throws BoundsError TSCSMethods.average_distances!(
@@ -152,7 +152,7 @@ using LinearAlgebra
             )
             
             @test_throws BoundsError TSCSMethods.average_distances!(
-                distances, dtots, accums, 1:5, 1:3, 3, 1  # window_index = 3 > matrix size
+                distances, dtots, accums, 1:5, 1:3, 3, 1  # outcome_period_index = 3 > matrix size
             )
         end
         
