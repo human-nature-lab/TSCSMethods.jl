@@ -8,8 +8,6 @@
 
 TSCSMethods.jl v2.0.0 implements the matching methodology developed in Feltham et al. (2023), which extends the framework of Imai et al. (2021) with novel innovations for causal inference in staggered treatment designs. The package provides non-parametric generalized difference-in-differences estimation with covariate matching for panel data, where units receive treatment at different times.
 
-
-
 ## Key Features
 
 - **Statistically Validated**: See tests and documentation.
