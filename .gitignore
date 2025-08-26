@@ -1,13 +1,21 @@
-# Julia
+# Julia package files
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
 deps/deps.jl
 deps/build.log
 deps/downloads/
+LocalPreferences.toml
+
+# Documentation builds
 docs/build/
 docs/site/
+
+# Package management
 Manifest.toml
+
+# Julia REPL history
+.julia_history
 
 # OS generated files
 .DS_Store
@@ -17,36 +25,80 @@ Manifest.toml
 .Trashes
 ehthumbs.db
 Thumbs.db
+*~
 
-# Editor files
+# Editor and IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+.vim/
+.netrwhist
+.emacs.d/
+.atom/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
-# Environment files
+# Python (if mixed development)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# R (if mixed development)
+.Rhistory
+.RData
+.Ruserdata
+
+# Environment and secrets
 .env
 .env.local
+.env.*.local
 
-# Temporary files
+# Temporary and log files
 *.tmp
 *.temp
 *.log
+*.out
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
 
-# Package build artifacts
+# Build artifacts
 *.so
 *.dll
 *.dylib
+*.a
+*.lib
 
-# Test coverage
+# Test coverage and profiling
 coverage/
 *.lcov
+*.info
+profile.json
 
-# Local development
+# Development directories
 scratch/
 experiments/
 sandbox/
+tmp/
+temp/
+debug/
+
+# Data files (customize based on project needs)
+# *.csv
+*.xlsx
+*.json
+*.jld2
+*.h5
+*.hdf5
+
+# Output files
+plots/
+figures/
+results/
+output/

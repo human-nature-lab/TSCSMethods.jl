@@ -19,6 +19,7 @@ makedocs(;
         "Tutorial" => "tutorial.md",
         "Methodology" => "methodology.md",  
         "API Reference" => "api.md",
+        "Validation" => "validation.md",
     ],
 )
 

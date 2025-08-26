@@ -54,10 +54,13 @@ Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
 - [**Tutorial**](https://human-nature-lab.github.io/TSCSMethods.jl/tutorial/): Step-by-step analysis walkthrough
 - [**Methodology**](https://human-nature-lab.github.io/TSCSMethods.jl/methodology/): Statistical methods and assumptions  
 - [**API Reference**](https://human-nature-lab.github.io/TSCSMethods.jl/api/): Complete function documentation
+ - [**Validation**](https://human-nature-lab.github.io/TSCSMethods.jl/validation/): Test suite and calibration gates
 
 ## Examples
 
 See the [Jupyter notebook vignette](./vignette/vignette.ipynb) for a complete analysis example with simulated data.
+
+For a high-level summary of validation tests, see [VALIDATION_TESTS.md](./VALIDATION_TESTS.md).
 
 ## Method Overview
 
@@ -72,8 +75,8 @@ This approach addresses key challenges in panel data analysis: selection bias, t
 
 ## System Requirements
 
-- **Julia**: 1.9 or later
-- **Memory**: 8GB+ recommended for large datasets
+- **Julia**: 1.10 or later
+- **Memory**: 8GB+ recommended (larger for larger datasets)
 - **OS**: Windows, macOS, or Linux
 
 The package automatically installs all required dependencies.
