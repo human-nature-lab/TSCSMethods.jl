@@ -2,6 +2,14 @@
 
 This tutorial walks through a complete analysis using TSCSMethods.jl, explaining each step in detail.
 
+## Complete Workflow Overview
+
+The following diagram shows the complete user workflow from data to results:
+
+![User Workflow](assets/images/user_workflow.svg)
+
+Each step is explained in detail below.
+
 ## Understanding the Data Structure
 
 TSCSMethods expects **staggered treatment design** data where:

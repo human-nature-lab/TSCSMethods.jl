@@ -10,6 +10,12 @@ TSCSMethods.jl implements the extended matching approach for time-series cross-s
 2. Time-varying confounding: Confounders change over time
 3. Temporal correlation: Outcomes are correlated within units over time
 
+## Methodology Overview
+
+The following diagram illustrates the complete statistical methodology flow implemented in TSCSMethods.jl:
+
+![Statistical Methodology Flow](assets/images/methodology_flow.svg)
+
 ## The Matching Framework
 
 ### Problem Setup

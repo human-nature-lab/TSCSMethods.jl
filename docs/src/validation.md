@@ -2,6 +2,14 @@
 
 This page summarizes the validation suite used to assess statistical correctness, calibration, and robustness of TSCSMethods.jl. The design follows standard practice: gate on inference calibration (coverage, Type I), and report point‑estimate error (bias/MAE/MSE) without universal raw‑error cutoffs.
 
+## Validation Framework Overview
+
+TSCSMethods.jl employs a comprehensive validation framework to ensure statistical correctness:
+
+![Validation Framework](assets/images/validation_framework.svg)
+
+## Validation Test Categories
+
 ## Randomized Correctness (Synthetic)
 - Files: `test/test_synthetic_known_effects.jl`, `test/simulate_tscs.jl`.
 - Goal: Recover known per‑f ATT under a randomized, event‑time DGP with adequate support and SNR.
