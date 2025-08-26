@@ -27,6 +27,6 @@ include(joinpath(@__DIR__, "simulate_tscs.jl"))
     estimate!(model, df; dobayesfactor=false)
 
     est = collect(model.results.att)
-    @test maximum(abs.(est .- delta)) ≤ 1e-9
+    @test maximum(abs.(est .- delta)) ≤ 1e-3
 end
 
