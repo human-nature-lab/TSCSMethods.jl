@@ -2,7 +2,7 @@ using TSCSMethods
 using Test
 using DataFrames
 
-include(joinpath(@__DIR__, "simulate_tscs.jl"))
+include(joinpath(@__DIR__, "..", "support", "simulate_tscs.jl"))
 
 @testset "Noiseless exact recovery" begin
     # Choose modest windows with valid support

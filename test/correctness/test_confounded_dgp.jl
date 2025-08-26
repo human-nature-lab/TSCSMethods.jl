@@ -1,7 +1,7 @@
 using TSCSMethods
 using Test
 using DataFrames
-include(joinpath(@__DIR__, "simulate_tscs.jl"))
+include(joinpath(@__DIR__, "..", "support", "simulate_tscs.jl"))
 
 """
 Compute naive event-time DiD ATT under randomized assumptions (will be biased under confounding).
@@ -26,8 +26,8 @@ function naive_event_time_att(df::DataFrame, treated_ids, t0::Dict{Int,Int}, F)
 end
 
 @testset "Confounded DGP bias reduction" begin
-    F = -5:-1  # Pre-treatment periods as specified
-    L = 1:5    # Post-treatment periods as specified  
+    F = 1:5    # Post-treatment periods (positive)
+    L = -5:-1  # Pre-treatment periods (negative)  
     delta = [0.01, 0.02, 0.05, 0.03, 0.01]  # Small true effects for bias detection
 
     df, treated_ids, t0 = simulate_confounded(

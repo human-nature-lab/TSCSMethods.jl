@@ -4,7 +4,7 @@ using TSCSMethods
 using DataFrames
 using Statistics
 
-include(joinpath(@__DIR__, "..", "test", "simulate_tscs.jl"))
+include(joinpath(@__DIR__, "..", "test", "support", "simulate_tscs.jl"))
 
 function parse_args()
     args = Dict{String,String}()

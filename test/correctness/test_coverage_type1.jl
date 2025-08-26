@@ -3,7 +3,7 @@ using Test
 using DataFrames
 using Statistics
 
-include("simulate_tscs.jl")
+include(joinpath(@__DIR__, "..", "support", "simulate_tscs.jl"))
 
 @testset "Coverage and Type I error" begin
     # Test parameters per specification
