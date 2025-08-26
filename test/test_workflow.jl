@@ -28,8 +28,8 @@
             # Define analysis parameters
             matching_covariates = [:pop_dens, :cumul_death_rate]
             timevary_spec = Dict(:pop_dens => false, :cumul_death_rate => true)
-            treatment_period = 35:45  # F: periods for effect estimation
-            pretreat_period = 15:25   # L: pre-treatment matching window
+            treatment_period = 1:10   # F: periods for effect estimation
+            pretreat_period = -25:-15  # L: pre-treatment matching window
             
             # Construct model
             model = makemodel(
@@ -58,7 +58,7 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens, :cumul_death_rate],
                 Dict(:pop_dens => false, :cumul_death_rate => true),
-                40:50, 20:30
+                1:10, -30:-20
             )
             
             # Step 3a: Matching
@@ -90,7 +90,7 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens, :cumul_death_rate],
                 Dict(:pop_dens => false, :cumul_death_rate => true),
-                30:35, 15:20
+                1:5, -20:-15
             )
             
             match!(base_model, data)
@@ -116,7 +116,7 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens, :cumul_death_rate],
                 Dict(:pop_dens => false, :cumul_death_rate => true),
-                25:30, 10:15
+                1:5, -15:-10
             )
             
             match!(base_model, data)
@@ -141,7 +141,7 @@
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens, :cumul_death_rate],
                 Dict(:pop_dens => false, :cumul_death_rate => true),
-                35:40, 20:25
+                1:5, -25:-20
             )
             
             match!(model, data)
@@ -181,8 +181,8 @@
             println("⚙️  Researcher defines analysis parameters...")
             covariates = [:pop_dens, :cumul_death_rate]
             time_varying = Dict(:pop_dens => false, :cumul_death_rate => true)
-            post_treatment = 50:65  # 16 periods post-treatment
-            pre_treatment = 30:45   # 16 periods pre-treatment
+            post_treatment = 1:16   # 16 periods post-treatment
+            pre_treatment = -45:-30  # 16 periods pre-treatment
             
             # Step 4: Build and run initial model
             println("🔧 Researcher builds initial model...")
@@ -253,7 +253,7 @@
                 minimal_data, :day, :fips, :gub, :death_rte,
                 [:pop_dens],
                 Dict(:pop_dens => false),
-                12:15, 5:8
+                1:4, -8:-5
             )
             
             # These should either work or fail gracefully  

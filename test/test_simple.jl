@@ -27,7 +27,7 @@
         @test_nowarn model = makemodel(
             test_data, :time_var, :unit_id, :treatment, :outcome,
             [:covariate1], Dict(:covariate1 => false),
-            3:4, 1:2
+            1:2, -2:-1
         )
         
         println("Simple working example passed!")

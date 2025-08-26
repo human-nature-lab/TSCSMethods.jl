@@ -113,7 +113,7 @@
             @test_throws ArgumentError makemodel(
                 data, :day, :fips, :gub, :death_rte,
                 [:pop_dens], Dict(:wrong_var => false),  # Mismatched key
-                10:15, 5:8
+                1:5, -8:-5
             )
             
             println("✅ Input validation working correctly")

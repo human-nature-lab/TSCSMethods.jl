@@ -101,13 +101,13 @@
             )
             @test length(model_single_f.F) == 1
             
-            # Test with overlapping ranges (should be allowed)
-            model_overlap = makemodel(
+            # Test with non-overlapping ranges (standard case)
+            model_standard = makemodel(
                 test_data, :day, :fips, :gub, :death_rte,
                 matching_covariates, timevary,
-                -5:5, -10:10  # Overlapping F and L
+                1:5, -10:-6  # F post-treatment, L pre-treatment (non-overlapping)
             )
-            @test !isempty(intersect(model_overlap.F, model_overlap.L))
+            @test isempty(intersect(model_standard.F, model_standard.L))
         end
     end
     

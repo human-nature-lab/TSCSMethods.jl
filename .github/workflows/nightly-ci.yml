@@ -39,7 +39,7 @@ jobs:
     
     - name: Run placebo permutation tests
       run: |
-        julia --project=. scripts/placebo_permutation.jl --permutations 200 --iterations 100 --out test/validation/nightly_placebo.json
+        julia --project=. scripts/placebo_permutation.jl --permutations 300 --iterations 100 --out test/validation/nightly_placebo.json
     
     - name: Upload comprehensive validation artifacts
       uses: actions/upload-artifact@v4

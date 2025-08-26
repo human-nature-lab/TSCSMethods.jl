@@ -66,6 +66,7 @@ export
     VeryAbstractCICModel, AbstractCICModel, AbstractCICModelStratified,
     CIC, CICStratified, CaliperCIC, CaliperCICStratified,
     RefinedCIC, RefinedCICStratified, RefinedCaliperCIC, RefinedCaliperCICStratified,
+    TreatmentObservationMatches, Overall,
     # mechanics
     match!,
     balance!, checkbalances, autobalance,
