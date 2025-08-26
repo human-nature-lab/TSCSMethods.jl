@@ -116,10 +116,11 @@ Please also cite the foundational methodology:
 
 ## Contributing
 
-Contributions are welcome! Please see the [documentation](https://human-nature-lab.github.io/TSCSMethods.jl/) for development guidelines.
+Contributions are welcome!
 
 ## References
 
 - Imai, K., Kim, I. S., & Wang, E. H. (2021). Matching Methods for Causal Inference with Time-Series Cross-Sectional Data. *American Journal of Political Science*.
 - Feltham, E., Forastiere, L., Alexander, M., & Christakis, N. A. (2023). Mass gatherings for political expression had no discernible association with the local course of the COVID-19 pandemic in the USA in 2020 and 2021. *Nature Human Behaviour*.
 - Kim, I. S., Ruah, A., Wang, E., & Imai, K. (2020). Insongkim/PanelMatch [R, C]. https://github.com/insongkim/PanelMatch (Original work published 2018)
+    
