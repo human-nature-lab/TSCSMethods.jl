@@ -19,7 +19,7 @@ For generating synthetic data with custom parameters, use `example_data_generate
 """
 function example_data()
     # Load example data from CSV file
-    csv_path = joinpath(@__DIR__, "..", "vignette", "example_data.csv")
+    csv_path = joinpath(@__DIR__, "..", "..", "examples", "example_data.csv")
     data = CSV.read(csv_path, DataFrame)
     return data
     end
