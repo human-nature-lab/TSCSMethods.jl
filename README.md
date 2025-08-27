@@ -4,7 +4,7 @@
 [![Documentation](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/Documentation.yml/badge.svg)](https://github.com/human-nature-lab/TSCSMethods.jl/actions/workflows/Documentation.yml)
 [![Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://human-nature-lab.github.io/TSCSMethods.jl/)
 
-**Causal inference with time-series cross-sectional data**
+**Non-parametric generalized difference-in-differences with covariate matching for time-series cross-sectional data**
 
 TSCSMethods.jl v2.0.0 implements the matching methodology developed in Feltham et al. (2023), which extends the framework of Imai et al. (2021) with novel innovations for causal inference in staggered treatment designs. The package provides non-parametric generalized difference-in-differences estimation with covariate matching for panel data, where units receive treatment at different times.
 
