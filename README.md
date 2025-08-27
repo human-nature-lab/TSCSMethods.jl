@@ -10,16 +10,14 @@ TSCSMethods.jl v2.0.0 implements the matching methodology developed in Feltham e
 
 ## Key Features
 
-- **Statistically Validated**: See tests and documentation.
-- **Professional Architecture**: 6 logical subsystems, 37 organized files
-- **Comprehensive Testing**: 8,146 tests (99.4% success rate) across all functionality
-- **Staggered Treatments**: Handle units treated at different times
-- **Covariate Matching**: Match treated units to similar controls using time-varying covariates  
-- **Flexible Time Windows**: Specify pre-treatment matching periods and post-treatment estimation
-- **Multiple Balancing**: Manual and automatic covariate balancing with p-value optimization
-- **Bootstrap Inference**: Weighted block-bootstrap for uncertainty quantification
-- **Advanced Features**: Calipers, stratification, refinement, auto-balancing
-- **Event Studies**: Focus on treatment effects relative to event timing
+- **Staggered treatments**: Handle units treated at different times
+- **Flexible time windows**: Specify pre-treatment matching periods and post-treatment estimation
+- **Event studies**: Focus on treatment effects relative to event timing
+- **Covariate matching**: Match treated units to similar controls using time-varying covariates  
+- **Multiple balancing**: Manual and automatic covariate balancing
+- **Advanced features**: Calipers, stratification, refinement, auto-balancing
+- **Bootstrap inference**: Weighted block-bootstrap for uncertainty quantification
+- **Statistical validation and comprehensive testing**: See documentation and test files.
 
 ## Quick Start
 
