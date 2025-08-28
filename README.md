@@ -79,12 +79,6 @@ Pkg.add("TSCSMethods")  # Official release
 - [**Validation**](https://human-nature-lab.github.io/TSCSMethods.jl/validation/): Test suite and statistical validation
 - [**Release Notes**](./release_notes.md): v2.0.0 features and breaking changes
 
-## Examples
-
-See the [Jupyter notebook vignette](./vignette/vignette.ipynb) for a complete analysis example with simulated data.
-
-For a high-level summary of validation tests, see [VALIDATION_TESTS.md](./VALIDATION_TESTS.md).
-
 ## Method Overview
 
 The package implements the extended matching approach developed in Feltham et al. (2023), building on Imai et al. (2021), for time-series cross-sectional data:
