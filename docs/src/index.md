@@ -6,7 +6,7 @@ CurrentModule = TSCSMethods
 
 *Matching methods for causal inference with time-series cross-sectional data*
 
-TSCSMethods.jl v2.0.0 implements the matching methodology developed in Feltham et al. (2023), which is based on Imai et al. (2021) for causal inference with time-series cross-sectional (TSCS) data.
+TSCSMethods.jl v2.0.1 implements the matching methodology developed in Feltham et al. (2023), which is based on Imai et al. (2021) for causal inference with time-series cross-sectional (TSCS) data.
 
 This package was initially developed for and used in the analyses of Feltham et al. (2023).
 
