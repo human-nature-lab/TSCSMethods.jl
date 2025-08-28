@@ -6,7 +6,7 @@
 
 **Non-parametric generalized difference-in-differences with covariate matching for time-series cross-sectional data**
 
-TSCSMethods.jl v2.0.0 implements the matching methodology developed in Feltham et al. (2023), which extends the framework of Imai et al. (2021) with novel innovations for causal inference in staggered treatment designs. The package provides non-parametric generalized difference-in-differences estimation with covariate matching for panel data, where units receive treatment at different times.
+TSCSMethods.jl v2.0.1 implements the matching methodology developed in Feltham et al. (2023), which extends the framework of Imai et al. (2021) with novel innovations for causal inference in staggered treatment designs. The package provides non-parametric generalized difference-in-differences estimation with covariate matching for panel data, where units receive treatment at different times.
 
 ## Key Features
 
@@ -61,7 +61,7 @@ flowchart TD
 
 ## Installation
 
-TSCSMethods.jl v2.0.0 requires Julia 1.6 or later (tested on 1.6, 1.10, 1.11). Install from the Julia REPL:
+TSCSMethods.jl v2.0.1 requires Julia 1.6 or later (tested on 1.6, 1.10, 1.11). Install from the Julia REPL:
 
 ```julia
 using Pkg
