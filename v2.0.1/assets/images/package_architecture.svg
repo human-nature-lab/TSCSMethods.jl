@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800">
+  <defs>
+    <style>
+      .core-box { fill: #e3f2fd; stroke: #1565c0; stroke-width: 2; rx: 8; }
+      .match-box { fill: #fff3e0; stroke: #ef6c00; stroke-width: 2; rx: 8; }
+      .balance-box { fill: #f3e5f5; stroke: #7b1fa2; stroke-width: 2; rx: 8; }
+      .estimate-box { fill: #e8f5e8; stroke: #2e7d32; stroke-width: 2; rx: 8; }
+      .advanced-box { fill: #fce4ec; stroke: #c2185b; stroke-width: 2; rx: 8; }
+      .util-box { fill: #f1f8e9; stroke: #689f38; stroke-width: 2; rx: 8; }
+      .group-title { font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; text-anchor: middle; }
+      .file-text { font-family: 'Courier New', monospace; font-size: 11px; text-anchor: middle; }
+      .desc-text { font-family: Arial, sans-serif; font-size: 9px; text-anchor: middle; }
+      .arrow { stroke: #666; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .dep-arrow { stroke: #999; stroke-width: 1; fill: none; stroke-dasharray: 3,3; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#666" />
+    </marker>
+  </defs>
+  
+  <!-- Core System -->
+  <g>
+    <rect class="core-box" x="50" y="50" width="180" height="120"/>
+    <text class="group-title" x="140" y="75">Core System</text>
+    <text class="file-text" x="140" y="95">types.jl</text>
+    <text class="desc-text" x="140" y="107">Model Types & Data Structures</text>
+    <text class="file-text" x="140" y="125">construction.jl</text>
+    <text class="desc-text" x="140" y="137">makemodel()</text>
+    <text class="file-text" x="140" y="155">dependencies.jl</text>
+    <text class="desc-text" x="140" y="167">External Dependencies</text>
+  </g>
+  
+  <!-- Matching System -->
+  <g>
+    <rect class="match-box" x="270" y="50" width="180" height="140"/>
+    <text class="group-title" x="360" y="75">Matching System</text>
+    <text class="file-text" x="360" y="95">matching_setup.jl</text>
+    <text class="desc-text" x="360" y="107">Match Preparation</text>
+    <text class="file-text" x="360" y="125">matching_algo.jl</text>
+    <text class="desc-text" x="360" y="137">Core Matching Logic</text>
+    <text class="file-text" x="360" y="155">matching_utils.jl</text>
+    <text class="desc-text" x="360" y="167">Distance & Ranking</text>
+    <text class="file-text" x="360" y="185">getmatches.jl</text>
+    <text class="desc-text" x="360" y="197">Match Retrieval</text>
+  </g>
+  
+  <!-- Balancing System -->
+  <g>
+    <rect class="balance-box" x="490" y="50" width="180" height="120"/>
+    <text class="group-title" x="580" y="75">Balancing System</text>
+    <text class="file-text" x="580" y="95">balancing.jl</text>
+    <text class="desc-text" x="580" y="107">Manual Balance Assessment</text>
+    <text class="file-text" x="580" y="125">balancing_auto.jl</text>
+    <text class="desc-text" x="580" y="137">Auto-balancing Logic</text>
+    <text class="file-text" x="580" y="155">balancing_utils.jl</text>
+    <text class="desc-text" x="580" y="167">Balance Calculations</text>
+  </g>
+  
+  <!-- Estimation System -->
+  <g>
+    <rect class="estimate-box" x="710" y="50" width="180" height="120"/>
+    <text class="group-title" x="800" y="75">Estimation System</text>
+    <text class="file-text" x="800" y="95">estimation.jl</text>
+    <text class="desc-text" x="800" y="107">Treatment Effect Estimation</text>
+    <text class="file-text" x="800" y="125">bootstrap.jl</text>
+    <text class="desc-text" x="800" y="137">Bootstrap Inference</text>
+    <text class="file-text" x="800" y="155">bayesfactor.jl</text>
+    <text class="desc-text" x="800" y="167">Evidence Quantification</text>
+  </g>
+  
+  <!-- Advanced Features -->
+  <g>
+    <rect class="advanced-box" x="270" y="230" width="200" height="140"/>
+    <text class="group-title" x="370" y="255">Advanced Features</text>
+    <text class="file-text" x="370" y="275">stratified.jl</text>
+    <text class="desc-text" x="370" y="287">Stratified Analysis</text>
+    <text class="file-text" x="370" y="305">refinement.jl</text>
+    <text class="desc-text" x="370" y="317">Match Refinement</text>
+    <text class="file-text" x="370" y="335">calipers.jl</text>
+    <text class="desc-text" x="370" y="347">Caliper Matching</text>
+    <text class="file-text" x="370" y="365">groupindices.jl</text>
+    <text class="desc-text" x="370" y="377">Group Management</text>
+  </g>
+  
+  <!-- Utilities -->
+  <g>
+    <rect class="util-box" x="50" y="430" width="180" height="160"/>
+    <text class="group-title" x="140" y="455">Utilities</text>
+    <text class="file-text" x="140" y="475">data_utils.jl</text>
+    <text class="desc-text" x="140" y="487">Data Processing</text>
+    <text class="file-text" x="140" y="505">example_data.jl</text>
+    <text class="desc-text" x="140" y="517">Sample Datasets</text>
+    <text class="file-text" x="140" y="535">simulate_tscs.jl</text>
+    <text class="desc-text" x="140" y="547">Data Generation</text>
+    <text class="file-text" x="140" y="565">validation.jl</text>
+    <text class="desc-text" x="140" y="577">Statistical Tests</text>
+  </g>
+  
+  <!-- Main Flow Arrows -->
+  <line class="arrow" x1="230" y1="110" x2="260" y2="110"/>
+  <line class="arrow" x1="450" y1="115" x2="480" y2="115"/>
+  <line class="arrow" x1="670" y1="110" x2="700" y2="110"/>
+  
+  <!-- Dependencies to Advanced Features -->
+  <line class="dep-arrow" x1="360" y1="200" x2="370" y2="220"/>
+  <line class="dep-arrow" x1="580" y1="180" x2="420" y2="220"/>
+  <line class="dep-arrow" x1="800" y1="180" x2="420" y2="220"/>
+  
+  <!-- Utilities Dependencies -->
+  <line class="dep-arrow" x1="140" y1="180" x2="140" y2="420"/>
+  <line class="dep-arrow" x1="140" y1="420" x2="300" y2="220"/>
+  
+  <!-- Legend -->
+  <g transform="translate(520, 450)">
+    <rect fill="#f8f9fa" stroke="#dee2e6" x="0" y="0" width="350" height="120" rx="5"/>
+    <text class="group-title" x="175" y="25">Architecture Overview</text>
+    <text class="desc-text" x="20" y="45">Solid arrows: Main processing flow</text>
+    <text class="desc-text" x="20" y="60">Dashed arrows: Dependencies & utilities</text>
+    <text class="desc-text" x="20" y="80">• Core → Matching → Balancing → Estimation</text>
+    <text class="desc-text" x="20" y="95">• Advanced features extend core functionality</text>
+    <text class="desc-text" x="20" y="110">• Utilities support all components</text>
+  </g>
+</svg>
