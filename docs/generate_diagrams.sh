@@ -32,7 +32,7 @@ flowchart TD
     G --> H[Covariate Balancing]
     H --> I[Treatment Effect Estimation]
     I --> J[Bootstrap Inference]
-    J --> K["ATT with Confidence Intervals<br/>📊 Final Results"]
+    J --> K["ATT with Confidence Intervals<br/>Final Results"]
     
     style A fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style K fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
@@ -43,18 +43,18 @@ EOF
 # User Workflow Diagram
 cat > "$TEMP_DIR/user_workflow.mmd" << 'EOF'
 flowchart TD
-    A["📥 Load Data<br/>example_data()"] --> B["🏗️ Create Model<br/>makemodel()"]
-    B --> C["⏰ Specify Time Windows<br/>F: post-treatment<br/>L: pre-treatment"]
-    C --> D["📋 Define Covariates<br/>& Time-Varying Dict"]
+    A["Load Data<br/>example_data()"] --> B["Create Model<br/>makemodel()"]
+    B --> C["Specify Time Windows<br/>F: post-treatment<br/>L: pre-treatment"]
+    C --> D["Define Covariates<br/>& Time-Varying Dict"]
     
-    D --> E["🔍 Matching Phase"]
+    D --> E["Matching Phase"]
     E --> F["match!(model, data)"]
-    F --> G["⚖️ Balancing Phase"]
+    F --> G["Balancing Phase"]
     G --> H["balance!(model, data)"]
-    H --> I["📊 Estimation Phase"]
+    H --> I["Estimation Phase"]
     I --> J["estimate!(model, data)"]
     
-    J --> K["📈 Results Available"]
+    J --> K["Results Available"]
     K --> L["model.overall.ATT"]
     K --> M["Confidence Intervals<br/>p05, p95"]
     K --> N["Bootstrap Distributions"]
@@ -81,13 +81,13 @@ flowchart LR
     E --> G
     F --> G
     
-    G --> H["📊 Coverage Tests<br/>Null DGP"]
-    G --> I["🎲 Placebo Tests<br/>Permutation"]
-    G --> J["🎯 Noiseless Recovery<br/>Exact Tests"]
+    G --> H["Coverage Tests<br/>Null DGP"]
+    G --> I["Placebo Tests<br/>Permutation"]
+    G --> J["Noiseless Recovery<br/>Exact Tests"]
     
-    H --> K["✅ 96% Coverage<br/>(Target: 93-97%)"]
-    I --> L["✅ 6.87% Type I Error<br/>(Target: 3-7%)"]
-    J --> M["✅ Exact Recovery<br/>(1e-3 tolerance)"]
+    H --> K["96% Coverage<br/>(Target: 93-97%)"]
+    I --> L["6.87% Type I Error<br/>(Target: 3-7%)"]
+    J --> M["Exact Recovery<br/>(1e-3 tolerance)"]
     
     style G fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
     style K fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
