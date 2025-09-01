@@ -20,16 +20,29 @@ dat = example_data(n_units=50, n_days=60)
 
 # Create model
 model = makemodel(
-    dat, :day, :fips, :gub, :death_rte,
-    [:pop_dens], Dict(:pop_dens => false),
-    5:10,    # F: post-treatment periods  
-    -15:-10  # L: pre-treatment periods
+    dat,              # Your data
+    :day,             # Time variable
+    :fips,            # Unit identifier  
+    :gub,             # Treatment variable
+    :death_rte,       # Outcome variable
+    [:pop_dens],      # Covariates for matching
+    Dict(:pop_dens => false),  # Which covariates are time-varying
+    5:10,             # F: Post-treatment periods to estimate
+    -15:-10           # L: Pre-treatment periods for matching
 )
+
+### Key Parameters Explained
+
+- **F periods** (`5:10`): How many periods after treatment to estimate effects
+- **L periods** (`-15:-10`): Which pre-treatment periods to use for matching
+  - **Must be negative** for pre-treatment
+  - Used to find similar control units
+- **Time-varying covariates**: Set `true` if covariate changes over time
 
 # Run complete workflow
 match!(model, dat)      # Find matched control units
 balance!(model, dat)    # Calculate covariate balances  
-estimate!(model, dat)   # Estimate treatment effects
+estimate!(model, dat; dobayesfactor=false)   # Estimate treatment effects
 
 # View results
 model.results
@@ -47,7 +60,7 @@ model.results
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/emfeltham/TSCSMethods.jl")
+Pkg.add(url="https://github.com/human-nature-lab/TSCSMethods.jl")
 ```
 
 ## Citation
@@ -67,7 +80,7 @@ If you use TSCSMethods.jl in your research, please cite:
   title={TSCSMethods.jl: Matching methods for causal inference with time-series cross-sectional data},
   author={Feltham, Eric Martin},
   year={2023},
-  url={https://github.com/emfeltham/TSCSMethods.jl}
+  url={https://github.com/human-nature-lab/TSCSMethods.jl}
 }
 ```
 

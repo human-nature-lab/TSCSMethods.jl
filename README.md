@@ -25,20 +25,33 @@ TSCSMethods.jl v2.0.1 implements the matching methodology developed in Feltham e
 using TSCSMethods
 
 # Load example data
-data = example_data()
+dat = example_data()
 
 # Create model for causal inference
 model = makemodel(
-    data, :day, :fips, :gub, :death_rte,
-    [:pop_dens], Dict(:pop_dens => false), 
-    5:10,    # F: post-treatment periods  
-    -15:-10  # L: pre-treatment periods
+    dat,              # Your data
+    :day,             # Time variable
+    :fips,            # Unit identifier  
+    :gub,             # Treatment variable
+    :death_rte,       # Outcome variable
+    [:pop_dens],      # Covariates for matching
+    Dict(:pop_dens => false),  # Which covariates are time-varying
+    5:10,             # F: Post-treatment periods to estimate
+    -15:-10           # L: Pre-treatment periods for matching
 )
 
+### Key Parameters Explained
+
+- **F periods** (`5:10`): How many periods after treatment to estimate effects
+- **L periods** (`-15:-10`): Which pre-treatment periods to use for matching
+  - **Must be negative** for pre-treatment
+  - Used to find similar control units
+- **Time-varying covariates**: Set `true` if covariate changes over time
+
 # Complete workflow
-match!(model, data)      # Find matched control units
-balance!(model, data)    # Balance covariates  
-estimate!(model, data, dobayesfactor=false)  # Estimate treatment effects
+match!(model, dat)      # Find matched control units
+balance!(model, dat)    # Balance covariates  
+estimate!(model, dat; dobayesfactor=false)  # Estimate treatment effects
 
 # Results
 println("ATT: ", model.overall.ATT)
@@ -49,11 +62,11 @@ println("95% CI: [", model.overall.p05, ", ", model.overall.p95, "]")
 
 ```mermaid
 flowchart TD
-    A["📥 Load Data<br/>example_data()"] --> B["🏗️ Create Model<br/>makemodel()"]
-    B --> C["🔍 match!(model, data)"]
-    C --> D["⚖️ balance!(model, data)"]
-    D --> E["📊 estimate!(model, data)"]
-    E --> F["📈 Results<br/>ATT & Confidence Intervals"]
+    A["Load Data<br/>example_data()"] --> B["Create Model<br/>makemodel()"]
+    B --> C["match!(model, dat)"]
+    C --> D["balance!(model, dat)"]
+    D --> E["estimate!(model, dat)"]
+    E --> F["Results<br/>ATT & Confidence Intervals"]
     
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style F fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
@@ -61,13 +74,11 @@ flowchart TD
 
 ## Installation
 
-TSCSMethods.jl v2.0.1 requires Julia 1.6 or later (tested on 1.6, 1.10, 1.11). Install from the Julia REPL:
+TSCSMethods.jl v2.0.1 requires Julia 1.10 or later (tested on 1.10, 1.11). Install from the Julia REPL:
 
 ```julia
 using Pkg
-Pkg.add("TSCSMethods")  # Official release
-# OR development version:
-# Pkg.add("https://github.com/human-nature-lab/TSCSMethods.jl")
+Pkg.add(url="https://github.com/human-nature-lab/TSCSMethods.jl")
 ```
 
 ## Documentation
@@ -77,7 +88,7 @@ Pkg.add("TSCSMethods")  # Official release
 - [**Methodology**](https://human-nature-lab.github.io/TSCSMethods.jl/methodology/): Statistical methods and assumptions  
 - [**API Reference**](https://human-nature-lab.github.io/TSCSMethods.jl/api/): Complete function documentation
 - [**Validation**](https://human-nature-lab.github.io/TSCSMethods.jl/validation/): Test suite and statistical validation
-- [**Release Notes**](./release_notes.md): v2.0.0 features and breaking changes
+- [**Release Notes**](./release_notes.md): v2.0.1 features and breaking changes
 
 ## Method Overview
 
@@ -97,7 +108,7 @@ flowchart TD
     G --> H[Covariate Balancing]
     H --> I[Treatment Effect Estimation]
     I --> J[Bootstrap Inference]
-    J --> K["ATT with Confidence Intervals<br/>📊 Final Results"]
+    J --> K["ATT with Confidence Intervals<br/>Final Results"]
     
     style A fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style K fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px

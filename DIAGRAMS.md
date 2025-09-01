@@ -64,11 +64,11 @@ flowchart TD
     C --> D[Define Covariates & Time-Varying Dict]
     
     D --> E[Match Phase]
-    E --> F[match!(model, data)]
+    E --> F[match!(model, dat)]
     F --> G[Balance Phase]
-    G --> H[balance!(model, data)]
+    G --> H[balance!(model, dat)]
     H --> I[Estimation Phase]
-    I --> J[estimate!(model, data)]
+    I --> J[estimate!(model, dat)]
     
     J --> K[Results]
     K --> L[model.overall.ATT]

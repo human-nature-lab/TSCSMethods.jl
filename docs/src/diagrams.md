@@ -72,9 +72,9 @@ TSCSMethods.jl includes a comprehensive quality assurance framework:
 - **Validation Gates** - Automated quality thresholds
 
 **Statistical Validation Results:**
-- **Coverage**: 96% (✅ within target 93-97%)
-- **Placebo**: 6.87% Type I error (✅ within target 3-7%) 
-- **Benchmarks**: Performance validated (✅ all passing)
+- **Coverage**: 96% (within target 93-97%)
+- **Placebo**: 6.87% Type I error (within target 3-7%) 
+- **Benchmarks**: Performance validated (all passing)
 
 The validation framework ensures statistical correctness while maintaining high code quality standards.
 

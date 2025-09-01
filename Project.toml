@@ -5,8 +5,8 @@ license = "MIT"
 authors = ["Eric Martin Feltham <eric.feltham@yale.edu>"]
 categories = ["Statistics", "Economics"]
 description = "Matching methods for causal inference with time-series cross-sectional data"
-homepage = "https://github.com/emfeltham/TSCSMethods.jl"
-repository = "https://github.com/emfeltham/TSCSMethods.jl"
+homepage = "https://github.com/human-nature-lab/TSCSMethods.jl"
+repository = "https://github.com/human-nature-lab/TSCSMethods.jl"
 version = "2.0.1"
 
 [deps]
