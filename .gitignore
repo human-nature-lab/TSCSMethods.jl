@@ -11,6 +11,9 @@ LocalPreferences.toml
 docs/build/
 docs/site/
 
+# Development
+notes/
+
 # Package management
 Manifest.toml
 
